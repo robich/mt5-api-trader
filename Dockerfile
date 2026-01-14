@@ -14,8 +14,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install all dependencies (need devDeps for build)
+RUN npm ci
 
 # Copy application code
 COPY . .
@@ -26,12 +26,8 @@ RUN npx prisma generate
 # Build Next.js app (if using the web UI)
 RUN npm run build
 
-# Create data directory for SQLite
-RUN mkdir -p /app/data
-
-# Environment variables (override in docker-compose or runtime)
+# Environment variables (override at runtime)
 ENV NODE_ENV=production
-ENV DATABASE_URL=file:/app/data/trading.db
 
 # Expose port for web UI (optional)
 EXPOSE 3001
