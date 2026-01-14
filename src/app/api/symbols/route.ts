@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { metaApiClient } from '@/lib/metaapi/client';
 
+export const dynamic = 'force-dynamic';
+
 // Fallback symbols when MetaAPI connection is not available
 // Using .s suffix variants first (swap-free accounts)
 const FALLBACK_SYMBOLS = [

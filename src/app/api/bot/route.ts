@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { tradingBot } from '@/services/bot';
 import { prisma } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const status = tradingBot.getStatus();

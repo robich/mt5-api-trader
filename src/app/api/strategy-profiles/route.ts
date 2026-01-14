@@ -14,6 +14,8 @@ import {
 } from '@/lib/strategies/strategy-profiles';
 import { tradingBot } from '@/services/bot';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/strategy-profiles
  *

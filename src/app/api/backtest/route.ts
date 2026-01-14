@@ -4,6 +4,8 @@ import { metaApiClient } from '@/lib/metaapi/client';
 import { runBacktest, BacktestResult } from '@/lib/backtest/engine';
 import { BacktestConfig, StrategyType, Timeframe } from '@/lib/types';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
