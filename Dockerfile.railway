@@ -1,0 +1,40 @@
+# MT5 Trading Bot - Railway Deployment
+# Single service: Web UI + Trading Bot
+
+FROM node:20-slim
+
+# Install dependencies for better-sqlite3 and process management
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies (including dev for build)
+RUN npm ci
+
+# Copy application code
+COPY . .
+
+# Generate Prisma client
+RUN npx prisma generate
+
+# Build Next.js app
+RUN npm run build
+
+# Create data directory
+RUN mkdir -p /app/data /app/.cache
+
+ENV NODE_ENV=production
+ENV PORT=3001
+
+# Expose port for web UI
+EXPOSE 3001
+
+# Start script will run both bot and web UI
+CMD ["npm", "run", "start:all"]

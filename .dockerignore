@@ -1,0 +1,53 @@
+# Dependencies
+node_modules
+npm-debug.log
+
+# Build outputs
+.next
+out
+build
+dist
+
+# Development files
+.git
+.gitignore
+*.md
+!README.md
+!DEPLOYMENT.md
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Environment (will be mounted separately)
+.env
+.env.local
+.env.*.local
+
+# Data directories (will be mounted as volumes)
+data/
+.metaapi/
+
+# Test files
+*.test.ts
+*.test.js
+*.spec.ts
+*.spec.js
+__tests__
+coverage
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Claude workspace
+.claude/
+tmpclaude-*
