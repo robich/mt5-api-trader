@@ -32,5 +32,5 @@ ENV NODE_ENV=production
 # Expose port for web UI (optional)
 EXPOSE 3001
 
-# Default command - run the trading bot
-CMD ["node", "scripts/trading-bot.mjs"]
+# Default command - start Next.js production server
+CMD ["npm", "start"]
