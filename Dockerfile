@@ -32,5 +32,8 @@ ENV NODE_ENV=production
 # Expose port for web UI (optional)
 EXPOSE 3001
 
-# Default command - start Next.js production server
-CMD ["npm", "start"]
+# Make startup script executable
+RUN chmod +x scripts/start-prod.sh
+
+# Default command - run migrations and start server
+CMD ["./scripts/start-prod.sh"]
