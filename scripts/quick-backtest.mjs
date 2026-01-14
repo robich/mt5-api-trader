@@ -25,6 +25,24 @@ const ACCOUNT_ID = process.env.META_API_ACCOUNT_ID;
 // Default symbols to test
 const DEFAULT_SYMBOLS = ['XAUUSD.s', 'XAGUSD.s', 'BTCUSD'];
 
+// Timeframe presets for testing
+const TIMEFRAME_PRESETS = {
+  // Standard: H4 bias, H1 structure, M5 entries (original default was M1)
+  standard: { htf: 'H4', mtf: 'H1', ltf: 'M5', name: 'Standard (H4/H1/M5)' },
+  // Scalping: Lower timeframes for faster entries
+  scalp: { htf: 'H1', mtf: 'M15', ltf: 'M1', name: 'Scalp (H1/M15/M1)' },
+  // Ultra-scalp: Very low timeframes
+  ultrascalp: { htf: 'M30', mtf: 'M5', ltf: 'M1', name: 'Ultra-Scalp (M30/M5/M1)' },
+  // Swing: Higher timeframes for position trades
+  swing: { htf: 'D1', mtf: 'H4', ltf: 'H1', name: 'Swing (D1/H4/H1)' },
+  // Intraday: Medium timeframes
+  intraday: { htf: 'H4', mtf: 'H1', ltf: 'M15', name: 'Intraday (H4/H1/M15)' },
+  // M1 focus: Use M1 for entries with M15/H1 structure
+  m1: { htf: 'H1', mtf: 'M15', ltf: 'M1', name: 'M1-Entry (H1/M15/M1)' },
+  // M5 focus: Use M5 for entries
+  m5: { htf: 'H4', mtf: 'M30', ltf: 'M5', name: 'M5-Entry (H4/M30/M5)' },
+};
+
 // Parse arguments
 const args = process.argv.slice(2);
 const options = {
@@ -36,6 +54,8 @@ const options = {
   risk: 2,
   optimize: false,
   compareAll: false,
+  compareTimeframes: false,
+  timeframe: 'standard',
   verbose: false,
   help: false,
   clearCache: false,
@@ -88,6 +108,14 @@ for (let i = 0; i < args.length; i++) {
     case '--clear-cache':
       options.clearCache = true;
       break;
+    case '--timeframe':
+    case '--tf':
+      options.timeframe = args[++i];
+      break;
+    case '--compare-timeframes':
+    case '-t':
+      options.compareTimeframes = true;
+      break;
   }
 }
 
@@ -119,6 +147,8 @@ Options:
   --risk, -r <percent>      Risk % per trade (default: 2)
   --optimize, -o            Run parameter optimization
   --compare-all, -c         Compare all strategy variations
+  --compare-timeframes, -t  Compare all timeframe presets
+  --timeframe, --tf <name>  Timeframe preset (see below)
   --clear-cache             Clear cached candle data and re-fetch
   --verbose, -v             Show detailed output
   --help, -h                Show this help
@@ -130,12 +160,23 @@ Strategies:
   BOS               Break of Structure pullback entries
   OB_FVG            Order Block + FVG confluence (high probability)
 
+Timeframe Presets:
+  standard          H4/H1/M5  - Standard multi-timeframe (default)
+  scalp             H1/M15/M1 - Scalping with M1 entries
+  ultrascalp        M30/M5/M1 - Ultra-fast scalping
+  swing             D1/H4/H1  - Swing trading
+  intraday          H4/H1/M15 - Intraday positions
+  m1                H1/M15/M1 - Focus on M1 entry timeframe
+  m5                H4/M30/M5 - Focus on M5 entry timeframe
+
 Examples:
   node scripts/quick-backtest.mjs                           # All default symbols
   node scripts/quick-backtest.mjs -s XAUUSD.s               # Single symbol
   node scripts/quick-backtest.mjs --symbols XAUUSD.s,BTCUSD # Multiple symbols
   node scripts/quick-backtest.mjs --compare-all             # Compare variations
   node scripts/quick-backtest.mjs --start 2024-06-01        # Custom date range
+  node scripts/quick-backtest.mjs --tf m1 -s BTCUSD         # Test M1 timeframe
+  node scripts/quick-backtest.mjs -t -s XAUUSD.s            # Compare all timeframes
 `);
 }
 
@@ -1709,28 +1750,93 @@ async function main() {
 
     const allResults = [];
 
+    // Determine which timeframe presets to test
+    const timeframesToTest = options.compareTimeframes
+      ? Object.entries(TIMEFRAME_PRESETS)
+      : [[options.timeframe, TIMEFRAME_PRESETS[options.timeframe] || TIMEFRAME_PRESETS.standard]];
+
     // Loop through all symbols
     for (const symbol of options.symbols) {
       console.log(`\n${'─'.repeat(60)}`);
       console.log(`  ${symbol}`);
       console.log(`${'─'.repeat(60)}`);
 
-      // Fetch candles (H4 for HTF bias, H1 for OB detection, M1 for entries)
-      console.log('Fetching data...');
-      const [htfCandles, mtfCandles, ltfCandles] = await Promise.all([
-        fetchCandles(account, symbol, 'H4', startDate, endDate),
-        fetchCandles(account, symbol, 'H1', startDate, endDate),
-        fetchCandles(account, symbol, 'M1', startDate, endDate),
-      ]);
+      // If comparing timeframes, we need to fetch all possible timeframes first
+      const candleCache = {};
+      const allTimeframesNeeded = new Set();
 
-      if (ltfCandles.length < 100) {
-        console.log(`Skipping: Insufficient data (${ltfCandles.length} candles)`);
-        continue;
+      for (const [, tfPreset] of timeframesToTest) {
+        allTimeframesNeeded.add(tfPreset.htf);
+        allTimeframesNeeded.add(tfPreset.mtf);
+        allTimeframesNeeded.add(tfPreset.ltf);
       }
 
-      console.log(`  Data: H4=${htfCandles.length}, H1=${mtfCandles.length}, M1=${ltfCandles.length} candles`);
+      console.log('Fetching data...');
+      for (const tf of allTimeframesNeeded) {
+        candleCache[tf] = await fetchCandles(account, symbol, tf, startDate, endDate);
+      }
 
-      if (options.optimize || options.compareAll) {
+      // Show data summary
+      const dataSummary = Array.from(allTimeframesNeeded).map(tf => `${tf}=${candleCache[tf]?.length || 0}`).join(', ');
+      console.log(`  Data: ${dataSummary} candles`);
+
+      if (options.compareTimeframes) {
+        // Compare all timeframe presets
+        console.log(`\nTesting ${timeframesToTest.length} timeframe configurations...\n`);
+
+        const symbolResults = [];
+        for (const [tfName, tfPreset] of timeframesToTest) {
+          const htfCandles = candleCache[tfPreset.htf] || [];
+          const mtfCandles = candleCache[tfPreset.mtf] || [];
+          const ltfCandles = candleCache[tfPreset.ltf] || [];
+
+          if (ltfCandles.length < 100) {
+            console.log(`  [${tfPreset.name}] Skipping: Insufficient LTF data (${ltfCandles.length} candles)`);
+            continue;
+          }
+
+          process.stdout.write(`  ${tfPreset.name.padEnd(28)}  `);
+
+          // Use aggressive settings for timeframe comparison
+          const config = {
+            symbol,
+            strategy: 'ORDER_BLOCK',
+            initialBalance: options.balance,
+            risk: options.risk,
+            requireOTE: false,
+            fixedRR: 2,
+            minOBScore: 70,
+            minFVGSize: 1.0,
+            useKillZones: false,
+            maxDailyDD: 8,
+            atrMult: 1.0,
+            requireConfirmation: true,
+            confirmationType: 'engulf',
+          };
+
+          const engine = new SMCBacktestEngine(config);
+          const metrics = await engine.run(htfCandles, mtfCandles, ltfCandles);
+
+          symbolResults.push({ name: tfPreset.name, symbol, timeframe: tfName, ...metrics });
+          allResults.push({ name: `${symbol} | ${tfPreset.name}`, symbol, timeframe: tfName, ...metrics });
+          console.log(`${metrics.totalTrades.toString().padStart(4)} trades | ${metrics.winRate.toFixed(0).padStart(3)}% | PF ${metrics.profitFactor.toFixed(2)} | $${metrics.totalPnl.toFixed(0)}`);
+        }
+
+        printTable(symbolResults, periodInfo);
+
+      } else if (options.optimize || options.compareAll) {
+        // Use the selected timeframe preset
+        const tfPreset = TIMEFRAME_PRESETS[options.timeframe] || TIMEFRAME_PRESETS.standard;
+        const htfCandles = candleCache[tfPreset.htf] || [];
+        const mtfCandles = candleCache[tfPreset.mtf] || [];
+        const ltfCandles = candleCache[tfPreset.ltf] || [];
+
+        if (ltfCandles.length < 100) {
+          console.log(`Skipping: Insufficient data (${ltfCandles.length} candles)`);
+          continue;
+        }
+
+        console.log(`Using timeframe: ${tfPreset.name}`);
         console.log(`Testing ${VARIATIONS.length} variations...\n`);
 
         const symbolResults = [];
@@ -1749,6 +1855,9 @@ async function main() {
             minFVGSize: v.minFVGSize || 1.0,
             useKillZones: v.useKillZones,
             maxDailyDD: v.maxDailyDD || 15,
+            atrMult: v.atrMult || 1.0,
+            requireConfirmation: v.requireConfirmation || false,
+            confirmationType: v.confirmationType || 'close',
           };
 
           const engine = new SMCBacktestEngine(config);
@@ -1762,7 +1871,17 @@ async function main() {
         printTable(symbolResults, periodInfo);
 
       } else {
-        // Single strategy run with optimal config
+        // Single strategy run with selected timeframe
+        const tfPreset = TIMEFRAME_PRESETS[options.timeframe] || TIMEFRAME_PRESETS.standard;
+        const htfCandles = candleCache[tfPreset.htf] || [];
+        const mtfCandles = candleCache[tfPreset.mtf] || [];
+        const ltfCandles = candleCache[tfPreset.ltf] || [];
+
+        if (ltfCandles.length < 100) {
+          console.log(`Skipping: Insufficient data (${ltfCandles.length} candles)`);
+          continue;
+        }
+
         const config = {
           symbol,
           strategy: options.strategy || 'ORDER_BLOCK',
@@ -1781,6 +1900,7 @@ async function main() {
 
         allResults.push({ name: symbol, symbol, ...metrics });
 
+        console.log(`  Timeframe: ${tfPreset.name}`);
         console.log(`  Period:    ${periodInfo.startDate} to ${periodInfo.endDate} (${periodInfo.days} days)`);
         console.log(`  Trades:    ${metrics.totalTrades}`);
         console.log(`  Win Rate:  ${metrics.winRate.toFixed(1)}%`);
