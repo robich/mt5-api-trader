@@ -58,7 +58,14 @@
       "Bash(node scripts/quick-backtest.mjs --compare-all --symbol XAUUSD.s --start 2025-11-01 --end 2025-11-30)",
       "Bash(node scripts/quick-backtest.mjs --compare-all --symbol XAUUSD.s --start 2026-01-01 --end 2026-01-13)",
       "Bash(node scripts/quick-backtest.mjs --compare-all --symbol XAUUSD.s --start 2025-12-01 --end 2025-12-31)",
-      "Bash(node scripts/quick-backtest.mjs:*)"
+      "Bash(node scripts/quick-backtest.mjs:*)",
+      "Bash(doctl:*)",
+      "Bash(git add src/app/api/*.ts src/app/api/**/route.ts)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: Add force-dynamic export to all API routes\n\nFixes Next.js static generation errors by marking all API routes\nas dynamic, which prevents the build from trying to render them\nat build time when DATABASE_URL and other env vars aren''t available.\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push)",
+      "Bash(git add Dockerfile)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: Change Dockerfile CMD to start Next.js server\n\nThe trading-bot.mjs script was trying to import TypeScript files\ndirectly which doesn''t work in production Node.js. Changed to run\nthe Next.js server instead which properly compiles all TypeScript.\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(curl -s https://lionfish-app-hy8v6.ondigitalocean.app/api/health)"
     ]
   }
 }

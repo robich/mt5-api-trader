@@ -1,177 +1,154 @@
 # Backtest Optimization Insights
 
-**Last Updated:** 2026-01-13
-**Test Period:** November 13, 2025 - January 13, 2026 (2 months)
+**Last Updated:** 2026-01-14
+**Test Period:** December 15, 2025 - January 14, 2026 (30 days)
 
 ---
 
 ## Executive Summary
 
-After 5 iterations of optimization, the Order Block strategy with confirmation candle filtering produces the best results. BTCUSD significantly outperforms other symbols.
+After multiple iterations of optimization testing different timeframes, ATR multipliers, OB scores, and R:R ratios, we discovered that **no confirmation (NoConf)** strategies significantly outperform confirmation-based entries. The optimal parameters vary by symbol.
+
+### Key Findings:
+1. **NoConf dominates** - Waiting for confirmation candles hurts performance
+2. **ATR multiplier matters** - Different values optimal per symbol
+3. **R:R 1.5-2 is optimal** - Higher R:R reduces win rate too much
+4. **Timeframe matters** - M5 for BTC, M1 scalp for metals
 
 ---
 
-## Best Strategies by Use Case
+## OPTIMAL STRATEGIES BY SYMBOL (Jan 2026)
 
-### Aggressive Trading (Higher Risk/Reward)
-```
-Strategy: OB70|All|DD8%|Engulf
-- OB Score: 70+
-- Sessions: All (no kill zone filter)
-- Max Daily DD: 8%
-- Confirmation: Engulfing candle pattern
-- R:R: 2:1
-```
+### BTCUSD - Use M5 Timeframe (H4/M30/M5)
+| Strategy | Win% | PF | PnL | Max DD | Trades |
+|----------|------|-----|-----|--------|--------|
+| **BTC-OPTIMAL: ATR0.8\|RR1.5** | 68.8% | 2.62 | $2738 | 6.0% | 125 |
+| BTC-OPTIMAL: ATR0.8\|RR2 | 61.1% | 2.04 | $2011 | 18.5% | 113 |
+| BTC-OPTIMAL: OB75\|RR2 | 59.8% | 2.08 | $1342 | 13.3% | 87 |
 
-### Balanced Trading (Good Risk/Reward)
-```
-Strategy: OB65|KZ|DD6%|Close
-- OB Score: 65+
-- Sessions: Kill Zones only (London, NY AM, NY PM)
-- Max Daily DD: 6%
-- Confirmation: Simple close in direction
-- R:R: 2:1
-```
+**Recommended:** `--tf m5` with `ATR0.8|RR1.5`
 
-### Conservative Trading (Prop Firm Challenges)
-```
-Strategy: OB70|KZ|DD5%|Strong
-- OB Score: 70+
-- Sessions: Kill Zones only
-- Max Daily DD: 5%
-- Confirmation: Strong candle (50%+ body)
-- R:R: 2:1
-```
+### XAUUSD.s (Gold) - Use Scalp Timeframe (H1/M15/M1)
+| Strategy | Win% | PF | PnL | Max DD | Trades |
+|----------|------|-----|-----|--------|--------|
+| **XAU-OPTIMAL: ATR1.5\|RR2** | 75.4% | 3.07 | $3481 | 6.8% | 122 |
+| XAU-OPTIMAL: ATR1.5\|RR1.5 | 77.1% | 2.68 | $3309 | 10.5% | 131 |
+| XAU-OPTIMAL: ATR1.2\|RR2 | 68.9% | 2.29 | $2459 | 11.5% | 135 |
+
+**Recommended:** `--tf scalp` with `ATR1.5|RR2`
+
+### XAGUSD.s (Silver) - Use Scalp Timeframe (H1/M15/M1)
+| Strategy | Win% | PF | PnL | Max DD | Trades |
+|----------|------|-----|-----|--------|--------|
+| **XAG-OPTIMAL: OB70\|RR2.5** | 61.4% | 1.87 | $669 | 13.6% | 57 |
+| XAG-OPTIMAL: OB65\|RR2 | 66.1% | 1.94 | $653 | 9.0% | 56 |
+| XAG-OPTIMAL: ATR1.2\|RR2 | 65.4% | 1.76 | $524 | 17.0% | 52 |
+
+**Recommended:** `--tf scalp` with `OB65|RR2`
 
 ---
 
-## Symbol Performance Summary
+## Timeframe Presets
 
-### BTCUSD (Bitcoin) - BEST PERFORMER
-| Metric | Value |
-|--------|-------|
-| Win Rate | 81-82% |
-| Profit Factor | 3.50-3.60 |
-| Max Drawdown | 9-12% |
-| Recommended Strategy | OB70\|All\|DD8%\|Engulf |
-
-### XAUUSD.s (Gold)
-| Metric | Value |
-|--------|-------|
-| Win Rate | 73-75% |
-| Profit Factor | 2.60-3.60 |
-| Max Drawdown | 15-32% |
-| Recommended Strategy | OB70\|All\|DD8%\|Engulf or OB70\|KZ\|DD6%\|Strong |
-
-### XAGUSD.s (Silver)
-| Metric | Value |
-|--------|-------|
-| Win Rate | 76-77% |
-| Profit Factor | 2.70 |
-| Max Drawdown | 13-17% |
-| Recommended Strategy | OB70\|All\|DD8%\|Strong |
-| Note | Lower trade volume than Gold/BTC |
+| Preset | HTF | MTF | LTF | Best For |
+|--------|-----|-----|-----|----------|
+| `standard` | H4 | H1 | M5 | General |
+| `scalp` | H1 | M15 | M1 | Metals (Gold/Silver) |
+| `m5` | H4 | M30 | M5 | **BTCUSD (Best)** |
+| `m1` | H1 | M15 | M1 | Same as scalp |
+| `intraday` | H4 | H1 | M15 | Conservative |
+| `swing` | D1 | H4 | H1 | Position trading |
 
 ---
 
-## Monthly Performance (XAUUSD.s)
+## Strategy Parameters Explained
 
-### November 2025
-- **Performance:** Excellent
-- **Best PF:** 3.63 (OB70|All|DD8%|Engulf)
-- **Trades:** 178
-- **Win Rate:** 75%
-- **Max DD:** 14.6%
-- **Notes:** Best month, favorable market conditions
+### ATR Multiplier (atrMult)
+- **0.8**: More sensitive OB detection, more trades
+- **1.0**: Standard (default)
+- **1.2**: Moderate filtering
+- **1.5**: Stricter OB detection, fewer but higher quality trades
 
-### December 2025
-- **Performance:** Good
-- **Best PF:** 2.80 (BALANCED: OB65|KZ|DD6%|Close)
-- **Trades:** 301 (Aggressive) / 116 (Balanced)
-- **Win Rate:** 73-75%
-- **Max DD:** 6-23%
-- **Notes:** Higher activity, conservative strategies performed well
+### OB Score (minOBScore)
+- **60**: More trades, lower quality
+- **65**: Good balance
+- **70**: Standard (recommended)
+- **75-80**: Fewer trades, higher quality
 
-### January 2026
-- **Performance:** Limited data (holiday period)
-- **Notes:** Only 12 days, insufficient for analysis
+### Risk:Reward (fixedRR)
+- **1.5**: Higher win rate, smaller wins
+- **2.0**: Standard (recommended)
+- **2.5**: Lower win rate, bigger wins
+- **3.0**: Much lower win rate
 
 ---
 
-## Confirmation Candle Types
+## CLI Usage
 
-### 1. No Confirmation (NoConf)
-- Enter immediately when OB is touched
-- Highest trade frequency
-- Works well with high OB scores (70+)
+```bash
+# Test BTCUSD with optimal M5 timeframe
+node scripts/quick-backtest.mjs --compare-all --tf m5 -s BTCUSD
 
-### 2. Close Confirmation
-- Wait for candle to close in trade direction
-- Body must be 30%+ of range
-- Good balance of frequency and quality
+# Test Gold with optimal scalp timeframe
+node scripts/quick-backtest.mjs --compare-all --tf scalp -s XAUUSD.s
 
-### 3. Strong Confirmation
-- Wait for strong candle (50%+ body of range)
-- Fewer trades, better quality
-- Best for volatile markets
+# Compare all timeframes for a symbol
+node scripts/quick-backtest.mjs --compare-timeframes -s BTCUSD
 
-### 4. Engulfing Confirmation
-- Wait for engulfing pattern
-- Current candle body engulfs previous
-- Best overall performance on BTCUSD
+# Custom date range
+node scripts/quick-backtest.mjs --compare-all --tf m5 -s BTCUSD --start 2025-12-01 --end 2026-01-14
 
----
-
-## Key Code Changes Made
-
-### 1. Order Block Detection Fix
-- File: `scripts/quick-backtest.mjs`
-- Fixed `findValidOrderBlock()` method - was using incorrect distance calculation
-- Added configurable ATR multiplier (`atrMult` parameter)
-
-### 2. Confirmation Candle System
-- Added `requireConfirmation` and `confirmationType` config options
-- Types: 'close', 'strong', 'engulf'
-- Pending signal system with 4-hour expiry
-
-### 3. Entry Quality Relaxation
-- Changed score threshold from 70 to 60 for simple touch entries
-- Scores 50-59 now allow entry with directional candle OR rejection wick
-
-### 4. Strategy Variations
-Located in `VARIATIONS` array in `scripts/quick-backtest.mjs`
+# Quick single run
+node scripts/quick-backtest.mjs --tf scalp -s XAUUSD.s
+```
 
 ---
 
 ## Risk Management Guidelines
 
-| Account Type | Recommended DD Limit | Kill Zones | Min OB Score |
-|--------------|---------------------|------------|--------------|
-| Prop Firm Challenge | 5% | Yes | 70+ |
-| Funded Account | 6-8% | Optional | 65+ |
-| Personal Account | 8-10% | No | 60+ |
+| Account Type | Max DD | Kill Zones | Strategy |
+|--------------|--------|------------|----------|
+| Prop Firm Challenge | 5-6% | Yes | SAFE: OB70\|KZ\|DD6% |
+| Funded Account | 8% | No | Symbol-specific optimal |
+| Personal Account | 8-10% | No | Aggressive optimal |
 
 ---
 
-## CLI Commands
+## Performance Comparison: NoConf vs Confirmation
 
-```bash
-# Run all strategy variations
-node scripts/quick-backtest.mjs --compare-all --symbol XAUUSD.s
+### 30-Day Test Results (Dec 15 - Jan 14, 2026)
 
-# Custom date range
-node scripts/quick-backtest.mjs --compare-all --symbol BTCUSD --start 2025-11-01 --end 2025-12-31
+| Symbol | NoConf Win% | NoConf PF | Confirm Win% | Confirm PF |
+|--------|-------------|-----------|--------------|------------|
+| BTCUSD | 61-69% | 2.0-2.6 | 44% | 1.27 |
+| XAUUSD.s | 75-77% | 2.7-3.1 | 46% | 1.19 |
+| XAGUSD.s | 61-66% | 1.7-1.9 | 46% | 1.70 |
 
-# Single symbol quick test
-node scripts/quick-backtest.mjs --symbol XAUUSD.s
-```
+**Conclusion:** NoConf strategies significantly outperform in all metrics.
 
 ---
 
-## Future Optimization Ideas
+## Code Reference
 
-1. **Test additional symbols:** EURUSD, GBPUSD, US30
-2. **Time-based filters:** Avoid first/last hour of sessions
-3. **Volatility filter:** ATR-based position sizing
-4. **Multi-timeframe confirmation:** H4 trend + H1 entry
-5. **Seasonal analysis:** Compare performance by month/quarter
+Strategy configurations in `scripts/quick-backtest.mjs`:
+- Line 183-214: `VARIATIONS` array with all strategies
+- Line 28-44: `TIMEFRAME_PRESETS` for different timeframe combinations
+
+---
+
+## Iteration History
+
+### Iteration 1 (Jan 2026)
+- Tested confirmation types: NoConf, Close, Strong, Engulf
+- Finding: NoConf dominated across all symbols
+
+### Iteration 2 (Jan 2026)
+- Tested R:R variations: 1.5, 2.0, 2.5, 3.0
+- Tested OB scores: 60, 65, 70, 75, 80
+- Tested ATR multipliers: 0.8, 1.0, 1.2, 1.5
+- Finding: Optimal parameters vary by symbol
+
+### Final (Jan 2026)
+- Created symbol-specific optimal strategies
+- Added timeframe comparison feature
+- Validated across multiple date ranges

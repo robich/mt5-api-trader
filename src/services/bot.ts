@@ -23,6 +23,10 @@ import {
   CandleUpdate,
   PositionUpdate,
 } from '../lib/metaapi/sync-listener';
+import {
+  getSymbolTimeframes,
+  DEFAULT_LIVE_CONFIG,
+} from '../lib/strategies/strategy-profiles';
 
 /**
  * Trading Bot Orchestrator
@@ -102,11 +106,14 @@ export class TradingBot {
 
   /**
    * Subscribe to market data for all configured symbols
+   * Uses symbol-specific LTF timeframes based on Jan 2026 optimization
    */
   private async subscribeToMarketData(): Promise<void> {
-    const ltfMetaApi = TIMEFRAME_MAP[this.config.ltfTimeframe];
-
     for (const symbol of this.config.symbols) {
+      // Get symbol-specific LTF timeframe
+      const symbolTf = getSymbolTimeframes(DEFAULT_LIVE_CONFIG, symbol);
+      const ltfMetaApi = TIMEFRAME_MAP[symbolTf.ltf];
+
       const subscriptions: MarketDataSubscription[] = [
         { type: 'quotes', intervalInMilliseconds: 5000 },
         { type: 'candles', timeframe: ltfMetaApi, intervalInMilliseconds: 10000 },
@@ -114,7 +121,7 @@ export class TradingBot {
 
       try {
         await metaApiClient.subscribeToMarketData(symbol, subscriptions);
-        console.log(`[Bot] Subscribed to market data for ${symbol}`);
+        console.log(`[Bot] Subscribed to market data for ${symbol} (LTF: ${symbolTf.ltf})`);
       } catch (error) {
         console.error(`[Bot] Failed to subscribe to ${symbol}:`, error);
       }
@@ -138,6 +145,7 @@ export class TradingBot {
 
   /**
    * Handle candle updates (pushed from MetaAPI when candles complete)
+   * Uses symbol-specific LTF timeframes for triggering analysis
    */
   private async handleCandleUpdate(candles: CandleUpdate[]): Promise<void> {
     for (const candle of candles) {
@@ -146,8 +154,11 @@ export class TradingBot {
 
       console.log(`[Bot] Candle update: ${candle.symbol} ${candle.timeframe} @ ${candle.time.toISOString()}`);
 
-      // Trigger analysis when we get a new candle on LTF
-      const ltfMetaApi = TIMEFRAME_MAP[this.config.ltfTimeframe];
+      // Get symbol-specific LTF timeframe
+      const symbolTf = getSymbolTimeframes(DEFAULT_LIVE_CONFIG, candle.symbol);
+      const ltfMetaApi = TIMEFRAME_MAP[symbolTf.ltf];
+
+      // Trigger analysis when we get a new candle on this symbol's LTF
       if (candle.timeframe === ltfMetaApi) {
         // Rate limit analysis to avoid overwhelming
         const lastTime = this.lastAnalysisTime.get(candle.symbol) || 0;
@@ -286,12 +297,19 @@ export class TradingBot {
 
       console.log(`[Bot] Analyzing ${symbol}...`);
 
+      // Get symbol-specific timeframes (based on Jan 2026 optimization)
+      // Falls back to config defaults if symbol not in SYMBOL_TIMEFRAMES
+      const symbolTf = getSymbolTimeframes(DEFAULT_LIVE_CONFIG, symbol);
+      const htfTimeframe = symbolTf.htf;
+      const mtfTimeframe = symbolTf.mtf;
+      const ltfTimeframe = symbolTf.ltf;
+
       // Fetch candle data for all timeframes
       // These calls read from terminalState which is kept in sync by the streaming connection
       const [htfCandles, mtfCandles, ltfCandles] = await Promise.all([
-        metaApiClient.getCandles(symbol, this.config.htfTimeframe, 200),
-        metaApiClient.getCandles(symbol, this.config.mtfTimeframe, 300),
-        metaApiClient.getCandles(symbol, this.config.ltfTimeframe, 200),
+        metaApiClient.getCandles(symbol, htfTimeframe, 200),
+        metaApiClient.getCandles(symbol, mtfTimeframe, 300),
+        metaApiClient.getCandles(symbol, ltfTimeframe, 200),
       ]);
 
       if (!htfCandles.length || !mtfCandles.length || !ltfCandles.length) {
@@ -316,9 +334,9 @@ export class TradingBot {
           ltfCandles,
         },
         symbol,
-        this.config.htfTimeframe,
-        this.config.mtfTimeframe,
-        this.config.ltfTimeframe
+        htfTimeframe,
+        mtfTimeframe,
+        ltfTimeframe
       );
 
       console.log(`[Bot] ${symbol} Analysis - HTF Bias: ${analysis.htf.bias}, MTF Bias: ${analysis.mtf.bias}, Confluence: ${analysis.confluenceScore}`);

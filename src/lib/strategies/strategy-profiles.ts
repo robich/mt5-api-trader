@@ -1,12 +1,24 @@
 /**
  * Strategy Profiles - Production-ready configurations from backtest optimization
  *
- * Based on .claude/backtest-insights.md results from Nov 13, 2025 - Jan 13, 2026
+ * Based on .claude/backtest-insights.md results from Dec 15, 2025 - Jan 14, 2026
+ * Updated Jan 2026 with iterative optimization findings:
+ *
+ * KEY FINDINGS:
+ * 1. NoConf (no confirmation) strategies significantly outperform confirmation-based
+ * 2. ATR multiplier is symbol-specific:
+ *    - BTCUSD: ATR 0.8 (more sensitive)
+ *    - XAUUSD: ATR 1.5 (stricter filtering)
+ *    - XAGUSD: ATR 1.0-1.2 (standard)
+ * 3. R:R 1.5-2.0 is optimal (higher R:R reduces win rate too much)
+ * 4. Timeframe matters:
+ *    - BTCUSD: M5 entries (H4/M30/M5)
+ *    - Metals: M1 scalp entries (H1/M15/M1)
  *
  * Best performing strategies:
- * - BTCUSD: 81-82% win rate, PF 3.50-3.60
- * - XAUUSD.s: 73-75% win rate, PF 2.60-3.60
- * - XAGUSD.s: 76-77% win rate, PF 2.70
+ * - BTCUSD: 68.8% win rate, PF 2.62 (ATR0.8|RR1.5)
+ * - XAUUSD.s: 75.4% win rate, PF 3.07 (ATR1.5|RR2)
+ * - XAGUSD.s: 66.1% win rate, PF 1.94 (OB65|RR2)
  */
 
 import { StrategyType, Timeframe, KillZoneType } from '../types';
@@ -97,29 +109,69 @@ export interface LiveStrategyConfig {
 }
 
 /**
- * Pre-defined strategy profiles based on backtest results
+ * Pre-defined strategy profiles based on backtest results (Jan 2026 optimization)
  */
 export const STRATEGY_PROFILES: Record<string, StrategyProfile> = {
-  // === AGGRESSIVE STRATEGIES ===
-  'AGGRESSIVE_ENGULF': {
-    name: 'Aggressive Engulfing',
-    description: 'OB70|All|DD8%|Engulf - High profit, moderate risk',
+  // === OPTIMAL SYMBOL-SPECIFIC STRATEGIES (from backtesting) ===
+
+  // BTCUSD Optimal: ATR0.8 with RR1.5 - 68.8% win rate, PF 2.62
+  'BTC_OPTIMAL': {
+    name: 'BTC Optimal',
+    description: 'ATR0.8|RR1.5|NoConf - Optimized for BTCUSD (68.8% WR, 2.62 PF)',
     riskTier: 'aggressive',
     strategy: 'ORDER_BLOCK',
     minOBScore: 70,
     useKillZones: false,
     killZones: [],
     maxDailyDrawdown: 8,
-    confirmationType: 'engulf',
+    confirmationType: 'none',
+    riskReward: 1.5,
+    riskPercent: 2,
+    atrMultiplier: 0.8,
+    maxConcurrentTrades: 3,
+    recommendedSymbols: ['BTCUSD'],
+  },
+
+  // XAUUSD Optimal: ATR1.5 with RR2 - 75.4% win rate, PF 3.07
+  'XAU_OPTIMAL': {
+    name: 'Gold Optimal',
+    description: 'ATR1.5|RR2|NoConf - Optimized for XAUUSD (75.4% WR, 3.07 PF)',
+    riskTier: 'aggressive',
+    strategy: 'ORDER_BLOCK',
+    minOBScore: 70,
+    useKillZones: false,
+    killZones: [],
+    maxDailyDrawdown: 8,
+    confirmationType: 'none',
+    riskReward: 2,
+    riskPercent: 2,
+    atrMultiplier: 1.5,
+    maxConcurrentTrades: 3,
+    recommendedSymbols: ['XAUUSD.s'],
+  },
+
+  // XAGUSD Optimal: OB65 with RR2 - 66.1% win rate, PF 1.94
+  'XAG_OPTIMAL': {
+    name: 'Silver Optimal',
+    description: 'OB65|RR2|NoConf - Optimized for XAGUSD (66.1% WR, 1.94 PF)',
+    riskTier: 'aggressive',
+    strategy: 'ORDER_BLOCK',
+    minOBScore: 65,
+    useKillZones: false,
+    killZones: [],
+    maxDailyDrawdown: 8,
+    confirmationType: 'none',
     riskReward: 2,
     riskPercent: 2,
     atrMultiplier: 1.0,
     maxConcurrentTrades: 3,
-    recommendedSymbols: ['BTCUSD', 'XAUUSD.s'],
+    recommendedSymbols: ['XAGUSD.s'],
   },
-  'AGGRESSIVE_NOCONF': {
-    name: 'Aggressive No Confirmation',
-    description: 'OB70|All|DD8%|NoConf - Fastest entries',
+
+  // === UNIVERSAL STRATEGIES (work across all symbols) ===
+  'UNIVERSAL_NOCONF': {
+    name: 'Universal NoConf',
+    description: 'OB70|All|DD8%|NoConf|RR2 - Works across all symbols',
     riskTier: 'aggressive',
     strategy: 'ORDER_BLOCK',
     minOBScore: 70,
@@ -131,81 +183,82 @@ export const STRATEGY_PROFILES: Record<string, StrategyProfile> = {
     riskPercent: 2,
     atrMultiplier: 1.0,
     maxConcurrentTrades: 3,
-    recommendedSymbols: ['BTCUSD'],
+    recommendedSymbols: ['BTCUSD', 'XAUUSD.s', 'XAGUSD.s'],
   },
 
-  // === BALANCED STRATEGIES ===
-  'BALANCED_STRONG': {
-    name: 'Balanced Strong',
-    description: 'OB70|KZ|DD6%|Strong - Good profit with controlled risk',
-    riskTier: 'balanced',
+  'UNIVERSAL_RR15': {
+    name: 'Universal RR1.5',
+    description: 'OB70|All|DD8%|NoConf|RR1.5 - Higher win rate, smaller targets',
+    riskTier: 'aggressive',
+    strategy: 'ORDER_BLOCK',
+    minOBScore: 70,
+    useKillZones: false,
+    killZones: [],
+    maxDailyDrawdown: 8,
+    confirmationType: 'none',
+    riskReward: 1.5,
+    riskPercent: 2,
+    atrMultiplier: 1.0,
+    maxConcurrentTrades: 3,
+    recommendedSymbols: ['BTCUSD', 'XAUUSD.s', 'XAGUSD.s'],
+  },
+
+  // === CONSERVATIVE/SAFE STRATEGIES (for prop firms) ===
+  'SAFE_KZ': {
+    name: 'Safe Kill Zones',
+    description: 'OB70|KZ|DD6%|NoConf - Lower DD for prop firms',
+    riskTier: 'conservative',
     strategy: 'ORDER_BLOCK',
     minOBScore: 70,
     useKillZones: true,
     killZones: ['LONDON_OPEN', 'NY_OPEN', 'LONDON_NY_OVERLAP'],
     maxDailyDrawdown: 6,
-    confirmationType: 'strong',
+    confirmationType: 'none',
     riskReward: 2,
-    riskPercent: 1.5,
+    riskPercent: 1,
     atrMultiplier: 1.0,
-    maxConcurrentTrades: 2,
+    maxConcurrentTrades: 1,
     recommendedSymbols: ['XAUUSD.s', 'XAGUSD.s'],
   },
-  'BALANCED_CLOSE': {
-    name: 'Balanced Close',
-    description: 'OB65|KZ|DD6%|Close - Relaxed OB score, simple confirmation',
-    riskTier: 'balanced',
+
+  'SAFE_STRICT': {
+    name: 'Safe Strict',
+    description: 'OB65|KZ|DD5%|NoConf - Very conservative for challenges',
+    riskTier: 'conservative',
     strategy: 'ORDER_BLOCK',
     minOBScore: 65,
     useKillZones: true,
     killZones: ['LONDON_OPEN', 'NY_OPEN', 'LONDON_NY_OVERLAP'],
-    maxDailyDrawdown: 6,
-    confirmationType: 'close',
-    riskReward: 2,
-    riskPercent: 1.5,
-    atrMultiplier: 1.0,
-    maxConcurrentTrades: 2,
-    recommendedSymbols: ['XAUUSD.s', 'BTCUSD'],
-  },
-
-  // === CONSERVATIVE STRATEGIES (Prop Firm) ===
-  'CONSERVATIVE_STRONG': {
-    name: 'Conservative Strong',
-    description: 'OB70|KZ|DD5%|Strong - Lower DD, steady gains',
-    riskTier: 'conservative',
-    strategy: 'ORDER_BLOCK',
-    minOBScore: 70,
-    useKillZones: true,
-    killZones: ['LONDON_OPEN', 'NY_OPEN', 'LONDON_NY_OVERLAP'],
     maxDailyDrawdown: 5,
-    confirmationType: 'strong',
+    confirmationType: 'none',
     riskReward: 2,
     riskPercent: 1,
     atrMultiplier: 1.0,
     maxConcurrentTrades: 1,
     recommendedSymbols: ['XAUUSD.s', 'XAGUSD.s'],
   },
-  'CONSERVATIVE_ENGULF': {
-    name: 'Conservative Engulfing',
-    description: 'OB75|KZ|DD5%|Engulf - Highest quality setups only',
-    riskTier: 'conservative',
+
+  // === LEGACY STRATEGIES (kept for backwards compatibility) ===
+  'AGGRESSIVE_ENGULF': {
+    name: 'Aggressive Engulfing (Legacy)',
+    description: 'OB70|All|DD8%|Engulf - Use UNIVERSAL_NOCONF instead',
+    riskTier: 'aggressive',
     strategy: 'ORDER_BLOCK',
-    minOBScore: 75,
-    useKillZones: true,
-    killZones: ['LONDON_OPEN', 'NY_OPEN', 'LONDON_NY_OVERLAP'],
-    maxDailyDrawdown: 5,
+    minOBScore: 70,
+    useKillZones: false,
+    killZones: [],
+    maxDailyDrawdown: 8,
     confirmationType: 'engulf',
     riskReward: 2,
-    riskPercent: 1,
+    riskPercent: 2,
     atrMultiplier: 1.0,
-    maxConcurrentTrades: 1,
+    maxConcurrentTrades: 3,
     recommendedSymbols: ['BTCUSD', 'XAUUSD.s'],
   },
 
-  // === EXTENDED RR STRATEGIES ===
-  'BALANCED_25RR': {
-    name: 'Balanced 2.5:1 RR',
-    description: 'OB70|KZ|DD6%|2.5:1|Strong - Extended profit target',
+  'BALANCED_STRONG': {
+    name: 'Balanced Strong (Legacy)',
+    description: 'OB70|KZ|DD6%|Strong - Use SAFE_KZ instead',
     riskTier: 'balanced',
     strategy: 'ORDER_BLOCK',
     minOBScore: 70,
@@ -213,60 +266,77 @@ export const STRATEGY_PROFILES: Record<string, StrategyProfile> = {
     killZones: ['LONDON_OPEN', 'NY_OPEN', 'LONDON_NY_OVERLAP'],
     maxDailyDrawdown: 6,
     confirmationType: 'strong',
-    riskReward: 2.5,
+    riskReward: 2,
     riskPercent: 1.5,
     atrMultiplier: 1.0,
     maxConcurrentTrades: 2,
-    recommendedSymbols: ['XAUUSD.s'],
-  },
-  'AGGRESSIVE_3RR': {
-    name: 'Aggressive 3:1 RR',
-    description: 'OB65|KZ|DD8%|3:1|Engulf - Large profit targets',
-    riskTier: 'aggressive',
-    strategy: 'ORDER_BLOCK',
-    minOBScore: 65,
-    useKillZones: true,
-    killZones: ['LONDON_OPEN', 'NY_OPEN', 'LONDON_NY_OVERLAP'],
-    maxDailyDrawdown: 8,
-    confirmationType: 'engulf',
-    riskReward: 3,
-    riskPercent: 2,
-    atrMultiplier: 1.0,
-    maxConcurrentTrades: 2,
-    recommendedSymbols: ['BTCUSD'],
+    recommendedSymbols: ['XAUUSD.s', 'XAGUSD.s'],
   },
 };
 
 /**
- * Symbol-specific recommended profiles based on backtest performance
+ * Symbol-specific recommended profiles based on backtest performance (Jan 2026)
  */
 export const SYMBOL_RECOMMENDED_PROFILES: Record<string, string[]> = {
-  'BTCUSD': ['AGGRESSIVE_ENGULF', 'AGGRESSIVE_NOCONF', 'AGGRESSIVE_3RR'],
-  'XAUUSD.s': ['BALANCED_STRONG', 'AGGRESSIVE_ENGULF', 'BALANCED_25RR'],
-  'XAGUSD.s': ['BALANCED_STRONG', 'CONSERVATIVE_STRONG', 'BALANCED_CLOSE'],
+  'BTCUSD': ['BTC_OPTIMAL', 'UNIVERSAL_RR15', 'UNIVERSAL_NOCONF'],
+  'XAUUSD.s': ['XAU_OPTIMAL', 'UNIVERSAL_NOCONF', 'SAFE_KZ'],
+  'XAGUSD.s': ['XAG_OPTIMAL', 'UNIVERSAL_NOCONF', 'SAFE_KZ'],
 };
 
 /**
- * Default configurations per symbol based on backtest insights
+ * Symbol-specific optimal timeframe configurations (Jan 2026)
+ * Based on backtesting different timeframe combinations
+ */
+export interface SymbolTimeframeConfig {
+  htf: Timeframe;
+  mtf: Timeframe;
+  ltf: Timeframe;
+  description: string;
+}
+
+export const SYMBOL_TIMEFRAMES: Record<string, SymbolTimeframeConfig> = {
+  'BTCUSD': {
+    htf: 'H4',
+    mtf: 'M30',
+    ltf: 'M5',
+    description: 'M5 entries work best for BTC (H4/M30/M5)',
+  },
+  'XAUUSD.s': {
+    htf: 'H1',
+    mtf: 'M15',
+    ltf: 'M1',
+    description: 'M1 scalp entries work best for Gold (H1/M15/M1)',
+  },
+  'XAGUSD.s': {
+    htf: 'H1',
+    mtf: 'M15',
+    ltf: 'M1',
+    description: 'M1 scalp entries work best for Silver (H1/M15/M1)',
+  },
+};
+
+/**
+ * Default configurations per symbol based on backtest insights (Jan 2026)
+ * KEY FINDING: NoConf (no confirmation) outperforms all confirmation types
  */
 export const SYMBOL_DEFAULTS: Record<string, SymbolOverrides> = {
   'BTCUSD': {
-    // BTCUSD performs best with engulfing confirmation
-    confirmationType: 'engulf',
+    // BTCUSD: NoConf with ATR 0.8, RR 1.5 is optimal
+    confirmationType: 'none',
     minOBScore: 70,
     maxDailyDrawdown: 8,
   },
   'XAUUSD.s': {
-    // XAUUSD works well with strong confirmation or engulfing
-    confirmationType: 'strong',
+    // XAUUSD: NoConf with ATR 1.5, RR 2 is optimal
+    confirmationType: 'none',
     minOBScore: 70,
-    maxDailyDrawdown: 6,
+    maxDailyDrawdown: 8,
   },
   'XAGUSD.s': {
-    // Silver has lower trade volume, use strong confirmation
-    confirmationType: 'strong',
-    minOBScore: 70,
-    maxDailyDrawdown: 6,
+    // XAGUSD: NoConf with OB65, RR 2 is optimal
+    confirmationType: 'none',
+    minOBScore: 65,
+    maxDailyDrawdown: 8,
   },
 };
 
@@ -274,15 +344,18 @@ export const SYMBOL_DEFAULTS: Record<string, SymbolOverrides> = {
  * Default live strategy configuration
  *
  * IMPORTANT: liveTrading is FALSE by default - must be explicitly enabled
+ * Updated Jan 2026: Uses UNIVERSAL_NOCONF as default (best overall performance)
+ * Note: For optimal performance, use symbol-specific timeframes from SYMBOL_TIMEFRAMES
  */
 export const DEFAULT_LIVE_CONFIG: LiveStrategyConfig = {
-  profile: STRATEGY_PROFILES['BALANCED_STRONG'],
+  profile: STRATEGY_PROFILES['UNIVERSAL_NOCONF'],
   symbols: [
     { symbol: 'XAUUSD.s', enabled: true, overrides: SYMBOL_DEFAULTS['XAUUSD.s'] },
     { symbol: 'BTCUSD', enabled: true, overrides: SYMBOL_DEFAULTS['BTCUSD'] },
     { symbol: 'XAGUSD.s', enabled: true, overrides: SYMBOL_DEFAULTS['XAGUSD.s'] },
   ],
   liveTrading: false, // Paper mode by default
+  // Default timeframes - for optimal performance, use getSymbolTimeframes() per symbol
   htfTimeframe: 'H4',
   mtfTimeframe: 'H1',
   ltfTimeframe: 'M15',
@@ -303,6 +376,7 @@ export function getSymbolConfig(
   riskReward: number;
   useKillZones: boolean;
   killZones: KillZoneType[];
+  atrMultiplier: number;
 } {
   const symbolConfig = config.symbols.find(s => s.symbol === symbol);
   const profile = config.profile;
@@ -317,7 +391,47 @@ export function getSymbolConfig(
     riskReward: profile.riskReward,
     useKillZones: profile.useKillZones,
     killZones: profile.killZones,
+    atrMultiplier: profile.atrMultiplier,
   };
+}
+
+/**
+ * Get optimal timeframes for a symbol based on backtest results
+ * Falls back to config defaults if symbol not found
+ */
+export function getSymbolTimeframes(
+  config: LiveStrategyConfig,
+  symbol: string
+): { htf: Timeframe; mtf: Timeframe; ltf: Timeframe } {
+  const symbolTf = SYMBOL_TIMEFRAMES[symbol];
+  if (symbolTf) {
+    return { htf: symbolTf.htf, mtf: symbolTf.mtf, ltf: symbolTf.ltf };
+  }
+  // Fall back to config defaults
+  return {
+    htf: config.htfTimeframe,
+    mtf: config.mtfTimeframe,
+    ltf: config.ltfTimeframe,
+  };
+}
+
+/**
+ * Get optimal profile for a symbol based on backtest results
+ */
+export function getOptimalProfileForSymbol(symbol: string): StrategyProfile {
+  // Symbol-specific optimal profiles from Jan 2026 backtesting
+  const optimalProfiles: Record<string, string> = {
+    'BTCUSD': 'BTC_OPTIMAL',
+    'XAUUSD.s': 'XAU_OPTIMAL',
+    'XAGUSD.s': 'XAG_OPTIMAL',
+  };
+
+  const profileKey = optimalProfiles[symbol];
+  if (profileKey && STRATEGY_PROFILES[profileKey]) {
+    return STRATEGY_PROFILES[profileKey];
+  }
+  // Fall back to universal profile
+  return STRATEGY_PROFILES['UNIVERSAL_NOCONF'];
 }
 
 /**

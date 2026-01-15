@@ -18,13 +18,16 @@ export { FBOClassicStrategy, fboClassicStrategy } from './fbo-classic';
 export { FBOSweepStrategy, fboSweepStrategy } from './fbo-sweep';
 export { FBOStructureStrategy, fboStructureStrategy } from './fbo-structure';
 
-// Strategy profiles - backtest-optimized configurations
+// Strategy profiles - backtest-optimized configurations (Jan 2026 optimization)
 export {
   STRATEGY_PROFILES,
   SYMBOL_RECOMMENDED_PROFILES,
   SYMBOL_DEFAULTS,
+  SYMBOL_TIMEFRAMES,
   DEFAULT_LIVE_CONFIG,
   getSymbolConfig,
+  getSymbolTimeframes,
+  getOptimalProfileForSymbol,
   getProfilesByTier,
   getRecommendedProfile,
   validateProfile,
@@ -35,6 +38,7 @@ export type {
   SymbolOverrides,
   ConfirmationType,
   RiskTier,
+  SymbolTimeframeConfig,
 } from './strategy-profiles';
 
 // Strategy registry

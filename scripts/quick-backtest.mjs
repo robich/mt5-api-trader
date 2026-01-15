@@ -180,31 +180,37 @@ Examples:
 `);
 }
 
-// Strategy variations to test - FINAL OPTIMIZED STRATEGIES
+// Strategy variations to test - FINAL OPTIMIZED (Jan 2026)
+// Based on iterative backtesting across BTCUSD, XAUUSD.s, XAGUSD.s
 const VARIATIONS = [
-  // === RECOMMENDED STRATEGIES (production-ready) ===
+  // === OPTIMAL STRATEGIES BY SYMBOL ===
 
-  // AGGRESSIVE: High profit, moderate risk (for funded accounts with higher DD limits)
-  { name: 'AGGRESSIVE: OB70|All|DD8%|Engulf', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: true, confirmationType: 'engulf' },
-  { name: 'AGGRESSIVE: OB70|All|DD8%|NoConf', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: false },
+  // BTCUSD OPTIMAL: ATR0.8 with RR1.5-2 (M5 timeframe)
+  { name: 'BTC-OPTIMAL: ATR0.8|RR1.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 1.5, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 0.8, requireConfirmation: false },
+  { name: 'BTC-OPTIMAL: ATR0.8|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 0.8, requireConfirmation: false },
+  { name: 'BTC-OPTIMAL: OB75|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 75, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: false },
 
-  // BALANCED: Good profit with controlled risk
-  { name: 'BALANCED: OB70|KZ|DD6%|Strong', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: true, maxDailyDD: 6, atrMult: 1.0, requireConfirmation: true, confirmationType: 'strong' },
-  { name: 'BALANCED: OB65|KZ|DD6%|Close', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 65, useKillZones: true, maxDailyDD: 6, atrMult: 1.0, requireConfirmation: true, confirmationType: 'close' },
+  // XAUUSD OPTIMAL: ATR1.5 dominates (Scalp timeframe H1/M15/M1)
+  { name: 'XAU-OPTIMAL: ATR1.5|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.5, requireConfirmation: false },
+  { name: 'XAU-OPTIMAL: ATR1.2|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.2, requireConfirmation: false },
+  { name: 'XAU-OPTIMAL: ATR1.5|RR1.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 1.5, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.5, requireConfirmation: false },
 
-  // CONSERVATIVE: Lower DD, steady gains (for prop firm challenges)
-  { name: 'CONSERVATIVE: OB70|KZ|DD5%|Strong', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: true, maxDailyDD: 5, atrMult: 1.0, requireConfirmation: true, confirmationType: 'strong' },
-  { name: 'CONSERVATIVE: OB75|KZ|DD5%|Engulf', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 75, useKillZones: true, maxDailyDD: 5, atrMult: 1.0, requireConfirmation: true, confirmationType: 'engulf' },
+  // XAGUSD OPTIMAL: OB65-70 with RR2-2.5 (Scalp timeframe)
+  { name: 'XAG-OPTIMAL: OB65|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 65, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: false },
+  { name: 'XAG-OPTIMAL: OB70|RR2.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: false },
+  { name: 'XAG-OPTIMAL: ATR1.2|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.2, requireConfirmation: false },
 
-  // === CONFIRMATION TYPE COMPARISON ===
-  { name: 'OB70|All|DD8%|NoConf', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: false },
-  { name: 'OB70|All|DD8%|Close', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: true, confirmationType: 'close' },
-  { name: 'OB70|All|DD8%|Strong', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: true, confirmationType: 'strong' },
-  { name: 'OB70|All|DD8%|Engulf', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: true, confirmationType: 'engulf' },
+  // === UNIVERSAL STRATEGIES (work across all symbols) ===
+  { name: 'UNIVERSAL: OB70|All|DD8%|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: false },
+  { name: 'UNIVERSAL: OB70|All|DD8%|RR1.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 1.5, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: false },
+  { name: 'UNIVERSAL: OB70|All|DD8%|RR2.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: false },
 
-  // === RR VARIATIONS ===
-  { name: 'OB70|KZ|DD6%|2.5:1|Strong', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 70, useKillZones: true, maxDailyDD: 6, atrMult: 1.0, requireConfirmation: true, confirmationType: 'strong' },
-  { name: 'OB65|KZ|DD8%|3:1|Engulf', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 65, useKillZones: true, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: true, confirmationType: 'engulf' },
+  // === CONSERVATIVE (lower DD for prop firm) ===
+  { name: 'SAFE: OB70|KZ|DD6%|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: true, maxDailyDD: 6, atrMult: 1.0, requireConfirmation: false },
+  { name: 'SAFE: OB65|KZ|DD5%|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 65, useKillZones: true, maxDailyDD: 5, atrMult: 1.0, requireConfirmation: false },
+
+  // === WITH CONFIRMATION (lower risk, fewer trades) ===
+  { name: 'CONFIRM: OB70|Engulf|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: true, confirmationType: 'engulf' },
 ];
 
 // Symbol info for backtesting (including typical spreads)
