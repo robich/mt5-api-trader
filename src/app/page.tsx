@@ -178,6 +178,7 @@ export default function Dashboard() {
           openTrades={accountData?.stats.openTrades || 0}
           winRate={stats?.stats.winRate || 0}
           totalTrades={stats?.stats.totalTrades || 0}
+          currency={accountData?.account.currency || 'USD'}
         />
 
         {/* Main Content Grid */}
@@ -208,7 +209,7 @@ export default function Dashboard() {
 
               <BotControls
                 isRunning={accountData?.botStatus.isRunning || false}
-                symbols={accountData?.botStatus.symbols || ['XAUUSD', 'XAGUSD.s', 'BTCUSD']}
+                symbols={accountData?.botStatus.symbols || ['XAUUSD.s', 'XAGUSD.s', 'BTCUSD', 'ETHUSD']}
                 startedAt={accountData?.botStatus.startedAt || null}
                 onStart={handleStartBot}
                 onStop={handleStopBot}
@@ -217,11 +218,12 @@ export default function Dashboard() {
             </div>
 
             {/* TradingView Chart */}
-            <Card>
-              <CardContent className="p-0 h-[500px]">
+            <Card className="overflow-visible">
+              <CardContent className="p-0 h-[500px] overflow-visible">
                 <TradingViewChart
                   symbol={selectedSymbol}
                   trades={closedTrades?.trades.filter((t) => t.symbol === selectedSymbol) || []}
+                  currency={accountData?.account.currency || 'USD'}
                 />
               </CardContent>
             </Card>
@@ -257,10 +259,15 @@ export default function Dashboard() {
                         };
                       })}
                       type="open"
+                      currency={accountData?.account.currency || 'USD'}
                     />
                   </TabsContent>
                   <TabsContent value="closed" className="mt-0">
-                    <TradeTable trades={closedTrades?.trades || []} type="closed" />
+                    <TradeTable
+                      trades={closedTrades?.trades || []}
+                      type="closed"
+                      currency={accountData?.account.currency || 'USD'}
+                    />
                   </TabsContent>
                 </CardContent>
               </Tabs>

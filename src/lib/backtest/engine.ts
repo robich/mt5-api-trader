@@ -75,6 +75,7 @@ const DEFAULT_SYMBOL_INFO = {
   'XAUUSD.s': { pipSize: 0.1, contractSize: 100, minVolume: 0.01, maxVolume: 100, volumeStep: 0.01, tickSize: 0.01, tickValue: 1 },
   'XAGUSD.s': { pipSize: 0.01, contractSize: 5000, minVolume: 0.01, maxVolume: 100, volumeStep: 0.01, tickSize: 0.001, tickValue: 1 },
   BTCUSD: { pipSize: 1, contractSize: 1, minVolume: 0.01, maxVolume: 10, volumeStep: 0.01, tickSize: 0.01, tickValue: 1 },
+  ETHUSD: { pipSize: 1, contractSize: 1, minVolume: 0.01, maxVolume: 100, volumeStep: 0.01, tickSize: 0.1, tickValue: 1 },
 };
 
 export class BacktestEngine {

@@ -17,9 +17,10 @@ interface Trade {
 interface TradingViewChartProps {
   symbol: string;
   trades?: Trade[];
+  currency?: string;
 }
 
-function TradingViewChartComponent({ symbol, trades = [] }: TradingViewChartProps) {
+function TradingViewChartComponent({ symbol, trades = [], currency = 'USD' }: TradingViewChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerId] = useState(() => `tradingview_${Math.random().toString(36).substring(7)}`);
 
@@ -38,6 +39,7 @@ function TradingViewChartComponent({ symbol, trades = [] }: TradingViewChartProp
     widgetContainer.style.height = '100%';
     widgetContainer.style.width = '100%';
     widgetContainer.style.position = 'relative';
+    widgetContainer.style.pointerEvents = 'auto';
 
     const widgetDiv = document.createElement('div');
     widgetDiv.id = containerId;
@@ -46,9 +48,20 @@ function TradingViewChartComponent({ symbol, trades = [] }: TradingViewChartProp
     widgetDiv.style.position = 'absolute';
     widgetDiv.style.top = '0';
     widgetDiv.style.left = '0';
+    widgetDiv.style.pointerEvents = 'auto';
 
     widgetContainer.appendChild(widgetDiv);
     containerRef.current.appendChild(widgetContainer);
+
+    // Ensure iframe gets pointer events after it loads
+    const observer = new MutationObserver(() => {
+      const iframe = widgetContainer.querySelector('iframe');
+      if (iframe) {
+        iframe.style.pointerEvents = 'auto';
+        observer.disconnect();
+      }
+    });
+    observer.observe(widgetContainer, { childList: true, subtree: true });
 
     // Create TradingView widget script after container is in DOM
     const script = document.createElement('script');
@@ -83,11 +96,21 @@ function TradingViewChartComponent({ symbol, trades = [] }: TradingViewChartProp
     widgetContainer.appendChild(script);
 
     return () => {
+      observer.disconnect();
       if (containerRef.current) {
         containerRef.current.innerHTML = '';
       }
     };
   }, [symbol, containerId]);
+
+  const formatPnl = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency,
+      minimumFractionDigits: 2,
+      signDisplay: 'always',
+    }).format(value);
+  };
 
   // Render trade overlays - positioned to not block watchlist (left side)
   const renderTradeOverlays = () => {
@@ -114,7 +137,7 @@ function TradingViewChartComponent({ symbol, trades = [] }: TradingViewChartProp
               <span className="ml-2">
                 {trade.pnl !== undefined && (
                   <span className={(trade.pnl || 0) >= 0 ? 'text-green-500' : 'text-red-500'}>
-                    {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)}
+                    {formatPnl(trade.pnl)}
                   </span>
                 )}
               </span>
@@ -126,8 +149,16 @@ function TradingViewChartComponent({ symbol, trades = [] }: TradingViewChartProp
   };
 
   return (
-    <div className="relative w-full" style={{ height: '500px', pointerEvents: 'auto' }}>
-      <div ref={containerRef} style={{ height: '100%', width: '100%' }} />
+    <div className="relative w-full" style={{ height: '500px' }}>
+      <div
+        ref={containerRef}
+        style={{
+          height: '100%',
+          width: '100%',
+          position: 'relative',
+          zIndex: 0,
+        }}
+      />
       {trades.length > 0 && renderTradeOverlays()}
     </div>
   );

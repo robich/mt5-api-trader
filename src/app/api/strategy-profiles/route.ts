@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
     const newConfig = {
       strategyProfile: profileId || 'BALANCED_STRONG',
       liveTrading: liveTrading ?? false,
-      symbols: symbols || ['XAUUSD.s', 'BTCUSD', 'XAGUSD.s'],
+      symbols: symbols || ['XAUUSD.s', 'BTCUSD', 'XAGUSD.s', 'ETHUSD'],
       useKillZones: profile.useKillZones,
       killZones: profile.killZones,
       riskPercent: profile.riskPercent,

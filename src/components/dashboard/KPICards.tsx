@@ -17,6 +17,7 @@ interface KPICardsProps {
   openTrades: number;
   winRate?: number;
   totalTrades?: number;
+  currency?: string;
 }
 
 export function KPICards({
@@ -26,11 +27,12 @@ export function KPICards({
   openTrades,
   winRate = 0,
   totalTrades = 0,
+  currency = 'USD',
 }: KPICardsProps) {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD',
+      currency: currency,
       minimumFractionDigits: 2,
     }).format(value);
   };

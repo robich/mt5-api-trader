@@ -313,6 +313,12 @@ export const SYMBOL_TIMEFRAMES: Record<string, SymbolTimeframeConfig> = {
     ltf: 'M1',
     description: 'M1 scalp entries work best for Silver (H1/M15/M1)',
   },
+  'ETHUSD': {
+    htf: 'H4',
+    mtf: 'H1',
+    ltf: 'M5',
+    description: 'M5 entries with ATR1.5 work best for ETH (H4/H1/M5)',
+  },
 };
 
 /**
@@ -338,6 +344,12 @@ export const SYMBOL_DEFAULTS: Record<string, SymbolOverrides> = {
     minOBScore: 65,
     maxDailyDrawdown: 8,
   },
+  'ETHUSD': {
+    // ETHUSD: NoConf with ATR 1.5, RR 1.5 is optimal (74.5% win rate, 4.1% DD)
+    confirmationType: 'none',
+    minOBScore: 70,
+    maxDailyDrawdown: 8,
+  },
 };
 
 /**
@@ -353,6 +365,7 @@ export const DEFAULT_LIVE_CONFIG: LiveStrategyConfig = {
     { symbol: 'XAUUSD.s', enabled: true, overrides: SYMBOL_DEFAULTS['XAUUSD.s'] },
     { symbol: 'BTCUSD', enabled: true, overrides: SYMBOL_DEFAULTS['BTCUSD'] },
     { symbol: 'XAGUSD.s', enabled: true, overrides: SYMBOL_DEFAULTS['XAGUSD.s'] },
+    { symbol: 'ETHUSD', enabled: true, overrides: SYMBOL_DEFAULTS['ETHUSD'] },
   ],
   liveTrading: false, // Paper mode by default
   // Default timeframes - for optimal performance, use getSymbolTimeframes() per symbol

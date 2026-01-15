@@ -40,6 +40,7 @@ interface Trade {
 interface TradeTableProps {
   trades: Trade[];
   type: 'open' | 'closed';
+  currency?: string;
 }
 
 // Strategy descriptions and parameters
@@ -163,8 +164,18 @@ const STRATEGY_INFO: Record<string, {
   },
 };
 
-export function TradeTable({ trades, type }: TradeTableProps) {
+export function TradeTable({ trades, type, currency = 'USD' }: TradeTableProps) {
   const [selectedStrategy, setSelectedStrategy] = useState<string | null>(null);
+
+  const formatPnl = (value: number | null | undefined) => {
+    if (value == null) return '-';
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency,
+      minimumFractionDigits: 2,
+    }).format(value);
+  };
+
   const formatPrice = (price: number | null | undefined, symbol: string) => {
     if (price == null) return '-';
     const decimals = symbol.includes('JPY') ? 3 : symbol.includes('XAU') ? 2 : symbol.includes('BTC') ? 2 : 5;
@@ -181,9 +192,8 @@ export function TradeTable({ trades, type }: TradeTableProps) {
   };
 
   const formatDuration = (openTime: string, closeTime?: string | null) => {
-    if (!closeTime) return '-';
     const start = new Date(openTime).getTime();
-    const end = new Date(closeTime).getTime();
+    const end = closeTime ? new Date(closeTime).getTime() : Date.now();
     const diffMs = end - start;
 
     if (diffMs < 0) return '-';
@@ -203,6 +213,54 @@ export function TradeTable({ trades, type }: TradeTableProps) {
       return `${minutes}m`;
     }
     return `${seconds}s`;
+  };
+
+  const calculatePips = (trade: Trade, isOpen: boolean) => {
+    const entryPrice = trade.entryPrice;
+    const exitPrice = isOpen ? null : trade.closePrice; // For open trades, we'd need current price
+
+    if (entryPrice == null) return null;
+
+    // For closed trades, calculate actual pips from entry to exit
+    if (!isOpen && exitPrice != null) {
+      const pipMultiplier = getPipMultiplier(trade.symbol);
+      const diff = trade.direction === 'BUY'
+        ? (exitPrice - entryPrice)
+        : (entryPrice - exitPrice);
+      return diff * pipMultiplier;
+    }
+
+    // For open trades, estimate pips from PnL if available
+    if (isOpen && trade.currentPnl != null && trade.lotSize != null && trade.lotSize > 0) {
+      const pipValue = getPipValue(trade.symbol, trade.lotSize);
+      if (pipValue > 0) {
+        return trade.currentPnl / pipValue;
+      }
+    }
+
+    return null;
+  };
+
+  const getPipMultiplier = (symbol: string) => {
+    if (symbol.includes('JPY')) return 100; // 2 decimal places
+    if (symbol.includes('XAU')) return 10; // Gold: 1 pip = 0.1
+    if (symbol.includes('XAG')) return 100; // Silver: 1 pip = 0.01
+    if (symbol.includes('BTC')) return 1; // BTC: 1 pip = 1.0
+    return 10000; // Standard forex: 4 decimal places
+  };
+
+  const getPipValue = (symbol: string, lotSize: number) => {
+    // Approximate pip value per standard lot
+    if (symbol.includes('XAU')) return lotSize * 10; // Gold ~$10 per pip per lot
+    if (symbol.includes('XAG')) return lotSize * 50; // Silver ~$50 per pip per lot
+    if (symbol.includes('BTC')) return lotSize * 1; // BTC varies significantly
+    return lotSize * 10; // Standard forex ~$10 per pip per standard lot
+  };
+
+  const formatPips = (pips: number | null) => {
+    if (pips == null) return '-';
+    const sign = pips >= 0 ? '+' : '';
+    return `${sign}${pips.toFixed(1)}`;
   };
 
   if (trades.length === 0) {
@@ -226,12 +284,11 @@ export function TradeTable({ trades, type }: TradeTableProps) {
             <TableHead className="text-right">TP</TableHead>
             <TableHead className="text-right">Size</TableHead>
             <TableHead>{type === 'open' ? 'Opened' : 'Closed'}</TableHead>
-            {type === 'closed' && (
-              <TableHead>Duration</TableHead>
-            )}
+            <TableHead>Duration</TableHead>
             {type === 'closed' && (
               <TableHead className="text-right">Exit</TableHead>
             )}
+            <TableHead className="text-right">Pips</TableHead>
             <TableHead className="text-right">P&L</TableHead>
           </TableRow>
         </TableHeader>
@@ -268,28 +325,29 @@ export function TradeTable({ trades, type }: TradeTableProps) {
               <TableCell>
                 {formatDate(type === 'open' ? trade.openTime : trade.closeTime || trade.openTime)}
               </TableCell>
-              {type === 'closed' && (
-                <TableCell className="text-muted-foreground">
-                  {formatDuration(trade.openTime, trade.closeTime)}
-                </TableCell>
-              )}
+              <TableCell className="text-muted-foreground">
+                {formatDuration(trade.openTime, type === 'closed' ? trade.closeTime : null)}
+              </TableCell>
               {type === 'closed' && (
                 <TableCell className="text-right font-mono">
                   {trade.closePrice ? formatPrice(trade.closePrice, trade.symbol) : '-'}
                 </TableCell>
               )}
               <TableCell
+                className={`text-right font-mono ${
+                  (calculatePips(trade, type === 'open') || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}
+              >
+                {formatPips(calculatePips(trade, type === 'open'))}
+              </TableCell>
+              <TableCell
                 className={`text-right font-bold ${
                   ((type === 'open' ? trade.currentPnl : trade.pnl) || 0) >= 0 ? 'text-green-600' : 'text-red-600'
                 }`}
               >
                 {type === 'open'
-                  ? trade.currentPnl != null
-                    ? `$${trade.currentPnl.toFixed(2)}`
-                    : '-'
-                  : trade.pnl != null
-                    ? `$${trade.pnl.toFixed(2)}`
-                    : '-'}
+                  ? formatPnl(trade.currentPnl)
+                  : formatPnl(trade.pnl)}
               </TableCell>
             </TableRow>
           ))}

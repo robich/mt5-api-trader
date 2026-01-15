@@ -49,8 +49,8 @@ export async function GET(request: NextRequest) {
       );
     });
 
-    // Prioritize default symbols (XAUUSD.s, BTCUSD.s, XAGUSD.s) at the top
-    const DEFAULT_SYMBOLS = ['XAUUSD.s', 'BTCUSD.s', 'XAGUSD.s'];
+    // Prioritize default symbols at the top
+    const DEFAULT_SYMBOLS = ['XAUUSD.s', 'BTCUSD.s', 'XAGUSD.s', 'ETHUSD'];
     const sortedSymbols = relevantSymbols.sort((a, b) => {
       const aUpper = a.toUpperCase();
       const bUpper = b.toUpperCase();
