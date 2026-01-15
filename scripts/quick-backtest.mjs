@@ -1899,12 +1899,13 @@ async function main() {
           strategy: options.strategy || 'ORDER_BLOCK',
           initialBalance: options.balance,
           risk: options.risk,
-          requireOTE: true,
+          requireOTE: false,
           fixedRR: 2,
           minOBScore: 70,
           minFVGSize: 1.0,
-          useKillZones: true,
-          maxDailyDD: 15,
+          useKillZones: false,
+          maxDailyDD: 8,
+          atrMult: 1.5,
         };
 
         const engine = new SMCBacktestEngine(config);

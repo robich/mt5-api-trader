@@ -67,6 +67,9 @@ export class TradingBot {
       // Connect to MetaAPI
       await metaApiClient.connect();
 
+      // Sync open positions with MT5 on startup
+      await this.syncPositionsOnStartup();
+
       // Set up event-driven listener
       await this.setupEventListener();
 
@@ -85,6 +88,51 @@ export class TradingBot {
     } catch (error) {
       console.error('Failed to start trading bot:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Sync positions with MT5 on startup
+   * Imports any open positions from MT5 that don't exist in DB
+   * Marks any DB trades as closed if they no longer exist on MT5
+   */
+  private async syncPositionsOnStartup(): Promise<void> {
+    console.log('[Bot] Syncing positions with MT5...');
+
+    try {
+      // Get current positions from MT5 (already converted to our Position type)
+      const positions = await metaApiClient.getPositions();
+      console.log(`[Bot] Found ${positions.length} open positions on MT5`);
+
+      // Sync with trade manager
+      const result = await tradeManager.syncWithBrokerPositions(positions);
+
+      if (result.imported > 0 || result.closed > 0) {
+        console.log(`[Bot] Sync complete: ${result.imported} positions imported, ${result.closed} trades marked as closed`);
+      } else {
+        console.log('[Bot] Sync complete: No changes needed');
+      }
+
+      // Store initial position state for tracking (convert to PositionUpdate format for lastKnownPositions)
+      for (const pos of positions) {
+        this.lastKnownPositions.set(pos.id, {
+          id: pos.id,
+          symbol: pos.symbol,
+          type: pos.type === 'BUY' ? 'POSITION_TYPE_BUY' : 'POSITION_TYPE_SELL',
+          volume: pos.volume,
+          openPrice: pos.openPrice,
+          currentPrice: pos.currentPrice,
+          stopLoss: pos.stopLoss,
+          takeProfit: pos.takeProfit,
+          profit: pos.profit,
+          swap: pos.swap,
+          time: pos.openTime,
+        });
+      }
+
+    } catch (error) {
+      console.error('[Bot] Error syncing positions on startup:', error);
+      // Don't throw - allow bot to start even if sync fails
     }
   }
 

@@ -146,6 +146,21 @@ const STRATEGY_INFO: Record<string, {
       '5. SL at the failed BOS extreme, TP at key structure',
     ],
   },
+  EXTERNAL: {
+    name: 'External Trade',
+    description: 'Trade opened externally (manually on MT5 or by another system) and imported into the dashboard.',
+    parameters: [
+      { name: 'Source', value: 'MT5', description: 'Position opened directly on MetaTrader 5' },
+      { name: 'Sync', value: 'Auto', description: 'Automatically imported on bot startup' },
+    ],
+    howItWorks: [
+      '1. Position opened manually on MT5 platform',
+      '2. Bot detects position during startup sync',
+      '3. Imported into dashboard for tracking',
+      '4. SL/TP and PnL tracked if set on MT5',
+      '5. Close detected when position removed from MT5',
+    ],
+  },
 };
 
 export function TradeTable({ trades, type }: TradeTableProps) {
@@ -163,6 +178,31 @@ export function TradeTable({ trades, type }: TradeTableProps) {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const formatDuration = (openTime: string, closeTime?: string | null) => {
+    if (!closeTime) return '-';
+    const start = new Date(openTime).getTime();
+    const end = new Date(closeTime).getTime();
+    const diffMs = end - start;
+
+    if (diffMs < 0) return '-';
+
+    const seconds = Math.floor(diffMs / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) {
+      return `${days}d ${hours % 24}h`;
+    }
+    if (hours > 0) {
+      return `${hours}h ${minutes % 60}m`;
+    }
+    if (minutes > 0) {
+      return `${minutes}m`;
+    }
+    return `${seconds}s`;
   };
 
   if (trades.length === 0) {
@@ -186,6 +226,9 @@ export function TradeTable({ trades, type }: TradeTableProps) {
             <TableHead className="text-right">TP</TableHead>
             <TableHead className="text-right">Size</TableHead>
             <TableHead>{type === 'open' ? 'Opened' : 'Closed'}</TableHead>
+            {type === 'closed' && (
+              <TableHead>Duration</TableHead>
+            )}
             {type === 'closed' && (
               <TableHead className="text-right">Exit</TableHead>
             )}
@@ -225,6 +268,11 @@ export function TradeTable({ trades, type }: TradeTableProps) {
               <TableCell>
                 {formatDate(type === 'open' ? trade.openTime : trade.closeTime || trade.openTime)}
               </TableCell>
+              {type === 'closed' && (
+                <TableCell className="text-muted-foreground">
+                  {formatDuration(trade.openTime, trade.closeTime)}
+                </TableCell>
+              )}
               {type === 'closed' && (
                 <TableCell className="text-right font-mono">
                   {trade.closePrice ? formatPrice(trade.closePrice, trade.symbol) : '-'}

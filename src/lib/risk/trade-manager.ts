@@ -502,11 +502,18 @@ export class TradeManager {
 
   /**
    * Sync open trades with broker positions
-   * Updates trades that were closed externally with proper close price and PnL
+   * - Imports MT5 positions that don't exist in DB (opened externally)
+   * - Marks DB trades as closed if they no longer exist on broker
    */
-  async syncWithBrokerPositions(brokerPositions: Position[]): Promise<void> {
+  async syncWithBrokerPositions(brokerPositions: Position[]): Promise<{
+    imported: number;
+    closed: number;
+  }> {
     const dbOpenTrades = await this.getAllOpenTrades();
+    let imported = 0;
+    let closed = 0;
 
+    // 1. Check for DB trades that no longer exist on broker (closed externally)
     for (const dbTrade of dbOpenTrades) {
       const brokerPosition = brokerPositions.find(
         (p) => p.id === dbTrade.mt5PositionId
@@ -525,8 +532,70 @@ export class TradeManager {
           },
         });
         console.log(`[TradeManager] Trade ${dbTrade.id} closed externally (no price available)`);
+        closed++;
       }
     }
+
+    // 2. Import broker positions that don't exist in DB
+    for (const brokerPosition of brokerPositions) {
+      const existingTrade = dbOpenTrades.find(
+        (t) => t.mt5PositionId === brokerPosition.id
+      );
+
+      if (!existingTrade) {
+        // This position doesn't exist in DB - import it
+        await this.importExternalPosition(brokerPosition);
+        imported++;
+      }
+    }
+
+    return { imported, closed };
+  }
+
+  /**
+   * Import an external MT5 position into the database
+   * Used for positions opened manually or by other systems
+   */
+  async importExternalPosition(position: Position): Promise<Trade> {
+    const direction = position.type as Direction;
+
+    // Calculate risk amount estimate (use 2% of a typical $1000 account as default)
+    // This is just for display purposes since we don't know the original risk
+    const estimatedRiskAmount = 20;
+
+    // Use SL/TP from position, or default to 0 if not set
+    const stopLoss = position.stopLoss ?? 0;
+    const takeProfit = position.takeProfit ?? 0;
+
+    // Calculate R:R if SL and TP are available
+    let riskRewardRatio = 0;
+    if (stopLoss > 0 && takeProfit > 0) {
+      const riskPips = Math.abs(position.openPrice - stopLoss);
+      const rewardPips = Math.abs(takeProfit - position.openPrice);
+      riskRewardRatio = riskPips > 0 ? rewardPips / riskPips : 0;
+    }
+
+    const trade = await prisma.trade.create({
+      data: {
+        symbol: position.symbol,
+        direction,
+        strategy: 'EXTERNAL', // Mark as externally opened
+        entryPrice: position.openPrice,
+        stopLoss,
+        takeProfit,
+        lotSize: position.volume,
+        openTime: position.openTime,
+        status: 'OPEN',
+        mt5PositionId: position.id,
+        riskAmount: estimatedRiskAmount,
+        riskRewardRatio,
+        notes: 'Imported from MT5 - position opened externally',
+      },
+    });
+
+    console.log(`[TradeManager] Imported external position: ${position.symbol} ${direction} @ ${position.openPrice} (ID: ${position.id})`);
+
+    return trade as Trade;
   }
 
   /**

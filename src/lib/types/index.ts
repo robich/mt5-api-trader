@@ -3,7 +3,7 @@
 export type Direction = 'BUY' | 'SELL';
 export type Bias = 'BULLISH' | 'BEARISH' | 'NEUTRAL';
 export type Timeframe = 'M1' | 'M5' | 'M15' | 'M30' | 'H1' | 'H4' | 'D1' | 'W1';
-export type StrategyType = 'ORDER_BLOCK' | 'LIQUIDITY_SWEEP' | 'BOS' | 'FBO_CLASSIC' | 'FBO_SWEEP' | 'FBO_STRUCTURE';
+export type StrategyType = 'ORDER_BLOCK' | 'LIQUIDITY_SWEEP' | 'BOS' | 'FBO_CLASSIC' | 'FBO_SWEEP' | 'FBO_STRUCTURE' | 'EXTERNAL';
 export type SignalStatus = 'PENDING' | 'TAKEN' | 'REJECTED' | 'EXPIRED';
 export type TradeStatus = 'OPEN' | 'CLOSED' | 'CANCELLED';
 export type StructureType = 'HH' | 'HL' | 'LH' | 'LL' | 'BOS' | 'CHOCH';
