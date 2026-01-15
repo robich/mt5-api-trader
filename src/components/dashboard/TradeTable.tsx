@@ -16,15 +16,15 @@ interface Trade {
   symbol: string;
   direction: 'BUY' | 'SELL';
   strategy: string;
-  entryPrice: number;
-  stopLoss: number;
-  takeProfit: number;
-  lotSize: number;
+  entryPrice: number | null;
+  stopLoss: number | null;
+  takeProfit: number | null;
+  lotSize: number | null;
   openTime: string;
-  closeTime?: string;
-  closePrice?: number;
-  pnl?: number;
-  pnlPercent?: number;
+  closeTime?: string | null;
+  closePrice?: number | null;
+  pnl?: number | null;
+  pnlPercent?: number | null;
   status: string;
 }
 
@@ -34,7 +34,8 @@ interface TradeTableProps {
 }
 
 export function TradeTable({ trades, type }: TradeTableProps) {
-  const formatPrice = (price: number, symbol: string) => {
+  const formatPrice = (price: number | null | undefined, symbol: string) => {
+    if (price == null) return '-';
     const decimals = symbol.includes('JPY') ? 3 : symbol.includes('XAU') ? 2 : symbol.includes('BTC') ? 2 : 5;
     return price.toFixed(decimals);
   };
@@ -102,7 +103,7 @@ export function TradeTable({ trades, type }: TradeTableProps) {
               <TableCell className="text-right font-mono text-green-600">
                 {formatPrice(trade.takeProfit, trade.symbol)}
               </TableCell>
-              <TableCell className="text-right">{trade.lotSize}</TableCell>
+              <TableCell className="text-right">{trade.lotSize ?? '-'}</TableCell>
               <TableCell>
                 {formatDate(type === 'open' ? trade.openTime : trade.closeTime || trade.openTime)}
               </TableCell>
@@ -116,7 +117,7 @@ export function TradeTable({ trades, type }: TradeTableProps) {
                       (trade.pnl || 0) >= 0 ? 'text-green-600' : 'text-red-600'
                     }`}
                   >
-                    {trade.pnl !== undefined
+                    {trade.pnl != null
                       ? `$${trade.pnl.toFixed(2)}`
                       : '-'}
                   </TableCell>
