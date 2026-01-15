@@ -1,6 +1,11 @@
 import { execSync } from 'child_process';
 
 const getGitCommitHash = () => {
+  // Check for DigitalOcean's COMMIT_HASH first (provided during build)
+  if (process.env.COMMIT_HASH) {
+    return process.env.COMMIT_HASH.substring(0, 7);
+  }
+  // Fallback to git command for local development
   try {
     return execSync('git rev-parse --short HEAD').toString().trim();
   } catch {
