@@ -44,3 +44,6 @@ next-env.d.ts
 
 # candle cache
 /.cache
+
+# build-time generated
+.commit-hash

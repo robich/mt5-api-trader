@@ -10,7 +10,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import {
   Dialog,
   DialogContent,
@@ -284,6 +284,7 @@ export function TradeTable({ trades, type, currency = 'USD' }: TradeTableProps) 
 
   return (
     <ScrollArea className="h-[400px]">
+      <div className="min-w-max">
       <Table>
         <TableHeader>
           <TableRow>
@@ -364,6 +365,7 @@ export function TradeTable({ trades, type, currency = 'USD' }: TradeTableProps) 
           ))}
         </TableBody>
       </Table>
+      </div>
 
       {/* Strategy Info Dialog */}
       <Dialog open={selectedStrategy !== null} onOpenChange={(open) => !open && setSelectedStrategy(null)}>
@@ -408,6 +410,7 @@ export function TradeTable({ trades, type, currency = 'USD' }: TradeTableProps) 
           )}
         </DialogContent>
       </Dialog>
+      <ScrollBar orientation="horizontal" />
     </ScrollArea>
   );
 }

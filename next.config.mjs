@@ -1,11 +1,30 @@
 import { execSync } from 'child_process';
+import { readFileSync, existsSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const getGitCommitHash = () => {
-  // Check for DigitalOcean's COMMIT_HASH first (provided during build)
+  // 1. Check for .commit-hash file (written by prebuild script)
+  const hashFile = join(__dirname, '.commit-hash');
+  if (existsSync(hashFile)) {
+    try {
+      const hash = readFileSync(hashFile, 'utf8').trim();
+      if (hash && hash !== 'unknown') {
+        return hash;
+      }
+    } catch {
+      // Continue to fallbacks
+    }
+  }
+
+  // 2. Check for DigitalOcean's COMMIT_HASH
   if (process.env.COMMIT_HASH) {
     return process.env.COMMIT_HASH.substring(0, 7);
   }
-  // Fallback to git command for local development
+
+  // 3. Fallback to git command for local development
   try {
     return execSync('git rev-parse --short HEAD').toString().trim();
   } catch {

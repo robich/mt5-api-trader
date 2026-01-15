@@ -11,6 +11,10 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
+# Build argument for commit hash (DigitalOcean passes this automatically)
+ARG COMMIT_HASH=unknown
+ENV COMMIT_HASH=${COMMIT_HASH}
+
 # Copy package files
 COPY package*.json ./
 
