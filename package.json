@@ -34,6 +34,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
+    "lightweight-charts": "^5.1.0",
     "lucide-react": "^0.562.0",
     "metaapi.cloud-sdk": "^29.3.2",
     "next": "14.2.35",

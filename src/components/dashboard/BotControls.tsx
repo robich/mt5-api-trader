@@ -41,6 +41,12 @@ function formatUptime(startedAt: string | null): string {
   return `${seconds}s`;
 }
 
+function formatStartedAt(startedAt: string | null): string {
+  if (!startedAt) return '-';
+  const date = new Date(startedAt);
+  return date.toLocaleString();
+}
+
 export function BotControls({
   isRunning,
   symbols,
@@ -97,9 +103,15 @@ export function BotControls({
       </CardHeader>
       <CardContent>
         {isRunning && (
-          <div className="flex items-center gap-2 mb-3 text-sm text-muted-foreground">
-            <Clock className="h-4 w-4" />
-            <span>Uptime: {uptime}</span>
+          <div className="flex flex-col gap-1 mb-3 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              <span>Started: {formatStartedAt(startedAt)}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              <span>Uptime: {uptime}</span>
+            </div>
           </div>
         )}
         <div className="flex flex-wrap gap-2 mb-4">

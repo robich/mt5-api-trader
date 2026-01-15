@@ -222,7 +222,10 @@ export default function Dashboard() {
               <CardContent className="p-0 h-[500px] overflow-visible">
                 <TradingViewChart
                   symbol={selectedSymbol}
-                  trades={closedTrades?.trades.filter((t) => t.symbol === selectedSymbol) || []}
+                  trades={[
+                    ...(openTrades?.trades.filter((t: any) => t.symbol === selectedSymbol || t.symbol === selectedSymbol.replace('.s', '')) || []),
+                    ...(closedTrades?.trades.filter((t: any) => t.symbol === selectedSymbol || t.symbol === selectedSymbol.replace('.s', '')) || []),
+                  ]}
                   currency={accountData?.account.currency || 'USD'}
                 />
               </CardContent>
@@ -247,17 +250,26 @@ export default function Dashboard() {
                 <CardContent>
                   <TabsContent value="open" className="mt-0">
                     <TradeTable
-                      trades={(openTrades?.trades || []).map((trade: any) => {
-                        // Match trade with live position by mt5PositionId or symbol
-                        const position = accountData?.positions?.find(
-                          (pos: any) => pos.id === trade.mt5PositionId ||
-                            (pos.symbol === trade.symbol && pos.type === trade.direction)
-                        );
-                        return {
-                          ...trade,
-                          currentPnl: position?.profit ?? null,
-                        };
-                      })}
+                      trades={(() => {
+                        // Deduplicate by trade id
+                        const seen = new Set<string>();
+                        return (openTrades?.trades || [])
+                          .filter((trade: any) => {
+                            if (seen.has(trade.id)) return false;
+                            seen.add(trade.id);
+                            return true;
+                          })
+                          .map((trade: any) => {
+                            // Match trade with live position by mt5PositionId
+                            const position = accountData?.positions?.find(
+                              (pos: any) => pos.id === trade.mt5PositionId
+                            );
+                            return {
+                              ...trade,
+                              currentPnl: position?.profit ?? trade.currentPnl ?? null,
+                            };
+                          });
+                      })()}
                       type="open"
                       currency={accountData?.account.currency || 'USD'}
                     />
