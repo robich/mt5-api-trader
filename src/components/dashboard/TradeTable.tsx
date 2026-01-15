@@ -26,6 +26,7 @@ interface Trade {
   pnl?: number | null;
   pnlPercent?: number | null;
   status: string;
+  currentPnl?: number | null;
 }
 
 interface TradeTableProps {
@@ -71,11 +72,9 @@ export function TradeTable({ trades, type }: TradeTableProps) {
             <TableHead className="text-right">Size</TableHead>
             <TableHead>{type === 'open' ? 'Opened' : 'Closed'}</TableHead>
             {type === 'closed' && (
-              <>
-                <TableHead className="text-right">Exit</TableHead>
-                <TableHead className="text-right">P&L</TableHead>
-              </>
+              <TableHead className="text-right">Exit</TableHead>
             )}
+            <TableHead className="text-right">P&L</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -108,21 +107,23 @@ export function TradeTable({ trades, type }: TradeTableProps) {
                 {formatDate(type === 'open' ? trade.openTime : trade.closeTime || trade.openTime)}
               </TableCell>
               {type === 'closed' && (
-                <>
-                  <TableCell className="text-right font-mono">
-                    {trade.closePrice ? formatPrice(trade.closePrice, trade.symbol) : '-'}
-                  </TableCell>
-                  <TableCell
-                    className={`text-right font-bold ${
-                      (trade.pnl || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                    }`}
-                  >
-                    {trade.pnl != null
-                      ? `$${trade.pnl.toFixed(2)}`
-                      : '-'}
-                  </TableCell>
-                </>
+                <TableCell className="text-right font-mono">
+                  {trade.closePrice ? formatPrice(trade.closePrice, trade.symbol) : '-'}
+                </TableCell>
               )}
+              <TableCell
+                className={`text-right font-bold ${
+                  ((type === 'open' ? trade.currentPnl : trade.pnl) || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}
+              >
+                {type === 'open'
+                  ? trade.currentPnl != null
+                    ? `$${trade.currentPnl.toFixed(2)}`
+                    : '-'
+                  : trade.pnl != null
+                    ? `$${trade.pnl.toFixed(2)}`
+                    : '-'}
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>

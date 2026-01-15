@@ -502,6 +502,7 @@ export class TradeManager {
 
   /**
    * Sync open trades with broker positions
+   * Updates trades that were closed externally with proper close price and PnL
    */
   async syncWithBrokerPositions(brokerPositions: Position[]): Promise<void> {
     const dbOpenTrades = await this.getAllOpenTrades();
@@ -513,17 +514,83 @@ export class TradeManager {
 
       if (!brokerPosition) {
         // Position was closed externally
-        // Mark as closed with last known price
+        // We don't have the exact close price, so mark as closed without PnL
+        // This happens when positions are closed manually or by SL/TP on the broker side
         await prisma.trade.update({
           where: { id: dbTrade.id },
           data: {
             status: 'CLOSED',
             closeTime: new Date(),
-            notes: 'Closed externally',
+            notes: 'Closed externally - price unknown',
           },
         });
+        console.log(`[TradeManager] Trade ${dbTrade.id} closed externally (no price available)`);
       }
     }
+  }
+
+  /**
+   * Update open trades with current prices from broker
+   * Call this periodically to keep track of unrealized PnL
+   */
+  async updateTradesFromPositions(brokerPositions: Position[]): Promise<void> {
+    const dbOpenTrades = await this.getAllOpenTrades();
+
+    for (const dbTrade of dbOpenTrades) {
+      const brokerPosition = brokerPositions.find(
+        (p) => p.id === dbTrade.mt5PositionId
+      );
+
+      if (brokerPosition) {
+        // Position still open - we could update unrealized PnL here if needed
+        // For now, just log
+        console.log(`[TradeManager] Trade ${dbTrade.symbol} ${dbTrade.direction}: Current P&L $${brokerPosition.profit?.toFixed(2) || 'N/A'}`);
+      }
+    }
+  }
+
+  /**
+   * Close a trade with data from the broker (when we receive close notification)
+   */
+  async closeTradeFromBroker(
+    mt5PositionId: string,
+    closePrice: number,
+    profit: number,
+    closeTime: Date = new Date()
+  ): Promise<Trade | null> {
+    const trade = await prisma.trade.findFirst({
+      where: {
+        mt5PositionId,
+        status: 'OPEN',
+      },
+    });
+
+    if (!trade) {
+      console.log(`[TradeManager] No open trade found for MT5 position ${mt5PositionId}`);
+      return null;
+    }
+
+    const pnlPercent = trade.riskAmount > 0 ? (profit / trade.riskAmount) * 100 : 0;
+
+    const updated = await prisma.trade.update({
+      where: { id: trade.id },
+      data: {
+        closePrice,
+        closeTime,
+        pnl: profit,
+        pnlPercent,
+        status: 'CLOSED',
+      },
+    });
+
+    console.log(`[TradeManager] Trade ${trade.id} closed: ${trade.symbol} ${trade.direction} @ ${closePrice}, PnL: $${profit.toFixed(2)}`);
+
+    // Record loss for daily DD tracking if negative
+    if (profit < 0) {
+      this.recordLoss(trade.symbol, Math.abs(profit), this.config.maxDailyLossPercent || 5);
+    }
+
+    return updated as Trade;
   }
 }
 

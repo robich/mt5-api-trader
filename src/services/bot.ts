@@ -42,6 +42,7 @@ export class TradingBot {
   private syncListener: TradingBotSyncListener | null = null;
   private latestPrices: Map<string, SymbolPrice> = new Map();
   private candleBuffers: Map<string, Map<string, Candle[]>> = new Map(); // symbol -> timeframe -> candles
+  private lastKnownPositions: Map<string, PositionUpdate> = new Map(); // positionId -> last known state
 
   private constructor(config?: Partial<BotConfig>) {
     this.config = { ...DEFAULT_BOT_CONFIG, ...config };
@@ -172,9 +173,38 @@ export class TradingBot {
 
   /**
    * Handle position updates (pushed from MetaAPI)
+   * Tracks position state and handles closures with proper PnL
    */
   private async handlePositionUpdate(positions: PositionUpdate[], removedIds: string[]): Promise<void> {
     console.log(`[Bot] Position update: ${positions.length} positions, ${removedIds.length} removed`);
+
+    // Update last known state for all current positions
+    for (const pos of positions) {
+      this.lastKnownPositions.set(pos.id, pos);
+    }
+
+    // Handle removed positions (closed trades)
+    for (const removedId of removedIds) {
+      const lastKnown = this.lastKnownPositions.get(removedId);
+      if (lastKnown) {
+        console.log(`[Bot] Position ${removedId} closed: ${lastKnown.symbol} @ ${lastKnown.currentPrice}, Profit: $${lastKnown.profit?.toFixed(2) || 'N/A'}`);
+
+        // Close the trade with the last known price and profit
+        if (lastKnown.currentPrice && lastKnown.profit !== undefined) {
+          await tradeManager.closeTradeFromBroker(
+            removedId,
+            lastKnown.currentPrice,
+            lastKnown.profit,
+            new Date()
+          );
+        }
+
+        // Remove from tracking
+        this.lastKnownPositions.delete(removedId);
+      } else {
+        console.log(`[Bot] Position ${removedId} removed but no last known state`);
+      }
+    }
 
     // Convert to our Position format and sync with trade manager
     const convertedPositions: Position[] = positions.map((pos) => ({
@@ -253,6 +283,7 @@ export class TradingBot {
     // Clear local state
     this.latestPrices.clear();
     this.candleBuffers.clear();
+    this.lastKnownPositions.clear();
 
     await this.updateBotState(false);
 

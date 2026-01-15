@@ -248,7 +248,20 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <TabsContent value="open" className="mt-0">
-                    <TradeTable trades={openTrades?.trades || []} type="open" />
+                    <TradeTable
+                      trades={(openTrades?.trades || []).map((trade: any) => {
+                        // Match trade with live position by mt5PositionId or symbol
+                        const position = accountData?.positions?.find(
+                          (pos: any) => pos.id === trade.mt5PositionId ||
+                            (pos.symbol === trade.symbol && pos.type === trade.direction)
+                        );
+                        return {
+                          ...trade,
+                          currentPnl: position?.profit ?? null,
+                        };
+                      })}
+                      type="open"
+                    />
                   </TabsContent>
                   <TabsContent value="closed" className="mt-0">
                     <TradeTable trades={closedTrades?.trades || []} type="closed" />
