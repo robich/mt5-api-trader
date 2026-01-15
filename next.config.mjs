@@ -1,5 +1,18 @@
+import { execSync } from 'child_process';
+
+const getGitCommitHash = () => {
+  try {
+    return execSync('git rev-parse --short HEAD').toString().trim();
+  } catch {
+    return 'unknown';
+  }
+};
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  env: {
+    NEXT_PUBLIC_GIT_COMMIT: getGitCommitHash(),
+  },
   webpack: (config, { isServer }) => {
     // Force MetaAPI SDK to use Node.js version on server
     if (isServer) {

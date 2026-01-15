@@ -162,6 +162,9 @@ export default function Dashboard() {
             <h1 className="text-3xl font-bold">SMC Trading Bot</h1>
             <p className="text-muted-foreground">Smart Money Concept Automated Trading</p>
           </div>
+          <div className="text-sm text-muted-foreground">
+            v0.1.0 ({process.env.NEXT_PUBLIC_GIT_COMMIT || 'dev'})
+          </div>
         </div>
 
         {error && (
@@ -251,12 +254,19 @@ export default function Dashboard() {
                   <TabsContent value="open" className="mt-0">
                     <TradeTable
                       trades={(() => {
-                        // Deduplicate by trade id
-                        const seen = new Set<string>();
+                        // Deduplicate by mt5PositionId (prefer) or trade id
+                        const seenPositionIds = new Set<string>();
+                        const seenTradeIds = new Set<string>();
                         return (openTrades?.trades || [])
                           .filter((trade: any) => {
-                            if (seen.has(trade.id)) return false;
-                            seen.add(trade.id);
+                            // First check mt5PositionId for duplicates
+                            if (trade.mt5PositionId) {
+                              if (seenPositionIds.has(trade.mt5PositionId)) return false;
+                              seenPositionIds.add(trade.mt5PositionId);
+                            }
+                            // Also check trade id
+                            if (seenTradeIds.has(trade.id)) return false;
+                            seenTradeIds.add(trade.id);
                             return true;
                           })
                           .map((trade: any) => {

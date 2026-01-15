@@ -34,7 +34,7 @@ interface CandleData {
 function TradingViewChartComponent({ symbol, trades = [], currency = 'USD' }: TradingViewChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const candlestickSeriesRef = useRef<ISeriesApi<typeof CandlestickSeries> | null>(null);
+  const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -206,7 +206,7 @@ function generateDemoData(symbol: string): CandlestickData[] {
 }
 
 function addTradeMarkers(
-  series: ISeriesApi<typeof CandlestickSeries>,
+  series: ISeriesApi<"Candlestick">,
   trades: Trade[],
   _candleData: CandlestickData[]
 ) {
