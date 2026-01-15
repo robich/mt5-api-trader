@@ -35,6 +35,7 @@ interface Trade {
   pnlPercent?: number | null;
   status: string;
   currentPnl?: number | null;
+  currentPrice?: number | null;
 }
 
 interface TradeTableProps {
@@ -217,25 +218,35 @@ export function TradeTable({ trades, type, currency = 'USD' }: TradeTableProps) 
 
   const calculatePips = (trade: Trade, isOpen: boolean) => {
     const entryPrice = trade.entryPrice;
-    const exitPrice = isOpen ? null : trade.closePrice; // For open trades, we'd need current price
 
     if (entryPrice == null) return null;
 
-    // For closed trades, calculate actual pips from entry to exit
-    if (!isOpen && exitPrice != null) {
-      const pipMultiplier = getPipMultiplier(trade.symbol);
-      const diff = trade.direction === 'BUY'
-        ? (exitPrice - entryPrice)
-        : (entryPrice - exitPrice);
-      return diff * pipMultiplier;
+    // For open trades, use currentPrice if available
+    if (isOpen) {
+      if (trade.currentPrice != null) {
+        const pipMultiplier = getPipMultiplier(trade.symbol);
+        const diff = trade.direction === 'BUY'
+          ? (trade.currentPrice - entryPrice)
+          : (entryPrice - trade.currentPrice);
+        return diff * pipMultiplier;
+      }
+      // Fallback: estimate pips from PnL if available
+      if (trade.currentPnl != null && trade.lotSize != null && trade.lotSize > 0) {
+        const pipValue = getPipValue(trade.symbol, trade.lotSize);
+        if (pipValue > 0) {
+          return trade.currentPnl / pipValue;
+        }
+      }
+      return null;
     }
 
-    // For open trades, estimate pips from PnL if available
-    if (isOpen && trade.currentPnl != null && trade.lotSize != null && trade.lotSize > 0) {
-      const pipValue = getPipValue(trade.symbol, trade.lotSize);
-      if (pipValue > 0) {
-        return trade.currentPnl / pipValue;
-      }
+    // For closed trades, calculate actual pips from entry to exit
+    if (trade.closePrice != null) {
+      const pipMultiplier = getPipMultiplier(trade.symbol);
+      const diff = trade.direction === 'BUY'
+        ? (trade.closePrice - entryPrice)
+        : (entryPrice - trade.closePrice);
+      return diff * pipMultiplier;
     }
 
     return null;

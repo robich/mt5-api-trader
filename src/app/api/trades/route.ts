@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     const [trades, total] = await Promise.all([
       prisma.trade.findMany({
         where,
-        orderBy: { openTime: 'desc' },
+        orderBy: status === 'CLOSED' ? { closeTime: 'desc' } : { openTime: 'desc' },
         take: limit,
         skip: offset,
         include: {
