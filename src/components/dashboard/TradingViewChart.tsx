@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, memo } from 'react';
+import { useEffect, useRef, memo, useState } from 'react';
 
 interface Trade {
   id: string;
@@ -21,7 +21,7 @@ interface TradingViewChartProps {
 
 function TradingViewChartComponent({ symbol, trades = [] }: TradingViewChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const widgetRef = useRef<any>(null);
+  const [containerId] = useState(() => `tradingview_${Math.random().toString(36).substring(7)}`);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -32,7 +32,25 @@ function TradingViewChartComponent({ symbol, trades = [] }: TradingViewChartProp
     // Map symbol to TradingView format
     const tvSymbol = mapSymbolToTV(symbol);
 
-    // Create TradingView widget
+    // Create widget container with explicit dimensions
+    const widgetContainer = document.createElement('div');
+    widgetContainer.className = 'tradingview-widget-container';
+    widgetContainer.style.height = '100%';
+    widgetContainer.style.width = '100%';
+    widgetContainer.style.position = 'relative';
+
+    const widgetDiv = document.createElement('div');
+    widgetDiv.id = containerId;
+    widgetDiv.style.height = '100%';
+    widgetDiv.style.width = '100%';
+    widgetDiv.style.position = 'absolute';
+    widgetDiv.style.top = '0';
+    widgetDiv.style.left = '0';
+
+    widgetContainer.appendChild(widgetDiv);
+    containerRef.current.appendChild(widgetContainer);
+
+    // Create TradingView widget script after container is in DOM
     const script = document.createElement('script');
     script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
     script.type = 'text/javascript';
@@ -55,33 +73,21 @@ function TradingViewChartComponent({ symbol, trades = [] }: TradingViewChartProp
       hotlist: false,
       calendar: false,
       studies: ['MASimple@tv-basicstudies', 'RSI@tv-basicstudies'],
-      container_id: 'tradingview_chart',
+      container_id: containerId,
       show_popup_button: true,
       popup_width: '1000',
       popup_height: '650',
     });
 
-    const widgetContainer = document.createElement('div');
-    widgetContainer.className = 'tradingview-widget-container';
-    widgetContainer.style.height = '100%';
-    widgetContainer.style.width = '100%';
-
-    const widgetDiv = document.createElement('div');
-    widgetDiv.id = 'tradingview_chart';
-    widgetDiv.style.height = 'calc(100% - 32px)';
-    widgetDiv.style.width = '100%';
-
-    widgetContainer.appendChild(widgetDiv);
+    // Append script to widget container (must be inside the container for TradingView)
     widgetContainer.appendChild(script);
-
-    containerRef.current.appendChild(widgetContainer);
 
     return () => {
       if (containerRef.current) {
         containerRef.current.innerHTML = '';
       }
     };
-  }, [symbol]);
+  }, [symbol, containerId]);
 
   // Render trade overlays
   const renderTradeOverlays = () => {
@@ -116,8 +122,8 @@ function TradingViewChartComponent({ symbol, trades = [] }: TradingViewChartProp
   };
 
   return (
-    <div className="relative h-full w-full" style={{ minHeight: '500px' }}>
-      <div ref={containerRef} className="h-full w-full" />
+    <div className="relative w-full" style={{ height: '500px' }}>
+      <div ref={containerRef} style={{ height: '100%', width: '100%' }} />
       {trades.length > 0 && renderTradeOverlays()}
     </div>
   );

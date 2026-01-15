@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { tradingBot } from '@/services/bot';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,8 +35,35 @@ export async function GET(request: NextRequest) {
       prisma.trade.count({ where }),
     ]);
 
+    // For open trades, fetch current P&L from broker positions
+    let enrichedTrades = trades;
+    if (status === 'OPEN') {
+      try {
+        const botStatus = tradingBot.getStatus();
+        if (botStatus.isRunning) {
+          const positions = await tradingBot.getPositions();
+
+          enrichedTrades = trades.map((trade) => {
+            // Match by mt5PositionId
+            const position = positions.find((p) => p.id === trade.mt5PositionId);
+            if (position) {
+              return {
+                ...trade,
+                currentPnl: position.profit || 0,
+                currentPrice: position.currentPrice || trade.entryPrice,
+              };
+            }
+            return trade;
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching positions for P&L:', error);
+        // Continue with trades without current P&L
+      }
+    }
+
     return NextResponse.json({
-      trades,
+      trades: enrichedTrades,
       total,
       limit,
       offset,
