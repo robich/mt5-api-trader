@@ -133,6 +133,7 @@ model AccountSnapshot {
 model BotState {
   id            String   @id @default("singleton")
   isRunning     Boolean  @default(false)
+  startedAt     DateTime?
   lastHeartbeat DateTime?
   activeSymbols String   // Comma-separated list
   config        String   // JSON config

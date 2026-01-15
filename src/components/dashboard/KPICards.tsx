@@ -64,7 +64,7 @@ export function KPICards({
           <div className="text-2xl font-bold">{formatCurrency(equity)}</div>
           <p
             className={`text-xs ${
-              unrealizedPnl >= 0 ? 'text-green-600' : 'text-red-600'
+              unrealizedPnl > 0 ? 'text-green-600' : unrealizedPnl < 0 ? 'text-red-600' : 'text-muted-foreground'
             }`}
           >
             {unrealizedPnl >= 0 ? '+' : ''}
@@ -76,23 +76,25 @@ export function KPICards({
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Today's P&L</CardTitle>
-          {todayPnl >= 0 ? (
+          {todayPnl > 0 ? (
             <TrendingUp className="h-4 w-4 text-green-600" />
-          ) : (
+          ) : todayPnl < 0 ? (
             <TrendingDown className="h-4 w-4 text-red-600" />
+          ) : (
+            <Activity className="h-4 w-4 text-muted-foreground" />
           )}
         </CardHeader>
         <CardContent>
           <div
             className={`text-2xl font-bold ${
-              todayPnl >= 0 ? 'text-green-600' : 'text-red-600'
+              todayPnl > 0 ? 'text-green-600' : todayPnl < 0 ? 'text-red-600' : 'text-muted-foreground'
             }`}
           >
             {formatCurrency(todayPnl)}
           </div>
           <p
             className={`text-xs ${
-              dailyReturn >= 0 ? 'text-green-600' : 'text-red-600'
+              dailyReturn > 0 ? 'text-green-600' : dailyReturn < 0 ? 'text-red-600' : 'text-muted-foreground'
             }`}
           >
             {formatPercent(dailyReturn)} today

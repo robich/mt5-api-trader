@@ -89,12 +89,16 @@ function TradingViewChartComponent({ symbol, trades = [] }: TradingViewChartProp
     };
   }, [symbol, containerId]);
 
-  // Render trade overlays
+  // Render trade overlays - positioned to not block watchlist (left side)
   const renderTradeOverlays = () => {
     const closedTrades = trades.filter((t) => t.status === 'CLOSED' && t.closePrice);
+    if (closedTrades.length === 0) return null;
 
     return (
-      <div className="absolute top-2 right-2 z-10 bg-background/80 backdrop-blur p-2 rounded-lg max-w-xs">
+      <div
+        className="absolute top-2 left-2 bg-background/80 backdrop-blur p-2 rounded-lg max-w-xs pointer-events-auto"
+        style={{ zIndex: 1 }}
+      >
         <div className="text-xs font-semibold mb-2">Recent Trades</div>
         <div className="space-y-1 max-h-32 overflow-y-auto">
           {closedTrades.slice(0, 5).map((trade) => (
@@ -122,7 +126,7 @@ function TradingViewChartComponent({ symbol, trades = [] }: TradingViewChartProp
   };
 
   return (
-    <div className="relative w-full" style={{ height: '500px' }}>
+    <div className="relative w-full" style={{ height: '500px', pointerEvents: 'auto' }}>
       <div ref={containerRef} style={{ height: '100%', width: '100%' }} />
       {trades.length > 0 && renderTradeOverlays()}
     </div>

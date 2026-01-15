@@ -14,6 +14,7 @@ export async function GET() {
 
     return NextResponse.json({
       ...status,
+      startedAt: botState?.startedAt,
       lastHeartbeat: botState?.lastHeartbeat,
     });
   } catch (error) {

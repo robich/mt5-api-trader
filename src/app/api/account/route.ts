@@ -9,6 +9,11 @@ export async function GET() {
     // Get bot status
     const botStatus = tradingBot.getStatus();
 
+    // Get bot state from DB for startedAt
+    const botState = await prisma.botState.findUnique({
+      where: { id: 'singleton' },
+    });
+
     let accountInfo = null;
     let positions: any[] = [];
 
@@ -61,6 +66,7 @@ export async function GET() {
       botStatus: {
         isRunning: botStatus.isRunning,
         symbols: botStatus.symbols,
+        startedAt: botState?.startedAt,
       },
       stats: {
         todayPnl,

@@ -293,18 +293,21 @@ export class TradingBot {
   }
 
   private async updateBotState(isRunning: boolean): Promise<void> {
+    const now = new Date();
     await prisma.botState.upsert({
       where: { id: 'singleton' },
       update: {
         isRunning,
-        lastHeartbeat: new Date(),
+        startedAt: isRunning ? now : null,
+        lastHeartbeat: now,
         activeSymbols: this.config.symbols.join(','),
         config: JSON.stringify(this.config),
       },
       create: {
         id: 'singleton',
         isRunning,
-        lastHeartbeat: new Date(),
+        startedAt: isRunning ? now : null,
+        lastHeartbeat: now,
         activeSymbols: this.config.symbols.join(','),
         config: JSON.stringify(this.config),
       },

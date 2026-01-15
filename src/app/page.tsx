@@ -10,7 +10,6 @@ import { SignalsList } from '@/components/dashboard/SignalsList';
 import { TradingViewChart } from '@/components/dashboard/TradingViewChart';
 import { BotControls } from '@/components/dashboard/BotControls';
 import { AnalysisPanel } from '@/components/dashboard/AnalysisPanel';
-import Link from 'next/link';
 
 interface AccountData {
   account: {
@@ -25,6 +24,7 @@ interface AccountData {
   botStatus: {
     isRunning: boolean;
     symbols: string[];
+    startedAt: string | null;
   };
   stats: {
     todayPnl: number;
@@ -162,11 +162,6 @@ export default function Dashboard() {
             <h1 className="text-3xl font-bold">SMC Trading Bot</h1>
             <p className="text-muted-foreground">Smart Money Concept Automated Trading</p>
           </div>
-          <div className="flex gap-2">
-            <Link href="/backtest">
-              <Button variant="outline">Backtesting</Button>
-            </Link>
-          </div>
         </div>
 
         {error && (
@@ -214,6 +209,7 @@ export default function Dashboard() {
               <BotControls
                 isRunning={accountData?.botStatus.isRunning || false}
                 symbols={accountData?.botStatus.symbols || ['XAUUSD', 'XAGUSD.s', 'BTCUSD']}
+                startedAt={accountData?.botStatus.startedAt || null}
                 onStart={handleStartBot}
                 onStop={handleStopBot}
                 onRefresh={fetchData}
@@ -221,7 +217,7 @@ export default function Dashboard() {
             </div>
 
             {/* TradingView Chart */}
-            <Card className="overflow-hidden">
+            <Card>
               <CardContent className="p-0 h-[500px]">
                 <TradingViewChart
                   symbol={selectedSymbol}

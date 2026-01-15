@@ -23,7 +23,7 @@ const API_TOKEN = process.env.META_API_TOKEN;
 const ACCOUNT_ID = process.env.META_API_ACCOUNT_ID;
 
 // Default symbols to test
-const DEFAULT_SYMBOLS = ['XAUUSD.s', 'XAGUSD.s', 'BTCUSD'];
+const DEFAULT_SYMBOLS = ['XAUUSD.s', 'XAGUSD.s', 'BTCUSD', 'ETHUSD'];
 
 // Timeframe presets for testing
 const TIMEFRAME_PRESETS = {
@@ -200,6 +200,11 @@ const VARIATIONS = [
   { name: 'XAG-OPTIMAL: OB70|RR2.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: false },
   { name: 'XAG-OPTIMAL: ATR1.2|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.2, requireConfirmation: false },
 
+  // ETHUSD OPTIMAL: OB70 with RR2-2.5 (Standard timeframe H4/H1/M5)
+  { name: 'ETH-OPTIMAL: OB70|RR2.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: false },
+  { name: 'ETH-OPTIMAL: OB70|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: false },
+  { name: 'ETH-OPTIMAL: OB65|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 65, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: false },
+
   // === UNIVERSAL STRATEGIES (work across all symbols) ===
   { name: 'UNIVERSAL: OB70|All|DD8%|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: false },
   { name: 'UNIVERSAL: OB70|All|DD8%|RR1.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 1.5, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: false },
@@ -218,6 +223,7 @@ const SYMBOL_INFO = {
   'XAUUSD.s': { pipSize: 0.1, contractSize: 100, minVolume: 0.01, maxSlPips: 50, typicalSpread: 0.25 },  // ~25 cents spread
   'XAGUSD.s': { pipSize: 0.01, contractSize: 5000, minVolume: 0.01, maxSlPips: 100, typicalSpread: 0.025 }, // ~2.5 cents spread
   'BTCUSD': { pipSize: 1, contractSize: 1, minVolume: 0.01, maxSlPips: 500, typicalSpread: 15 },  // ~$15 spread
+  'ETHUSD': { pipSize: 0.1, contractSize: 1, minVolume: 0.01, maxSlPips: 300, typicalSpread: 1.5 },  // ~$1.50 spread
 };
 
 // Kill Zone definitions (UTC)
