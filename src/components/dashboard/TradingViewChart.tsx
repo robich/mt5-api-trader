@@ -418,7 +418,10 @@ function TradingViewChartComponent({ symbol, trades = [], currency = 'USD' }: Tr
 }
 
 function convertTradesToRects(trades: Trade[], candleData: CandlestickData[]): TradeRect[] {
+  console.log('[Chart] convertTradesToRects called with', trades.length, 'trades and', candleData.length, 'candles');
+
   if (!trades || trades.length === 0 || !candleData || candleData.length === 0) {
+    console.log('[Chart] Early return - no trades or candles');
     return [];
   }
 
@@ -427,9 +430,14 @@ function convertTradesToRects(trades: Trade[], candleData: CandlestickData[]): T
   const lastCandleTime = typeof candleData[candleData.length - 1].time === 'number'
     ? candleData[candleData.length - 1].time as number
     : now;
+  const firstCandleTime = typeof candleData[0].time === 'number'
+    ? candleData[0].time as number
+    : 0;
+
+  console.log('[Chart] Candle range:', new Date(firstCandleTime * 1000).toISOString(), 'to', new Date(lastCandleTime * 1000).toISOString());
 
   // Helper to find nearest candle time
-  const findNearestCandleTime = (timestamp: string): number | null => {
+  const findNearestCandleTime = (timestamp: string, tradeId: string): number | null => {
     const tradeTime = Math.floor(new Date(timestamp).getTime() / 1000);
     let nearestCandle = candleData[0];
     let minDiff = Infinity;
@@ -443,22 +451,26 @@ function convertTradesToRects(trades: Trade[], candleData: CandlestickData[]): T
       }
     }
 
-    // Only return if within reasonable range (4 hours = 14400 seconds)
-    if (minDiff < 14400 && nearestCandle) {
+    console.log(`[Chart] Trade ${tradeId}: openTime=${timestamp}, tradeTime=${new Date(tradeTime * 1000).toISOString()}, minDiff=${minDiff}s (${(minDiff/3600).toFixed(1)}h)`);
+
+    // Only return if within reasonable range (24 hours = 86400 seconds)
+    if (minDiff < 86400 && nearestCandle) {
       return typeof nearestCandle.time === 'number' ? nearestCandle.time : null;
     }
+    console.log(`[Chart] Trade ${tradeId}: SKIPPED - outside 24h range`);
     return null;
   };
 
   for (const trade of trades) {
-    const startTime = findNearestCandleTime(trade.openTime);
+    console.log(`[Chart] Processing trade:`, trade.id, trade.symbol, trade.direction, trade.status);
+    const startTime = findNearestCandleTime(trade.openTime, trade.id);
     if (startTime === null) continue;
 
     let endTime: number;
     let exitPrice: number;
 
     if (trade.status === 'CLOSED' && trade.closeTime && trade.closePrice) {
-      const closeT = findNearestCandleTime(trade.closeTime);
+      const closeT = findNearestCandleTime(trade.closeTime, trade.id + '-close');
       endTime = closeT !== null ? closeT : lastCandleTime;
       exitPrice = trade.closePrice;
     } else {
@@ -468,6 +480,8 @@ function convertTradesToRects(trades: Trade[], candleData: CandlestickData[]): T
       const lastCandle = candleData[candleData.length - 1];
       exitPrice = lastCandle.close;
     }
+
+    console.log(`[Chart] Trade ${trade.id}: Adding rect from ${startTime} to ${endTime}, entry=${trade.entryPrice}, exit=${exitPrice}`);
 
     rects.push({
       startTime,
@@ -482,6 +496,7 @@ function convertTradesToRects(trades: Trade[], candleData: CandlestickData[]): T
     });
   }
 
+  console.log(`[Chart] Created ${rects.length} trade rectangles`);
   return rects;
 }
 
