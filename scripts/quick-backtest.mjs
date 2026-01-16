@@ -216,6 +216,30 @@ const VARIATIONS = [
 
   // === WITH CONFIRMATION (lower risk, fewer trades) ===
   { name: 'CONFIRM: OB70|Engulf|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: true, confirmationType: 'engulf' },
+
+  // === BREAKEVEN STRATEGIES (move SL to BE + buffer when profit reached) ===
+  // BE at 0.5R - aggressive BE trigger
+  { name: 'BE: 0.5R|RR2|2pips', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.5, beBufferPips: 2 },
+  // BE at 1R - standard BE trigger
+  { name: 'BE: 1R|RR2|2pips', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 1.0, beBufferPips: 2 },
+  // BE at 1R with 5 pips buffer
+  { name: 'BE: 1R|RR2|5pips', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 1.0, beBufferPips: 5 },
+  // BE at 1.5R - conservative BE trigger
+  { name: 'BE: 1.5R|RR2|2pips', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 1.5, beBufferPips: 2 },
+  // BE at 0.75R with RR2.5 (more room to TP)
+  { name: 'BE: 0.75R|RR2.5|3pips', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+
+  // === OPPOSING SIGNAL EXIT (close when strong opposing signals appear) ===
+  { name: 'OPPOSE: OB75|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableOpposingExit: true, minOpposingScore: 75 },
+  { name: 'OPPOSE: OB80|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableOpposingExit: true, minOpposingScore: 80 },
+
+  // === COMBO: Breakeven + Opposing Exit ===
+  { name: 'COMBO: BE1R+OPPOSE75', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 1.0, beBufferPips: 2, enableOpposingExit: true, minOpposingScore: 75 },
+  { name: 'COMBO: BE0.75R+OPPOSE80', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3, enableOpposingExit: true, minOpposingScore: 80 },
+
+  // === SYMBOL-SPECIFIC with BE ===
+  { name: 'BTC-BE: ATR0.8|BE1R|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 0.8, enableBreakeven: true, breakevenTriggerR: 1.0, beBufferPips: 5 },
+  { name: 'XAU-BE: ATR1.5|BE1R|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.5, enableBreakeven: true, breakevenTriggerR: 1.0, beBufferPips: 2 },
 ];
 
 // Symbol info for backtesting (including typical spreads)
@@ -266,6 +290,19 @@ class SMCBacktestEngine {
     this.swingPoints = [];    // Tracked swing highs/lows for liquidity
     this.lastBOS = null;      // Last Break of Structure
     this.pendingSignal = null; // Store signal waiting for confirmation
+
+    // Breakeven settings
+    this.enableBreakeven = config.enableBreakeven || false;
+    this.breakevenTriggerR = config.breakevenTriggerR || 1.0; // Move to BE after 1R profit
+    this.beBufferPips = config.beBufferPips || 2; // Lock in 2 pips profit at BE
+
+    // Opposing signal exit settings
+    this.enableOpposingExit = config.enableOpposingExit || false;
+    this.minOpposingScore = config.minOpposingScore || 75; // High score for opposing signal
+
+    // Tracking stats
+    this.beMovedCount = 0;
+    this.opposingExitCount = 0;
   }
 
   async run(htfCandles, mtfCandles, ltfCandles) {
@@ -292,6 +329,21 @@ class SMCBacktestEngine {
 
       // Check position exit first
       if (this.position) {
+        // Check breakeven first (move SL if profit threshold reached)
+        this.checkBreakeven(currentCandle, symbolInfo);
+
+        // Check for opposing signal exit (close if strong opposing signal)
+        const recentMTF = this.getRecentMTF(mtfCandles, currentTime, 30);
+        const recentHTF = this.getRecentHTF(htfCandles, currentTime, 20);
+        const htfBias = this.determineHTFBias(recentHTF);
+        const opposingExit = this.checkOpposingSignalExit(currentPrice, currentCandle, recentMTF, htfBias);
+        if (opposingExit) {
+          this.closePosition(opposingExit.price, currentTime, opposingExit.reason, symbolInfo);
+          this.opposingExitCount++;
+          continue;
+        }
+
+        // Check normal exit (SL/TP)
         const exitResult = this.checkExit(currentCandle);
         if (exitResult) {
           this.closePosition(exitResult.price, currentTime, exitResult.reason, symbolInfo);
@@ -487,6 +539,113 @@ class SMCBacktestEngine {
     this.swingPoints = [];
     this.lastBOS = null;
     this.pendingSignal = null;
+    this.beMovedCount = 0;
+    this.opposingExitCount = 0;
+  }
+
+  /**
+   * Check if position should be moved to breakeven
+   * @param {Object} candle - Current candle
+   * @param {Object} symbolInfo - Symbol information
+   * @returns {boolean} - Whether SL was moved to breakeven
+   */
+  checkBreakeven(candle, symbolInfo) {
+    if (!this.enableBreakeven || !this.position || this.position.movedToBreakeven) {
+      return false;
+    }
+
+    const pos = this.position;
+    const riskDistance = Math.abs(pos.entry - (pos.originalSl || pos.sl));
+
+    // Calculate current profit in terms of R
+    let currentProfitR = 0;
+    if (pos.direction === 'BUY') {
+      currentProfitR = (candle.high - pos.entry) / riskDistance;
+    } else {
+      currentProfitR = (pos.entry - candle.low) / riskDistance;
+    }
+
+    // Check if profit threshold reached
+    if (currentProfitR >= this.breakevenTriggerR) {
+      // Calculate breakeven SL with buffer
+      const bufferAmount = this.beBufferPips * symbolInfo.pipSize;
+
+      if (pos.direction === 'BUY') {
+        const newSL = pos.entry + bufferAmount;
+        // Only move if new SL is better (higher for BUY)
+        if (newSL > pos.sl) {
+          pos.originalSl = pos.sl; // Store original SL
+          pos.sl = newSL;
+          pos.movedToBreakeven = true;
+          this.beMovedCount++;
+          return true;
+        }
+      } else {
+        const newSL = pos.entry - bufferAmount;
+        // Only move if new SL is better (lower for SELL)
+        if (newSL < pos.sl) {
+          pos.originalSl = pos.sl; // Store original SL
+          pos.sl = newSL;
+          pos.movedToBreakeven = true;
+          this.beMovedCount++;
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Check for strong opposing signals that suggest closing the trade
+   * @param {number} currentPrice - Current price
+   * @param {Object} currentCandle - Current candle
+   * @param {Array} recentMTF - Recent MTF candles
+   * @param {string} htfBias - Current HTF bias
+   * @returns {Object|null} - Exit signal if opposing signal found
+   */
+  checkOpposingSignalExit(currentPrice, currentCandle, recentMTF, htfBias) {
+    if (!this.enableOpposingExit || !this.position) {
+      return null;
+    }
+
+    const pos = this.position;
+    const opposingDirection = pos.direction === 'BUY' ? 'BEARISH' : 'BULLISH';
+
+    // Check for strong order blocks in opposing direction
+    const opposingOB = this.orderBlocks.find(ob =>
+      ob.type === opposingDirection &&
+      !ob.mitigated &&
+      !ob.used &&
+      ob.score >= this.minOpposingScore
+    );
+
+    if (!opposingOB) return null;
+
+    // Check if price is at the opposing OB
+    const isAtOpposingOB = this.isPriceAtOB(currentPrice, opposingOB);
+    if (!isAtOpposingOB) return null;
+
+    // Check for strong opposing candle pattern (momentum against our position)
+    const body = Math.abs(currentCandle.close - currentCandle.open);
+    const range = currentCandle.high - currentCandle.low;
+    const isStrongOpposingCandle = body > range * 0.5;
+
+    let shouldExit = false;
+    if (pos.direction === 'BUY') {
+      // For BUY, look for strong bearish candle at bearish OB
+      shouldExit = this.isBearishCandle(currentCandle) && isStrongOpposingCandle;
+    } else {
+      // For SELL, look for strong bullish candle at bullish OB
+      shouldExit = this.isBullishCandle(currentCandle) && isStrongOpposingCandle;
+    }
+
+    if (shouldExit) {
+      opposingOB.used = true;
+      return { price: currentPrice, reason: 'OPPOSING' };
+    }
+
+    return null;
   }
 
   /**
@@ -1430,11 +1589,13 @@ class SMCBacktestEngine {
       entry: this.position.entry,
       exit: exitPrice,
       sl: this.position.sl,
+      originalSl: this.position.originalSl,
       tp: this.position.tp,
       pnl,
       isWinner: pnl > 0,
       reason,
       obScore: this.position.obScore,
+      movedToBreakeven: this.position.movedToBreakeven || false,
     });
 
     this.position = null;
@@ -1464,6 +1625,12 @@ class SMCBacktestEngine {
     const grossLoss = Math.abs(losing.reduce((s, t) => s + t.pnl, 0));
     const pf = grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? Infinity : 0;
 
+    // Count exit reasons
+    const slExits = this.trades.filter(t => t.reason === 'SL').length;
+    const tpExits = this.trades.filter(t => t.reason === 'TP').length;
+    const opposingExits = this.trades.filter(t => t.reason === 'OPPOSING').length;
+    const beHits = this.trades.filter(t => t.movedToBreakeven && t.reason === 'SL').length;
+
     return {
       totalTrades: this.trades.length,
       winningTrades: winning.length,
@@ -1474,6 +1641,12 @@ class SMCBacktestEngine {
       totalPnl,
       totalPnlPercent: (totalPnl / this.config.initialBalance) * 100,
       finalBalance: this.balance,
+      // New metrics
+      beMovedCount: this.beMovedCount,
+      beHits, // Trades that were moved to BE and then hit SL
+      opposingExits,
+      slExits,
+      tpExits,
     };
   }
 }
@@ -1654,45 +1827,71 @@ async function fetchCandles(account, symbol, timeframe, startDate, endDate) {
 function printTable(results, periodInfo = null) {
   const sorted = [...results].sort((a, b) => b.totalPnl - a.totalPnl);
 
-  console.log('\n' + '='.repeat(100));
+  // Check if any results have BE or opposing exit data
+  const hasBEData = sorted.some(r => r.beMovedCount > 0 || r.beHits > 0);
+  const hasOpposingData = sorted.some(r => r.opposingExits > 0);
+
+  console.log('\n' + '='.repeat(hasBEData || hasOpposingData ? 130 : 100));
   console.log('BACKTEST COMPARISON RESULTS');
   if (periodInfo) {
     console.log(`Period: ${periodInfo.startDate} to ${periodInfo.endDate} (${periodInfo.days} days)`);
   }
-  console.log('='.repeat(100));
-  console.log(
-    'Strategy'.padEnd(30) +
+  console.log('='.repeat(hasBEData || hasOpposingData ? 130 : 100));
+
+  let header = 'Strategy'.padEnd(30) +
     'Trades'.padStart(8) +
     'Win%'.padStart(8) +
     'PF'.padStart(8) +
     'PnL $'.padStart(12) +
     'MaxDD%'.padStart(10) +
-    'Final $'.padStart(12)
-  );
-  console.log('-'.repeat(100));
+    'Final $'.padStart(12);
+
+  if (hasBEData) {
+    header += 'BE Mvd'.padStart(8) + 'BE Hit'.padStart(8);
+  }
+  if (hasOpposingData) {
+    header += 'OppEx'.padStart(8);
+  }
+
+  console.log(header);
+  console.log('-'.repeat(hasBEData || hasOpposingData ? 130 : 100));
 
   for (const r of sorted) {
     const color = r.totalPnl >= 0 ? '\x1b[32m' : '\x1b[31m';
     const reset = '\x1b[0m';
-    console.log(
-      r.name.substring(0, 29).padEnd(30) +
+    let row = r.name.substring(0, 29).padEnd(30) +
       r.totalTrades.toString().padStart(8) +
       r.winRate.toFixed(1).padStart(8) +
       r.profitFactor.toFixed(2).padStart(8) +
       `${color}${r.totalPnl.toFixed(0)}${reset}`.padStart(22) +
       r.maxDrawdown.toFixed(1).padStart(10) +
-      r.finalBalance.toFixed(0).padStart(12)
-    );
+      r.finalBalance.toFixed(0).padStart(12);
+
+    if (hasBEData) {
+      row += (r.beMovedCount || 0).toString().padStart(8) +
+             (r.beHits || 0).toString().padStart(8);
+    }
+    if (hasOpposingData) {
+      row += (r.opposingExits || 0).toString().padStart(8);
+    }
+
+    console.log(row);
   }
 
-  console.log('='.repeat(100));
+  console.log('='.repeat(hasBEData || hasOpposingData ? 130 : 100));
 
   if (sorted.length > 0) {
     const winner = sorted[0];
-    console.log(`\n${'*'.repeat(50)}`);
+    console.log(`\n${'*'.repeat(60)}`);
     console.log(`  WINNING STRATEGY: "${winner.name}"`);
     console.log(`  Win Rate: ${winner.winRate.toFixed(1)}% | PF: ${winner.profitFactor.toFixed(2)} | PnL: $${winner.totalPnl.toFixed(2)}`);
-    console.log(`${'*'.repeat(50)}\n`);
+    if (winner.beMovedCount > 0) {
+      console.log(`  BE Moved: ${winner.beMovedCount} trades | BE Hits: ${winner.beHits || 0}`);
+    }
+    if (winner.opposingExits > 0) {
+      console.log(`  Opposing Exits: ${winner.opposingExits}`);
+    }
+    console.log(`${'*'.repeat(60)}\n`);
   }
 }
 
@@ -1870,6 +2069,13 @@ async function main() {
             atrMult: v.atrMult || 1.0,
             requireConfirmation: v.requireConfirmation || false,
             confirmationType: v.confirmationType || 'close',
+            // Breakeven settings
+            enableBreakeven: v.enableBreakeven || false,
+            breakevenTriggerR: v.breakevenTriggerR || 1.0,
+            beBufferPips: v.beBufferPips || 2,
+            // Opposing signal exit settings
+            enableOpposingExit: v.enableOpposingExit || false,
+            minOpposingScore: v.minOpposingScore || 75,
           };
 
           const engine = new SMCBacktestEngine(config);

@@ -76,8 +76,8 @@ export class TradingBot {
       // Subscribe to market data for all symbols
       await this.subscribeToMarketData();
 
-      // Update bot state
-      await this.updateBotState(true);
+      // Update bot state (forceStartedAt=true since bot is actually starting)
+      await this.updateBotState(true, true);
 
       this.isRunning = true;
 
@@ -340,17 +340,26 @@ export class TradingBot {
     console.log('Trading bot stopped');
   }
 
-  private async updateBotState(isRunning: boolean): Promise<void> {
+  private async updateBotState(isRunning: boolean, forceStartedAt: boolean = false): Promise<void> {
     const now = new Date();
+
+    // Only update startedAt when bot starts (forceStartedAt) or stops
+    // Don't reset it on every heartbeat
+    const updateData: any = {
+      isRunning,
+      lastHeartbeat: now,
+      activeSymbols: this.config.symbols.join(','),
+      config: JSON.stringify(this.config),
+    };
+
+    // Only set startedAt when explicitly starting or stopping
+    if (forceStartedAt || !isRunning) {
+      updateData.startedAt = isRunning ? now : null;
+    }
+
     await prisma.botState.upsert({
       where: { id: 'singleton' },
-      update: {
-        isRunning,
-        startedAt: isRunning ? now : null,
-        lastHeartbeat: now,
-        activeSymbols: this.config.symbols.join(','),
-        config: JSON.stringify(this.config),
-      },
+      update: updateData,
       create: {
         id: 'singleton',
         isRunning,
