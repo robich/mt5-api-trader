@@ -258,7 +258,7 @@ export default function Dashboard() {
                         Open ({openTrades?.trades.length || 0})
                       </TabsTrigger>
                       <TabsTrigger value="closed">
-                        History ({closedTrades?.total || 0})
+                        History ({(closedTrades?.trades || []).filter((t: any) => t.pnl != null).length})
                       </TabsTrigger>
                     </TabsList>
                   </div>
@@ -300,7 +300,9 @@ export default function Dashboard() {
                   </TabsContent>
                   <TabsContent value="closed" className="mt-0">
                     <TradeTable
-                      trades={closedTrades?.trades || []}
+                      trades={(closedTrades?.trades || []).filter((trade: any) =>
+                        trade.pnl != null
+                      )}
                       type="closed"
                       currency={accountData?.account.currency || 'USD'}
                     />

@@ -555,6 +555,7 @@ export class TradeManager {
   /**
    * Import an external MT5 position into the database
    * Used for positions opened manually or by other systems
+   * Parses strategy from comment if opened by the bot (format: "SMC STRATEGY_NAME")
    */
   async importExternalPosition(position: Position): Promise<Trade> {
     const direction = position.type as Direction;
@@ -575,11 +576,26 @@ export class TradeManager {
       riskRewardRatio = riskPips > 0 ? rewardPips / riskPips : 0;
     }
 
+    // Parse strategy from comment if it's a bot-opened trade
+    // Bot uses format: "SMC STRATEGY_NAME" (e.g., "SMC ORDER_BLOCK")
+    let strategy: StrategyType | 'EXTERNAL' = 'EXTERNAL';
+    let notes = 'Imported from MT5 - position opened externally';
+
+    if (position.comment?.startsWith('SMC ')) {
+      const parsedStrategy = position.comment.substring(4).trim();
+      // Validate it's a known strategy
+      const validStrategies: StrategyType[] = ['ORDER_BLOCK', 'LIQUIDITY_SWEEP', 'BOS', 'FBO_CLASSIC', 'FBO_SWEEP', 'FBO_STRUCTURE'];
+      if (validStrategies.includes(parsedStrategy as StrategyType)) {
+        strategy = parsedStrategy as StrategyType;
+        notes = `Imported from MT5 - bot trade (${strategy})`;
+      }
+    }
+
     const trade = await prisma.trade.create({
       data: {
         symbol: position.symbol,
         direction,
-        strategy: 'EXTERNAL', // Mark as externally opened
+        strategy,
         entryPrice: position.openPrice,
         stopLoss,
         takeProfit,
@@ -589,11 +605,11 @@ export class TradeManager {
         mt5PositionId: position.id,
         riskAmount: estimatedRiskAmount,
         riskRewardRatio,
-        notes: 'Imported from MT5 - position opened externally',
+        notes,
       },
     });
 
-    console.log(`[TradeManager] Imported external position: ${position.symbol} ${direction} @ ${position.openPrice} (ID: ${position.id})`);
+    console.log(`[TradeManager] Imported position: ${position.symbol} ${direction} @ ${position.openPrice} (ID: ${position.id}, Strategy: ${strategy})`);
 
     return trade as Trade;
   }

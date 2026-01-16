@@ -148,6 +148,7 @@ export interface Position {
   profit: number;
   swap: number;
   openTime: Date;
+  comment?: string;
 }
 
 export interface SymbolInfo {

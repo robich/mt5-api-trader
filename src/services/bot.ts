@@ -127,6 +127,7 @@ export class TradingBot {
           profit: pos.profit,
           swap: pos.swap,
           time: pos.openTime,
+          comment: pos.comment,
         });
       }
 
@@ -267,6 +268,7 @@ export class TradingBot {
       profit: pos.profit || 0,
       swap: pos.swap || 0,
       openTime: pos.time,
+      comment: pos.comment,
     }));
 
     await tradeManager.syncWithBrokerPositions(convertedPositions);
@@ -592,6 +594,7 @@ export class TradingBot {
         profit: pos.profit || 0,
         swap: pos.swap || 0,
         openTime: pos.time,
+        comment: pos.comment,
       }));
     }
     return metaApiClient.getPositions();

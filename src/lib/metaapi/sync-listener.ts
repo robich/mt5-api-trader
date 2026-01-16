@@ -47,6 +47,7 @@ export interface PositionUpdate {
   profit?: number;
   swap?: number;
   time: Date;
+  comment?: string;
 }
 
 export interface OrderUpdate {
@@ -262,6 +263,7 @@ export class TradingBotSyncListener {
       profit: pos.profit || pos.unrealizedProfit || 0,
       swap: pos.swap || 0,
       time: new Date(pos.time),
+      comment: pos.comment,
     }));
 
     this.callbacks.onPositionUpdate?.(updates, removedPositionIds);

@@ -205,6 +205,7 @@ class MetaAPIClient {
       profit: pos.profit || pos.unrealizedProfit || 0,
       swap: pos.swap || 0,
       openTime: new Date(pos.time),
+      comment: pos.comment,
     }));
   }
 
