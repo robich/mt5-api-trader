@@ -5,6 +5,15 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+const getPackageVersion = () => {
+  try {
+    const pkg = JSON.parse(readFileSync(join(__dirname, 'package.json'), 'utf8'));
+    return pkg.version || '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+};
+
 const getGitCommitHash = () => {
   // 1. Check for .commit-hash file (written by prebuild script)
   const hashFile = join(__dirname, '.commit-hash');
@@ -49,6 +58,7 @@ const getBuildTime = () => {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   env: {
+    NEXT_PUBLIC_VERSION: getPackageVersion(),
     NEXT_PUBLIC_GIT_COMMIT: getGitCommitHash(),
     NEXT_PUBLIC_BUILD_TIME: getBuildTime(),
   },

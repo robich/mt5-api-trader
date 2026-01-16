@@ -576,7 +576,24 @@ export class TradingBot {
     return metaApiClient.getAccountInfo();
   }
 
-  async getPositions() {
+  async getPositions(): Promise<Position[]> {
+    // Use lastKnownPositions for real-time profit updates from streaming connection
+    // Falls back to MetaAPI terminalState if no streaming data available
+    if (this.lastKnownPositions.size > 0) {
+      return Array.from(this.lastKnownPositions.values()).map((pos) => ({
+        id: pos.id,
+        symbol: pos.symbol,
+        type: pos.type === 'POSITION_TYPE_BUY' ? 'BUY' : 'SELL',
+        volume: pos.volume,
+        openPrice: pos.openPrice,
+        currentPrice: pos.currentPrice || pos.openPrice,
+        stopLoss: pos.stopLoss,
+        takeProfit: pos.takeProfit,
+        profit: pos.profit || 0,
+        swap: pos.swap || 0,
+        openTime: pos.time,
+      }));
+    }
     return metaApiClient.getPositions();
   }
 }

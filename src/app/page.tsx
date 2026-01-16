@@ -163,7 +163,7 @@ export default function Dashboard() {
             <p className="text-muted-foreground">Smart Money Concept Automated Trading</p>
           </div>
           <div className="text-sm text-muted-foreground">
-            Built: {process.env.NEXT_PUBLIC_BUILD_TIME || 'unknown'} UTC
+            v{process.env.NEXT_PUBLIC_VERSION || '0.0.0'}
           </div>
         </div>
 
