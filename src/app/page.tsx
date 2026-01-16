@@ -164,9 +164,7 @@ export default function Dashboard() {
           </div>
           <div className="text-sm text-muted-foreground text-right">
             <div>v0.1.0 ({process.env.NEXT_PUBLIC_GIT_COMMIT || 'dev'})</div>
-            {process.env.NEXT_PUBLIC_BUILD_TIME && (
-              <div className="text-xs">Built: {process.env.NEXT_PUBLIC_BUILD_TIME} UTC</div>
-            )}
+            <div className="text-xs">Built: {process.env.NEXT_PUBLIC_BUILD_TIME || 'unknown'} UTC</div>
           </div>
         </div>
 
