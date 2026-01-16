@@ -501,30 +501,49 @@ function convertTradesToRects(trades: Trade[], candleData: CandlestickData[]): T
 }
 
 async function fetchCandleData(symbol: string): Promise<CandlestickData[]> {
-  // Map symbol to a format suitable for data fetching
-  const cleanSymbol = symbol.replace('.s', '').toUpperCase();
+  // Keep the symbol exactly as provided (preserve case for broker compatibility)
+  const apiSymbol = symbol;
+
+  // Calculate date range: last 5 days
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - 5);
 
   // Try to fetch from our API first
   try {
-    const response = await fetch(`/api/candles?symbol=${cleanSymbol}&timeframe=15m&limit=500`);
+    const params = new URLSearchParams({
+      symbol: apiSymbol,
+      timeframe: 'M15',
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+    });
+    const url = `/api/candles?${params.toString()}`;
+    console.log('[Chart] Fetching candles:', url);
+
+    const response = await fetch(url);
     if (response.ok) {
       const data = await response.json();
+      console.log('[Chart] Received', data.count, 'candles from API');
       if (data.candles && data.candles.length > 0) {
-        return data.candles.map((c: CandleData) => ({
-          time: c.time as Time,
+        return data.candles.map((c: any) => ({
+          time: Math.floor(new Date(c.time).getTime() / 1000) as Time,
           open: c.open,
           high: c.high,
           low: c.low,
           close: c.close,
         }));
       }
+    } else {
+      const errorText = await response.text();
+      console.log('[Chart] API error:', response.status, errorText);
     }
   } catch (err) {
-    console.log('API candles not available, using demo data');
+    console.log('[Chart] API candles not available, using demo data:', err);
   }
 
   // Generate demo data if API not available
-  return generateDemoData(cleanSymbol);
+  console.log('[Chart] Falling back to demo data for', apiSymbol);
+  return generateDemoData(apiSymbol);
 }
 
 function generateDemoData(symbol: string): CandlestickData[] {
@@ -532,16 +551,19 @@ function generateDemoData(symbol: string): CandlestickData[] {
   const now = Math.floor(Date.now() / 1000);
   const interval = 15 * 60; // 15 minutes
 
-  // Base prices for different symbols
+  // Base prices for different symbols (including broker-specific variants)
   const basePrices: Record<string, number> = {
     XAUUSD: 2650,
+    'XAUUSD.s': 2650,
     XAGUSD: 30,
+    'XAGUSD.s': 90, // Broker-specific pricing
     BTCUSD: 95000,
     EURUSD: 1.05,
     GBPUSD: 1.27,
   };
 
-  let price = basePrices[symbol] || 100;
+  // Normalize symbol for lookup (try exact match first, then without suffix)
+  let price = basePrices[symbol] || basePrices[symbol.replace(/\.s$/i, '')] || 100;
   const volatility = price * 0.001; // 0.1% volatility per candle
 
   for (let i = 500; i >= 0; i--) {

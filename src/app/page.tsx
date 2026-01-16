@@ -225,10 +225,23 @@ export default function Dashboard() {
               <CardContent className="p-0 h-[500px] overflow-visible">
                 <TradingViewChart
                   symbol={selectedSymbol}
-                  trades={[
-                    ...(openTrades?.trades.filter((t: any) => t.symbol === selectedSymbol || t.symbol === selectedSymbol.replace('.s', '')) || []),
-                    ...(closedTrades?.trades.filter((t: any) => t.symbol === selectedSymbol || t.symbol === selectedSymbol.replace('.s', '')) || []),
-                  ]}
+                  trades={(() => {
+                    // Normalize symbol for comparison (remove .s suffix, case insensitive)
+                    const normalizeSymbol = (s: string) => s.replace(/\.s$/i, '').toUpperCase();
+                    const selectedNorm = normalizeSymbol(selectedSymbol);
+
+                    const matchingTrades = [
+                      ...(openTrades?.trades.filter((t: any) => normalizeSymbol(t.symbol) === selectedNorm) || []),
+                      ...(closedTrades?.trades.filter((t: any) => normalizeSymbol(t.symbol) === selectedNorm) || []),
+                    ];
+
+                    console.log('[Page] Selected symbol:', selectedSymbol, '-> normalized:', selectedNorm);
+                    console.log('[Page] Open trades symbols:', openTrades?.trades?.map((t: any) => t.symbol));
+                    console.log('[Page] Closed trades symbols:', closedTrades?.trades?.map((t: any) => t.symbol));
+                    console.log('[Page] Matching trades:', matchingTrades.length);
+
+                    return matchingTrades;
+                  })()}
                   currency={accountData?.account.currency || 'USD'}
                 />
               </CardContent>
