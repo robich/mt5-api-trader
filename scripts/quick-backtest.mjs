@@ -183,6 +183,10 @@ Examples:
 // Strategy variations to test - FINAL OPTIMIZED (Jan 2026)
 // Based on iterative backtesting across BTCUSD, XAUUSD.s, XAGUSD.s
 const VARIATIONS = [
+  // === RECOMMENDED STRATEGY (Maximum Profit with BE) ===
+  // Breakeven at 1R with 5 pips buffer - proven best performer
+  { name: 'RECOMMENDED: BE1R|5pips|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 1.0, beBufferPips: 5 },
+
   // === OPTIMAL STRATEGIES BY SYMBOL ===
 
   // BTCUSD OPTIMAL: ATR0.8 with RR1.5-2 (M5 timeframe)
@@ -2111,7 +2115,11 @@ async function main() {
           minFVGSize: 1.0,
           useKillZones: false,
           maxDailyDD: 8,
-          atrMult: 1.5,
+          atrMult: 1.0,
+          // Breakeven settings (maximum profit)
+          enableBreakeven: true,
+          breakevenTriggerR: 1.0,  // Move SL to BE at 1R profit
+          beBufferPips: 5,         // Lock in 5 pips profit
         };
 
         const engine = new SMCBacktestEngine(config);

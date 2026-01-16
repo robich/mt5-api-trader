@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, memo, useState } from 'react';
-import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickData, Time, CandlestickSeries } from 'lightweight-charts';
+import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickData, Time, CandlestickSeries, createSeriesMarkers, ISeriesMarkersPluginApi, SeriesMarker } from 'lightweight-charts';
 
 interface Trade {
   id: string;
@@ -35,6 +35,7 @@ function TradingViewChartComponent({ symbol, trades = [], currency = 'USD' }: Tr
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -81,13 +82,17 @@ function TradingViewChartComponent({ symbol, trades = [], currency = 'USD' }: Tr
 
     candlestickSeriesRef.current = candlestickSeries;
 
+    // Create markers plugin
+    const seriesMarkers = createSeriesMarkers(candlestickSeries, []);
+    markersRef.current = seriesMarkers;
+
     // Fetch candle data
     fetchCandleData(symbol).then((data) => {
       if (data && data.length > 0) {
         candlestickSeries.setData(data);
 
         // Add trade markers
-        addTradeMarkers(candlestickSeries, trades, data);
+        addTradeMarkers(candlestickSeries, seriesMarkers, trades, data);
 
         // Fit content
         chart.timeScale().fitContent();
@@ -119,11 +124,11 @@ function TradingViewChartComponent({ symbol, trades = [], currency = 'USD' }: Tr
 
   // Update markers when trades change
   useEffect(() => {
-    if (candlestickSeriesRef.current && !isLoading) {
+    if (candlestickSeriesRef.current && markersRef.current && !isLoading) {
       // Re-fetch data to get markers
       fetchCandleData(symbol).then((data) => {
         if (data && data.length > 0) {
-          addTradeMarkers(candlestickSeriesRef.current!, trades, data);
+          addTradeMarkers(candlestickSeriesRef.current!, markersRef.current!, trades, data);
         }
       });
     }
@@ -207,8 +212,9 @@ function generateDemoData(symbol: string): CandlestickData[] {
 
 function addTradeMarkers(
   series: ISeriesApi<"Candlestick">,
+  markersPlugin: ISeriesMarkersPluginApi<Time>,
   trades: Trade[],
-  _candleData: CandlestickData[]
+  candleData: CandlestickData[]
 ) {
   // Clear existing price lines
   const existingLines = (series as any)._priceLines || [];
@@ -222,10 +228,34 @@ function addTradeMarkers(
   (series as any)._priceLines = [];
 
   if (!trades || trades.length === 0) {
+    markersPlugin.setMarkers([]);
     return;
   }
 
   const priceLines: any[] = [];
+  const markers: SeriesMarker<Time>[] = [];
+
+  // Helper to find nearest candle time for a given timestamp
+  const findNearestCandleTime = (timestamp: string): Time | null => {
+    const tradeTime = Math.floor(new Date(timestamp).getTime() / 1000);
+    let nearestCandle = candleData[0];
+    let minDiff = Infinity;
+
+    for (const candle of candleData) {
+      const candleTime = typeof candle.time === 'number' ? candle.time : 0;
+      const diff = Math.abs(candleTime - tradeTime);
+      if (diff < minDiff) {
+        minDiff = diff;
+        nearestCandle = candle;
+      }
+    }
+
+    // Only return if within reasonable range (2 hours = 7200 seconds)
+    if (minDiff < 7200 && nearestCandle) {
+      return nearestCandle.time;
+    }
+    return null;
+  };
 
   trades.forEach((trade) => {
     // Entry price line
@@ -265,7 +295,19 @@ function addTradeMarkers(
       priceLines.push(tpLine);
     }
 
-    // Exit price line for closed trades
+    // Add entry marker on chart
+    const entryTime = findNearestCandleTime(trade.openTime);
+    if (entryTime) {
+      markers.push({
+        time: entryTime,
+        position: trade.direction === 'BUY' ? 'belowBar' : 'aboveBar',
+        color: trade.direction === 'BUY' ? '#22c55e' : '#ef4444',
+        shape: trade.direction === 'BUY' ? 'arrowUp' : 'arrowDown',
+        text: trade.direction === 'BUY' ? 'BUY' : 'SELL',
+      });
+    }
+
+    // Exit price line and marker for closed trades
     if (trade.status === 'CLOSED' && trade.closePrice) {
       const exitLine = series.createPriceLine({
         price: trade.closePrice,
@@ -276,8 +318,35 @@ function addTradeMarkers(
         title: `Exit ${(trade.pnl || 0) >= 0 ? '+' : ''}$${(trade.pnl || 0).toFixed(2)}`,
       });
       priceLines.push(exitLine);
+
+      // Add exit marker on chart
+      if (trade.closeTime) {
+        const exitTime = findNearestCandleTime(trade.closeTime);
+        if (exitTime) {
+          const pnlText = (trade.pnl || 0) >= 0
+            ? `+$${(trade.pnl || 0).toFixed(0)}`
+            : `-$${Math.abs(trade.pnl || 0).toFixed(0)}`;
+          markers.push({
+            time: exitTime,
+            position: trade.direction === 'BUY' ? 'aboveBar' : 'belowBar',
+            color: (trade.pnl || 0) >= 0 ? '#22c55e' : '#ef4444',
+            shape: 'circle',
+            text: pnlText,
+          });
+        }
+      }
     }
   });
+
+  // Sort markers by time (required by lightweight-charts)
+  markers.sort((a, b) => {
+    const timeA = typeof a.time === 'number' ? a.time : 0;
+    const timeB = typeof b.time === 'number' ? b.time : 0;
+    return timeA - timeB;
+  });
+
+  // Set markers using the plugin API
+  markersPlugin.setMarkers(markers);
 
   // Store references for cleanup
   (series as any)._priceLines = priceLines;

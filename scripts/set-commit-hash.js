@@ -46,7 +46,17 @@ function getCommitHash() {
 const commitHash = getCommitHash();
 console.log(`[set-commit-hash] Commit hash: ${commitHash}`);
 
-// Write to a file that next.config.mjs can read
-const outputPath = path.join(__dirname, '..', '.commit-hash');
-fs.writeFileSync(outputPath, commitHash);
-console.log(`[set-commit-hash] Written to ${outputPath}`);
+// Generate build timestamp (ISO format, short version for display)
+const buildTime = new Date().toISOString();
+const buildTimeShort = buildTime.slice(0, 16).replace('T', ' '); // "2026-01-16 12:34"
+console.log(`[set-commit-hash] Build time: ${buildTimeShort}`);
+
+// Write to files that next.config.mjs can read
+const hashPath = path.join(__dirname, '..', '.commit-hash');
+const buildTimePath = path.join(__dirname, '..', '.build-time');
+
+fs.writeFileSync(hashPath, commitHash);
+fs.writeFileSync(buildTimePath, buildTimeShort);
+
+console.log(`[set-commit-hash] Written to ${hashPath}`);
+console.log(`[set-commit-hash] Written to ${buildTimePath}`);

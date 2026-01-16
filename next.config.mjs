@@ -32,10 +32,25 @@ const getGitCommitHash = () => {
   }
 };
 
+const getBuildTime = () => {
+  // Check for .build-time file (written by prebuild script)
+  const buildTimeFile = join(__dirname, '.build-time');
+  if (existsSync(buildTimeFile)) {
+    try {
+      return readFileSync(buildTimeFile, 'utf8').trim();
+    } catch {
+      // Continue to fallback
+    }
+  }
+  // Fallback for dev mode
+  return new Date().toISOString().slice(0, 16).replace('T', ' ');
+};
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   env: {
     NEXT_PUBLIC_GIT_COMMIT: getGitCommitHash(),
+    NEXT_PUBLIC_BUILD_TIME: getBuildTime(),
   },
   webpack: (config, { isServer }) => {
     // Force MetaAPI SDK to use Node.js version on server

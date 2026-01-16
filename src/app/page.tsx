@@ -162,8 +162,11 @@ export default function Dashboard() {
             <h1 className="text-3xl font-bold">SMC Trading Bot</h1>
             <p className="text-muted-foreground">Smart Money Concept Automated Trading</p>
           </div>
-          <div className="text-sm text-muted-foreground">
-            v0.1.0 ({process.env.NEXT_PUBLIC_GIT_COMMIT || 'dev'})
+          <div className="text-sm text-muted-foreground text-right">
+            <div>v0.1.0 ({process.env.NEXT_PUBLIC_GIT_COMMIT || 'dev'})</div>
+            {process.env.NEXT_PUBLIC_BUILD_TIME && (
+              <div className="text-xs">Built: {process.env.NEXT_PUBLIC_BUILD_TIME} UTC</div>
+            )}
           </div>
         </div>
 
