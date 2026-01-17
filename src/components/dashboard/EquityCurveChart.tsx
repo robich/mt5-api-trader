@@ -23,11 +23,13 @@ interface EquitySnapshot {
 interface EquityCurveChartProps {
   equityCurve: EquitySnapshot[];
   currency?: string;
+  totalTrades?: number;
 }
 
 export function EquityCurveChart({
   equityCurve,
   currency = 'USD',
+  totalTrades = 0,
 }: EquityCurveChartProps) {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -152,6 +154,12 @@ export function EquityCurveChart({
             <span className="block text-xs">Starting</span>
             <span className="font-medium text-foreground">
               {formatCurrency(startingCapital)}
+            </span>
+          </div>
+          <div className="text-center">
+            <span className="block text-xs">Trades</span>
+            <span className="font-medium text-foreground">
+              {totalTrades}
             </span>
           </div>
           <div className="text-right">

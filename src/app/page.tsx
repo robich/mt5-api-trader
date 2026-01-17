@@ -199,6 +199,7 @@ export default function Dashboard() {
         <EquityCurveChart
           equityCurve={stats?.equityCurve || []}
           currency={accountData?.account.currency || 'USD'}
+          totalTrades={stats?.stats.totalTrades || 0}
         />
 
         {/* Main Content Grid */}
@@ -213,7 +214,7 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex gap-2">
-                    {['XAUUSD', 'XAGUSD.s', 'BTCUSD'].map((symbol) => (
+                    {['XAUUSD', 'XAGUSD.s', 'BTCUSD', 'ETHUSD'].map((symbol) => (
                       <Button
                         key={symbol}
                         variant={selectedSymbol === symbol ? 'default' : 'outline'}
