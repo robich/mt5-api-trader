@@ -10,6 +10,7 @@ import { SignalsList } from '@/components/dashboard/SignalsList';
 import { TradingViewChart } from '@/components/dashboard/TradingViewChart';
 import { BotControls } from '@/components/dashboard/BotControls';
 import { AnalysisPanel } from '@/components/dashboard/AnalysisPanel';
+import { EquityCurveChart } from '@/components/dashboard/EquityCurveChart';
 
 interface AccountData {
   account: {
@@ -48,6 +49,15 @@ interface StatsData {
     totalTrades: number;
     profitFactor: number;
   };
+  equityCurve: Array<{
+    timestamp: string;
+    equity: number;
+    balance: number;
+  }>;
+  dailyPnl: Array<{
+    date: string;
+    pnl: number;
+  }>;
 }
 
 interface AnalysisData {
@@ -181,6 +191,12 @@ export default function Dashboard() {
           openTrades={accountData?.stats.openTrades || 0}
           winRate={stats?.stats.winRate || 0}
           totalTrades={stats?.stats.totalTrades || 0}
+          currency={accountData?.account.currency || 'USD'}
+        />
+
+        {/* Overall P&L Chart */}
+        <EquityCurveChart
+          equityCurve={stats?.equityCurve || []}
           currency={accountData?.account.currency || 'USD'}
         />
 
