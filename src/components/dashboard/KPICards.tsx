@@ -42,7 +42,6 @@ export function KPICards({
   };
 
   const dailyReturn = balance > 0 ? (todayPnl / balance) * 100 : 0;
-  const unrealizedPnl = equity - balance;
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -64,13 +63,8 @@ export function KPICards({
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{formatCurrency(equity)}</div>
-          <p
-            className={`text-xs ${
-              unrealizedPnl > 0 ? 'text-green-600' : unrealizedPnl < 0 ? 'text-red-600' : 'text-muted-foreground'
-            }`}
-          >
-            {unrealizedPnl >= 0 ? '+' : ''}
-            {formatCurrency(unrealizedPnl)} unrealized
+          <p className="text-xs text-muted-foreground">
+            Including open positions
           </p>
         </CardContent>
       </Card>

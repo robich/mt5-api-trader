@@ -67,15 +67,17 @@ export function EquityCurveChart({
 
       const first = chartData[0];
       const last = chartData[chartData.length - 1];
+      // Use consistent metrics: balance-to-balance for realized P&L
       const startingCapital = first.balance;
-      const currentCapital = last.equity;
+      const currentCapital = last.balance;
       const overallPnl = currentCapital - startingCapital;
       const overallPnlPercent =
         startingCapital > 0 ? (overallPnl / startingCapital) * 100 : 0;
 
-      const equities = chartData.map((d) => d.equity);
-      const minEquity = Math.min(...equities);
-      const maxEquity = Math.max(...equities);
+      // For chart display, use balance values to show realized P&L curve
+      const balances = chartData.map((d) => d.balance);
+      const minEquity = Math.min(...balances);
+      const maxEquity = Math.max(...balances);
 
       return {
         overallPnl,
@@ -217,7 +219,7 @@ export function EquityCurveChart({
                   const numValue = typeof value === 'number' ? value : 0;
                   return [
                     formatCurrency(numValue),
-                    name === 'equity' ? 'Equity' : 'Balance',
+                    name === 'balance' ? 'Balance' : 'Equity',
                   ];
                 }}
                 labelFormatter={(label) => label}
@@ -230,7 +232,7 @@ export function EquityCurveChart({
               />
               <Area
                 type="monotone"
-                dataKey="equity"
+                dataKey="balance"
                 stroke={isProfitable ? '#22c55e' : '#ef4444'}
                 strokeWidth={2}
                 fill="url(#equityGradient)"

@@ -17,17 +17,17 @@ export async function GET() {
     let accountInfo = null;
     let positions: any[] = [];
 
-    // Only fetch from API if bot can connect
+    // Get live data if bot is running (streaming connection)
     if (botStatus.isRunning) {
       try {
         accountInfo = await tradingBot.getAccountInfo();
         positions = await tradingBot.getPositions();
       } catch (error) {
-        console.error('Error fetching account info:', error);
+        console.error('Error fetching account info from bot:', error);
       }
     }
 
-    // Get latest account snapshot from DB
+    // Get latest account snapshot from DB as fallback
     const latestSnapshot = await prisma.accountSnapshot.findFirst({
       orderBy: { timestamp: 'desc' },
     });

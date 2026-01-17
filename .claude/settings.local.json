@@ -70,7 +70,8 @@
       "Bash(npx tsc --noEmit --skipLibCheck)",
       "Bash(timeout 10)",
       "Bash(curl -s http://localhost:300)",
-      "Bash(curl -s \"http://localhost:3001/api/trades?status=OPEN\")"
+      "Bash(curl -s \"http://localhost:3001/api/trades?status=OPEN\")",
+      "Bash(grep:*)"
     ]
   }
 }

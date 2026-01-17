@@ -188,6 +188,7 @@ class MetaAPIClient {
     };
   }
 
+
   async getPositions(): Promise<Position[]> {
     this.ensureConnected();
     // Use terminalState for synchronized positions
