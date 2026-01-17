@@ -199,6 +199,7 @@ export default function Dashboard() {
         <EquityCurveChart
           equityCurve={stats?.equityCurve || []}
           currency={accountData?.account.currency || 'USD'}
+          totalTrades={stats?.stats.totalTrades || 0}
         />
 
         {/* Main Content Grid */}
