@@ -4,7 +4,15 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Play, Square, RefreshCw, Clock } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Play, Square, RefreshCw, Clock, Database } from 'lucide-react';
 
 interface BotControlsProps {
   isRunning: boolean;
@@ -57,6 +65,8 @@ export function BotControls({
 }: BotControlsProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [uptime, setUptime] = useState(formatUptime(startedAt));
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   // Update uptime every second when running
   useEffect(() => {
@@ -88,6 +98,31 @@ export function BotControls({
       await onStop();
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleResetDatabase = async () => {
+    setIsResetting(true);
+    try {
+      const response = await fetch('/api/db/reset', {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to reset database');
+      }
+
+      const result = await response.json();
+      console.log('Database reset:', result);
+
+      // Close dialog and refresh the page to show clean state
+      setShowResetDialog(false);
+      onRefresh();
+    } catch (error) {
+      console.error('Error resetting database:', error);
+      alert('Failed to reset database. Check console for details.');
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -146,7 +181,46 @@ export function BotControls({
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
+        <div className="mt-3 pt-3 border-t">
+          <Button
+            variant="outline"
+            onClick={() => setShowResetDialog(true)}
+            disabled={isLoading || isResetting}
+            className="w-full"
+          >
+            <Database className="mr-2 h-4 w-4" />
+            Reset Database
+          </Button>
+        </div>
       </CardContent>
+
+      <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset Database?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete all trades, signals, backtest results, and cached
+              data from the database. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowResetDialog(false)}
+              disabled={isResetting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleResetDatabase}
+              disabled={isResetting}
+            >
+              {isResetting ? 'Resetting...' : 'Reset Database'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
