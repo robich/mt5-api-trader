@@ -559,6 +559,49 @@ class MetaAPIClient {
     return this.connection.terminalState.orders || [];
   }
 
+  /**
+   * Get historical deals (closed trades) within a time range
+   * This uses the RPC API to fetch deal history from MT5
+   */
+  async getHistoricalDeals(startTime: Date, endTime: Date): Promise<any[]> {
+    this.ensureConnected();
+    try {
+      const deals = await this.connection.getDealsByTimeRange(startTime, endTime);
+      return deals || [];
+    } catch (error) {
+      console.error('[MetaAPI] Error fetching historical deals:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get historical orders within a time range
+   */
+  async getHistoricalOrders(startTime: Date, endTime: Date): Promise<any[]> {
+    this.ensureConnected();
+    try {
+      const orders = await this.connection.getHistoryOrdersByTimeRange(startTime, endTime);
+      return orders || [];
+    } catch (error) {
+      console.error('[MetaAPI] Error fetching historical orders:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get deals for a specific position ID
+   */
+  async getDealsByPosition(positionId: string): Promise<any[]> {
+    this.ensureConnected();
+    try {
+      const deals = await this.connection.getDealsByPosition(positionId);
+      return deals || [];
+    } catch (error) {
+      console.error('[MetaAPI] Error fetching deals for position:', error);
+      return [];
+    }
+  }
+
   isConnectionActive(): boolean {
     return this.isConnected;
   }

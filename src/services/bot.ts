@@ -77,6 +77,9 @@ export class TradingBot {
       // Connect to MetaAPI
       await metaApiClient.connect();
 
+      // Sync historical trades from MT5 to ensure all past trades are known
+      await this.syncHistoricalTradesOnStartup();
+
       // Sync open positions with MT5 on startup
       await this.syncPositionsOnStartup();
 
@@ -98,6 +101,37 @@ export class TradingBot {
     } catch (error) {
       console.error('Failed to start trading bot:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Sync historical trades from MT5 on startup
+   * Fetches closed deals from MT5 and imports them into the database
+   * This ensures all past trades are known locally
+   */
+  private async syncHistoricalTradesOnStartup(): Promise<void> {
+    console.log('[Bot] Syncing historical trades from MT5...');
+
+    try {
+      // Fetch deals from the last 30 days by default
+      const endTime = new Date();
+      const startTime = new Date();
+      startTime.setDate(startTime.getDate() - 30);
+
+      const deals = await metaApiClient.getHistoricalDeals(startTime, endTime);
+      console.log(`[Bot] Found ${deals.length} historical deals from MT5`);
+
+      if (deals.length > 0) {
+        const result = await tradeManager.syncHistoricalTrades(deals);
+        if (result.imported > 0) {
+          console.log(`[Bot] Historical trades sync complete: ${result.imported} imported, ${result.skipped} skipped`);
+        } else {
+          console.log('[Bot] Historical trades sync complete: No new trades to import');
+        }
+      }
+    } catch (error) {
+      console.error('[Bot] Error syncing historical trades:', error);
+      // Don't throw - allow bot to start even if historical sync fails
     }
   }
 

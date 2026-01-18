@@ -256,7 +256,7 @@ export function TradeTable({ trades, type, currency = 'USD' }: TradeTableProps) 
     if (symbol.includes('JPY')) return 100; // 2 decimal places
     if (symbol.includes('XAU')) return 10; // Gold: 1 pip = 0.1
     if (symbol.includes('XAG')) return 100; // Silver: 1 pip = 0.01
-    if (symbol.includes('BTC')) return 1; // BTC: 1 pip = 1.0
+    if (symbol.includes('BTC') || symbol.includes('ETH')) return 1; // BTC/ETH: 1 pip = 1.0
     return 10000; // Standard forex: 4 decimal places
   };
 
@@ -264,7 +264,7 @@ export function TradeTable({ trades, type, currency = 'USD' }: TradeTableProps) 
     // Approximate pip value per standard lot
     if (symbol.includes('XAU')) return lotSize * 10; // Gold ~$10 per pip per lot
     if (symbol.includes('XAG')) return lotSize * 50; // Silver ~$50 per pip per lot
-    if (symbol.includes('BTC')) return lotSize * 1; // BTC varies significantly
+    if (symbol.includes('BTC') || symbol.includes('ETH')) return lotSize * 1; // BTC/ETH varies significantly
     return lotSize * 10; // Standard forex ~$10 per pip per standard lot
   };
 

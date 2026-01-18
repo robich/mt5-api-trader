@@ -615,6 +615,142 @@ export class TradeManager {
   }
 
   /**
+   * Sync historical trades (closed deals) from MT5 to the database
+   * This ensures all past trades are known in the local DB
+   *
+   * @param deals - Array of historical deals from MT5
+   * @returns Number of trades imported
+   */
+  async syncHistoricalTrades(deals: any[]): Promise<{ imported: number; skipped: number }> {
+    let imported = 0;
+    let skipped = 0;
+
+    // Group deals by position ID to handle partial closes and entry/exit pairs
+    const dealsByPosition = new Map<string, any[]>();
+    for (const deal of deals) {
+      const positionId = deal.positionId?.toString() || deal.position?.toString();
+      if (!positionId) continue;
+
+      if (!dealsByPosition.has(positionId)) {
+        dealsByPosition.set(positionId, []);
+      }
+      dealsByPosition.get(positionId)!.push(deal);
+    }
+
+    // Process each position's deals
+    for (const [positionId, positionDeals] of dealsByPosition) {
+      try {
+        // Check if this trade already exists in DB
+        const existingTrade = await prisma.trade.findFirst({
+          where: { mt5PositionId: positionId },
+        });
+
+        if (existingTrade) {
+          // Trade already exists, but check if it needs closing
+          if (existingTrade.status === 'OPEN') {
+            // Look for exit deal
+            const exitDeal = positionDeals.find(
+              (d: any) => d.entryType === 'DEAL_ENTRY_OUT' || d.type?.includes('OUT')
+            );
+            if (exitDeal) {
+              await prisma.trade.update({
+                where: { id: existingTrade.id },
+                data: {
+                  status: 'CLOSED',
+                  closePrice: exitDeal.price,
+                  closeTime: new Date(exitDeal.time),
+                  pnl: exitDeal.profit || 0,
+                  pnlPercent: existingTrade.riskAmount > 0
+                    ? ((exitDeal.profit || 0) / existingTrade.riskAmount) * 100
+                    : 0,
+                },
+              });
+              console.log(`[TradeManager] Synced close for existing trade ${positionId}`);
+            }
+          }
+          skipped++;
+          continue;
+        }
+
+        // Find entry and exit deals
+        const entryDeal = positionDeals.find(
+          (d: any) => d.entryType === 'DEAL_ENTRY_IN' || d.type?.includes('IN')
+        );
+        const exitDeal = positionDeals.find(
+          (d: any) => d.entryType === 'DEAL_ENTRY_OUT' || d.type?.includes('OUT')
+        );
+
+        if (!entryDeal) {
+          // No entry deal found, skip this position
+          skipped++;
+          continue;
+        }
+
+        // Determine direction from deal type
+        const isBuy = entryDeal.type?.includes('BUY') || entryDeal.dealType === 'DEAL_TYPE_BUY';
+        const direction: Direction = isBuy ? 'BUY' : 'SELL';
+
+        // Parse strategy from comment
+        let strategy: StrategyType | 'EXTERNAL' = 'EXTERNAL';
+        let notes = 'Synced from MT5 history';
+        const comment = entryDeal.comment || '';
+
+        if (comment.startsWith('SMC ')) {
+          const parsedStrategy = comment.substring(4).trim();
+          const validStrategies: StrategyType[] = ['ORDER_BLOCK', 'LIQUIDITY_SWEEP', 'BOS', 'FBO_CLASSIC', 'FBO_SWEEP', 'FBO_STRUCTURE'];
+          if (validStrategies.includes(parsedStrategy as StrategyType)) {
+            strategy = parsedStrategy as StrategyType;
+            notes = `Synced from MT5 history - bot trade (${strategy})`;
+          }
+        }
+
+        // Calculate total profit from all deals for this position
+        const totalProfit = positionDeals.reduce((sum: number, d: any) => sum + (d.profit || 0), 0);
+        const totalVolume = entryDeal.volume || 0;
+
+        // Estimate risk amount (2% of typical balance)
+        const estimatedRiskAmount = 20;
+
+        // Determine if trade is open or closed
+        const isClosed = !!exitDeal;
+        const status = isClosed ? 'CLOSED' : 'OPEN';
+
+        // Create trade record
+        await prisma.trade.create({
+          data: {
+            symbol: entryDeal.symbol,
+            direction,
+            strategy,
+            entryPrice: entryDeal.price,
+            stopLoss: 0, // Not available from deals
+            takeProfit: 0, // Not available from deals
+            lotSize: totalVolume,
+            openTime: new Date(entryDeal.time),
+            closeTime: isClosed ? new Date(exitDeal.time) : null,
+            closePrice: isClosed ? exitDeal.price : null,
+            pnl: isClosed ? totalProfit : null,
+            pnlPercent: isClosed && estimatedRiskAmount > 0 ? (totalProfit / estimatedRiskAmount) * 100 : null,
+            status,
+            mt5PositionId: positionId,
+            riskAmount: estimatedRiskAmount,
+            riskRewardRatio: 0,
+            notes,
+          },
+        });
+
+        console.log(`[TradeManager] Imported historical trade: ${entryDeal.symbol} ${direction} @ ${entryDeal.price} (Position: ${positionId}, Status: ${status})`);
+        imported++;
+
+      } catch (error) {
+        console.error(`[TradeManager] Error importing position ${positionId}:`, error);
+        skipped++;
+      }
+    }
+
+    return { imported, skipped };
+  }
+
+  /**
    * Update open trades with current prices from broker
    * Call this periodically to keep track of unrealized PnL
    */

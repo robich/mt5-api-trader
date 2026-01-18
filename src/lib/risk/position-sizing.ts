@@ -41,8 +41,8 @@ export function calculatePositionSize(
   } else if (symbolInfo.symbol.includes('XAG') || symbolInfo.symbol.includes('SILVER')) {
     // Silver: similar calculation
     pipValuePerLot = symbolInfo.tickSize * symbolInfo.contractSize;
-  } else if (symbolInfo.symbol.includes('BTC')) {
-    // Bitcoin: usually 1 contract = 1 BTC
+  } else if (symbolInfo.symbol.includes('BTC') || symbolInfo.symbol.includes('ETH')) {
+    // Bitcoin/Ethereum: usually 1 contract = 1 coin
     pipValuePerLot = symbolInfo.tickSize * symbolInfo.contractSize;
   }
 
@@ -239,7 +239,7 @@ export function getSymbolPipInfo(symbol: string): {
     return { pipSize: 0.01, pipDigits: 2 };
   }
 
-  if (upperSymbol.includes('BTC')) {
+  if (upperSymbol.includes('BTC') || upperSymbol.includes('ETH')) {
     return { pipSize: 1, pipDigits: 0 };
   }
 
