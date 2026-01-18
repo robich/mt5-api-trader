@@ -18,6 +18,7 @@ import { calculatePositionSize } from '../lib/risk/position-sizing';
 import { tradeManager } from '../lib/risk/trade-manager';
 import { BreakevenManager } from '../lib/risk/breakeven-manager';
 import { analysisStore } from './analysis-store';
+import { telegramNotifier } from './telegram';
 import { v4 as uuidv4 } from 'uuid';
 import {
   TradingBotSyncListener,
@@ -73,6 +74,9 @@ export class TradingBot {
     }
 
     console.log('Starting trading bot (event-driven mode)...');
+
+    // Initialize Telegram notifications
+    telegramNotifier.initialize();
 
     try {
       // Connect to MetaAPI
@@ -304,6 +308,28 @@ export class TradingBot {
 
         // Clean up breakeven tracking
         this.breakevenManager.onPositionClosed(removedId);
+
+        // Send Telegram notification for closed trade
+        if (telegramNotifier.isEnabled()) {
+          const openPositions = positions.map(p => ({
+            symbol: p.symbol,
+            direction: p.type === 'POSITION_TYPE_BUY' ? 'BUY' : 'SELL',
+            entryPrice: p.openPrice,
+            currentPrice: p.currentPrice ?? p.openPrice,
+            profit: p.profit ?? 0,
+            lotSize: p.volume,
+          }));
+          await telegramNotifier.notifyTradeClosed(
+            {
+              symbol: lastKnown.symbol,
+              direction: lastKnown.type === 'POSITION_TYPE_BUY' ? 'BUY' : 'SELL',
+              entryPrice: lastKnown.openPrice,
+              exitPrice: lastKnown.currentPrice!,
+              profit: lastKnown.profit!,
+            },
+            openPositions
+          );
+        }
 
         // Remove from tracking
         this.lastKnownPositions.delete(removedId);
@@ -633,6 +659,32 @@ export class TradingBot {
           openPnl: positions.reduce((sum, p) => sum + p.profit, 0),
         },
       });
+
+      // Send Telegram notification
+      if (telegramNotifier.isEnabled()) {
+        const openPositions = positions.map(p => ({
+          symbol: p.symbol,
+          direction: p.type === 'BUY' ? 'BUY' : 'SELL',
+          entryPrice: p.openPrice,
+          currentPrice: p.currentPrice,
+          profit: p.profit,
+          lotSize: p.volume,
+        }));
+        await telegramNotifier.notifyTradeOpened(
+          {
+            symbol: trade.symbol,
+            direction: trade.direction,
+            strategy: trade.strategy,
+            entryPrice: trade.entryPrice,
+            stopLoss: trade.stopLoss,
+            takeProfit: trade.takeProfit,
+            lotSize: trade.lotSize,
+            riskAmount: trade.riskAmount,
+            riskRewardRatio: trade.riskRewardRatio,
+          },
+          openPositions
+        );
+      }
 
     } catch (error) {
       console.error('Error processing signal:', error);

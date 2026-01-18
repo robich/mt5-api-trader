@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Play, Square, RefreshCw, Clock, Database } from 'lucide-react';
+import { Play, Square, RefreshCw, Clock, Database, Send } from 'lucide-react';
 
 interface BotControlsProps {
   isRunning: boolean;
@@ -67,6 +67,7 @@ export function BotControls({
   const [uptime, setUptime] = useState(formatUptime(startedAt));
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [isSendingTestTelegram, setIsSendingTestTelegram] = useState(false);
 
   // Update uptime every second when running
   useEffect(() => {
@@ -126,6 +127,28 @@ export function BotControls({
     }
   };
 
+  const handleTestTelegram = async () => {
+    setIsSendingTestTelegram(true);
+    try {
+      const response = await fetch('/api/telegram/test', {
+        method: 'POST',
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert('Test message sent! Check your Telegram chat.');
+      } else {
+        alert(`Failed to send test message: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('Error sending test telegram:', error);
+      alert('Failed to send test message. Check console for details.');
+    } finally {
+      setIsSendingTestTelegram(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -181,12 +204,21 @@ export function BotControls({
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
-        <div className="mt-3 pt-3 border-t">
+        <div className="mt-3 pt-3 border-t flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleTestTelegram}
+            disabled={isLoading || isSendingTestTelegram}
+            className="flex-1"
+          >
+            <Send className="mr-2 h-4 w-4" />
+            {isSendingTestTelegram ? 'Sending...' : 'Test Telegram'}
+          </Button>
           <Button
             variant="outline"
             onClick={() => setShowResetDialog(true)}
             disabled={isLoading || isResetting}
-            className="w-full"
+            className="flex-1"
           >
             <Database className="mr-2 h-4 w-4" />
             Reset Database

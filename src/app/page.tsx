@@ -71,7 +71,7 @@ export default function Dashboard() {
   const [signals, setSignals] = useState<SignalsData | null>(null);
   const [stats, setStats] = useState<StatsData | null>(null);
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
-  const [selectedSymbol, setSelectedSymbol] = useState('XAUUSD');
+  const [selectedSymbol, setSelectedSymbol] = useState('XAUUSD.s');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -214,7 +214,7 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex gap-2">
-                    {['XAUUSD', 'XAGUSD.s', 'BTCUSD', 'ETHUSD'].map((symbol) => (
+                    {['XAUUSD.s', 'XAGUSD.s', 'BTCUSD', 'ETHUSD'].map((symbol) => (
                       <Button
                         key={symbol}
                         variant={selectedSymbol === symbol ? 'default' : 'outline'}
