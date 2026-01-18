@@ -183,6 +183,18 @@ Examples:
 // Strategy variations to test - FINAL OPTIMIZED (Jan 2026)
 // Based on iterative backtesting across BTCUSD, XAUUSD.s, XAGUSD.s
 const VARIATIONS = [
+  // === OTE STRATEGIES (Colleague's findings - Jan 2026) ===
+  // OTE On with Fixed RR significantly outperforms OTE Off
+  { name: 'OTE: OB70|KZ|RR2|DD15%', strategy: 'ORDER_BLOCK', requireOTE: true, fixedRR: 2, minOBScore: 70, useKillZones: true, maxDailyDD: 15, atrMult: 1.0, requireConfirmation: false },
+  { name: 'OTE: OB65|KZ|RR2|DD15%', strategy: 'ORDER_BLOCK', requireOTE: true, fixedRR: 2, minOBScore: 65, useKillZones: true, maxDailyDD: 15, atrMult: 1.0, requireConfirmation: false },
+  { name: 'OTE: OB70|KZ|RR2|DD8%', strategy: 'ORDER_BLOCK', requireOTE: true, fixedRR: 2, minOBScore: 70, useKillZones: true, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: false },
+  { name: 'OTE: OB65|All|RR2|DD15%', strategy: 'ORDER_BLOCK', requireOTE: true, fixedRR: 2, minOBScore: 65, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, requireConfirmation: false },
+  { name: 'NO-OTE: OB70|KZ|RR2|DD15%', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: true, maxDailyDD: 15, atrMult: 1.0, requireConfirmation: false },
+  { name: 'NO-OTE: OB65|KZ|RR2|DD15%', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 65, useKillZones: true, maxDailyDD: 15, atrMult: 1.0, requireConfirmation: false },
+  // OTE with Breakeven
+  { name: 'OTE+BE: OB70|KZ|RR2|BE1R', strategy: 'ORDER_BLOCK', requireOTE: true, fixedRR: 2, minOBScore: 70, useKillZones: true, maxDailyDD: 15, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 1.0, beBufferPips: 5 },
+  { name: 'OTE+BE: OB65|KZ|RR2|BE1R', strategy: 'ORDER_BLOCK', requireOTE: true, fixedRR: 2, minOBScore: 65, useKillZones: true, maxDailyDD: 15, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 1.0, beBufferPips: 5 },
+
   // === RECOMMENDED STRATEGY (Maximum Profit with BE) ===
   // Breakeven at 1R with 5 pips buffer - proven best performer
   { name: 'RECOMMENDED: BE1R|5pips|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 1.0, beBufferPips: 5 },
@@ -249,7 +261,7 @@ const VARIATIONS = [
 // Symbol info for backtesting (including typical spreads)
 const SYMBOL_INFO = {
   'XAUUSD.s': { pipSize: 0.1, contractSize: 100, minVolume: 0.01, maxSlPips: 50, minSlPips: 15, typicalSpread: 0.25 },  // ~25 cents spread, $1.50 min SL
-  'XAGUSD.s': { pipSize: 0.01, contractSize: 5000, minVolume: 0.01, maxSlPips: 100, minSlPips: 5, typicalSpread: 0.025 }, // ~2.5 cents spread, TEMP: 5 pips for testing
+  'XAGUSD.s': { pipSize: 0.01, contractSize: 5000, minVolume: 0.01, maxSlPips: 100, minSlPips: 10, typicalSpread: 0.025 }, // ~2.5 cents spread, $0.10 min SL
   'BTCUSD': { pipSize: 1, contractSize: 1, minVolume: 0.01, maxSlPips: 500, minSlPips: 100, typicalSpread: 15 },  // ~$15 spread, $100 min SL
   'ETHUSD': { pipSize: 1, contractSize: 1, minVolume: 0.01, maxSlPips: 200, minSlPips: 20, typicalSpread: 2 },  // ~$2 spread, $20 min SL
 };

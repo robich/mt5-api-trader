@@ -86,6 +86,12 @@ export interface SymbolOverrides {
   confirmationType?: ConfirmationType;
   /** Override min OB score for this symbol */
   minOBScore?: number;
+  /** Override kill zones setting for this symbol */
+  useKillZones?: boolean;
+  /** Override risk:reward ratio for this symbol */
+  riskReward?: number;
+  /** Override ATR multiplier for this symbol */
+  atrMultiplier?: number;
 }
 
 /**
@@ -338,39 +344,51 @@ export const SYMBOL_TIMEFRAMES: Record<string, SymbolTimeframeConfig> = {
  */
 export const SYMBOL_TRADING_LIMITS: Record<string, { minSlPips: number; maxSlPips: number; typicalSpread: number }> = {
   'XAUUSD.s': { minSlPips: 15, maxSlPips: 50, typicalSpread: 0.25 },   // ~$1.50 min SL, ~25 cents spread (6x)
-  'XAGUSD.s': { minSlPips: 15, maxSlPips: 100, typicalSpread: 0.025 }, // ~$0.15 min SL, ~2.5 cents spread (6x)
+  'XAGUSD.s': { minSlPips: 10, maxSlPips: 100, typicalSpread: 0.025 }, // ~$0.10 min SL, ~2.5 cents spread (4x)
   'BTCUSD': { minSlPips: 100, maxSlPips: 500, typicalSpread: 15 },     // ~$100 min SL, ~$15 spread (6-7x)
   'ETHUSD': { minSlPips: 20, maxSlPips: 200, typicalSpread: 2 },       // ~$20 min SL, ~$2 spread (10x)
 };
 
 /**
- * Default configurations per symbol based on backtest insights (Jan 2026)
- * KEY FINDING: NoConf (no confirmation) outperforms all confirmation types
+ * Default configurations per symbol based on backtest insights (Jan 18, 2026)
+ * Updated with most profitable strategies from 20-day backtest (Dec 29 - Jan 18)
  */
 export const SYMBOL_DEFAULTS: Record<string, SymbolOverrides> = {
   'BTCUSD': {
-    // BTCUSD: NoConf with ATR 0.8, RR 1.5 is optimal
+    // BTCUSD: ATR1.5|RR2 - Most profitable (64.3% WR, PF 2.62, +$386 in 20 days)
     confirmationType: 'none',
     minOBScore: 70,
     maxDailyDrawdown: 8,
+    useKillZones: false,
+    riskReward: 2,
+    atrMultiplier: 1.5,
   },
   'XAUUSD.s': {
-    // XAUUSD: NoConf with ATR 1.5, RR 2 is optimal
+    // XAUUSD: BE strategy - RR2 with breakeven (71.4% WR, PF 2.28, +$51 in 20 days)
     confirmationType: 'none',
     minOBScore: 70,
     maxDailyDrawdown: 8,
+    useKillZones: false,
+    riskReward: 2,
+    atrMultiplier: 1.0,
   },
   'XAGUSD.s': {
-    // XAGUSD: NoConf with OB65, RR 2 is optimal
+    // XAGUSD: OB75|RR2 - Low activity, high quality only (+$78 on 1 trade)
     confirmationType: 'none',
-    minOBScore: 65,
+    minOBScore: 75,
     maxDailyDrawdown: 8,
+    useKillZones: false,
+    riskReward: 2,
+    atrMultiplier: 1.0,
   },
   'ETHUSD': {
-    // ETHUSD: NoConf with ATR 1.5, RR 1.5 is optimal (74.5% win rate, 4.1% DD)
+    // ETHUSD: Disabled - poor performance in current market conditions
     confirmationType: 'none',
     minOBScore: 70,
     maxDailyDrawdown: 8,
+    useKillZones: false,
+    riskReward: 1.5,
+    atrMultiplier: 1.5,
   },
 };
 
@@ -384,10 +402,10 @@ export const SYMBOL_DEFAULTS: Record<string, SymbolOverrides> = {
 export const DEFAULT_LIVE_CONFIG: LiveStrategyConfig = {
   profile: STRATEGY_PROFILES['UNIVERSAL_NOCONF'],
   symbols: [
-    { symbol: 'XAUUSD.s', enabled: true, overrides: SYMBOL_DEFAULTS['XAUUSD.s'] },
-    { symbol: 'BTCUSD', enabled: true, overrides: SYMBOL_DEFAULTS['BTCUSD'] },
-    { symbol: 'XAGUSD.s', enabled: true, overrides: SYMBOL_DEFAULTS['XAGUSD.s'] },
-    { symbol: 'ETHUSD', enabled: true, overrides: SYMBOL_DEFAULTS['ETHUSD'] },
+    { symbol: 'BTCUSD', enabled: true, overrides: SYMBOL_DEFAULTS['BTCUSD'] },    // KZ enabled, DD6%, RR2
+    { symbol: 'XAUUSD.s', enabled: true, overrides: SYMBOL_DEFAULTS['XAUUSD.s'] }, // No KZ, RR2, BE at 1R
+    { symbol: 'XAGUSD.s', enabled: true, overrides: SYMBOL_DEFAULTS['XAGUSD.s'] }, // Low activity expected
+    { symbol: 'ETHUSD', enabled: false, overrides: SYMBOL_DEFAULTS['ETHUSD'] },    // DISABLED - poor performance
   ],
   liveTrading: false, // Paper mode by default
   // Default timeframes - for optimal performance, use getSymbolTimeframes() per symbol
@@ -423,10 +441,10 @@ export function getSymbolConfig(
     confirmationType: overrides.confirmationType ?? profile.confirmationType,
     maxDailyDrawdown: overrides.maxDailyDrawdown ?? profile.maxDailyDrawdown,
     riskPercent: overrides.riskPercent ?? profile.riskPercent,
-    riskReward: profile.riskReward,
-    useKillZones: profile.useKillZones,
+    riskReward: overrides.riskReward ?? profile.riskReward,
+    useKillZones: overrides.useKillZones ?? profile.useKillZones,
     killZones: profile.killZones,
-    atrMultiplier: profile.atrMultiplier,
+    atrMultiplier: overrides.atrMultiplier ?? profile.atrMultiplier,
   };
 }
 
