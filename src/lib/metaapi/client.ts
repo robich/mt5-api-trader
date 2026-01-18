@@ -560,14 +560,37 @@ class MetaAPIClient {
   }
 
   /**
-   * Get historical deals (closed trades) within a time range
-   * This uses the RPC API to fetch deal history from MT5
+   * Get historical deals from the synchronized history storage
+   * Optionally filter by time range
+   * Only returns trading deals (excludes balance/credit operations)
    */
-  async getHistoricalDeals(startTime: Date, endTime: Date): Promise<any[]> {
+  async getHistoricalDeals(startTime?: Date, endTime?: Date): Promise<any[]> {
     this.ensureConnected();
     try {
-      const deals = await this.connection.getDealsByTimeRange(startTime, endTime);
-      return deals || [];
+      const historyStorage = this.connection.historyStorage;
+      if (!historyStorage || !historyStorage.deals) {
+        console.log('[MetaAPI] No history storage or deals available');
+        return [];
+      }
+
+      let deals = historyStorage.deals;
+
+      // Filter to only trading deals (exclude balance, credit, etc.)
+      deals = deals.filter((d: any) =>
+        d.type === 'DEAL_TYPE_BUY' || d.type === 'DEAL_TYPE_SELL'
+      );
+
+      // Filter by time range if provided
+      if (startTime || endTime) {
+        deals = deals.filter((d: any) => {
+          const dealTime = new Date(d.time);
+          if (startTime && dealTime < startTime) return false;
+          if (endTime && dealTime > endTime) return false;
+          return true;
+        });
+      }
+
+      return deals;
     } catch (error) {
       console.error('[MetaAPI] Error fetching historical deals:', error);
       return [];
@@ -575,13 +598,30 @@ class MetaAPIClient {
   }
 
   /**
-   * Get historical orders within a time range
+   * Get historical orders from the synchronized history storage
    */
-  async getHistoricalOrders(startTime: Date, endTime: Date): Promise<any[]> {
+  async getHistoricalOrders(startTime?: Date, endTime?: Date): Promise<any[]> {
     this.ensureConnected();
     try {
-      const orders = await this.connection.getHistoryOrdersByTimeRange(startTime, endTime);
-      return orders || [];
+      const historyStorage = this.connection.historyStorage;
+      if (!historyStorage || !historyStorage.historyOrders) {
+        console.log('[MetaAPI] No history storage or orders available');
+        return [];
+      }
+
+      let orders = historyStorage.historyOrders;
+
+      // Filter by time range if provided
+      if (startTime || endTime) {
+        orders = orders.filter((o: any) => {
+          const orderTime = new Date(o.time || o.doneTime);
+          if (startTime && orderTime < startTime) return false;
+          if (endTime && orderTime > endTime) return false;
+          return true;
+        });
+      }
+
+      return orders;
     } catch (error) {
       console.error('[MetaAPI] Error fetching historical orders:', error);
       return [];
@@ -589,13 +629,19 @@ class MetaAPIClient {
   }
 
   /**
-   * Get deals for a specific position ID
+   * Get deals for a specific position ID from history storage
    */
-  async getDealsByPosition(positionId: string): Promise<any[]> {
+  getDealsByPosition(positionId: string): any[] {
     this.ensureConnected();
     try {
-      const deals = await this.connection.getDealsByPosition(positionId);
-      return deals || [];
+      const historyStorage = this.connection.historyStorage;
+      if (!historyStorage || !historyStorage.deals) {
+        return [];
+      }
+
+      return historyStorage.deals.filter((d: any) =>
+        d.positionId === positionId || d.positionId?.toString() === positionId
+      );
     } catch (error) {
       console.error('[MetaAPI] Error fetching deals for position:', error);
       return [];

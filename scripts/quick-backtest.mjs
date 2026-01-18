@@ -248,10 +248,10 @@ const VARIATIONS = [
 
 // Symbol info for backtesting (including typical spreads)
 const SYMBOL_INFO = {
-  'XAUUSD.s': { pipSize: 0.1, contractSize: 100, minVolume: 0.01, maxSlPips: 50, typicalSpread: 0.25 },  // ~25 cents spread
-  'XAGUSD.s': { pipSize: 0.01, contractSize: 5000, minVolume: 0.01, maxSlPips: 100, typicalSpread: 0.025 }, // ~2.5 cents spread
-  'BTCUSD': { pipSize: 1, contractSize: 1, minVolume: 0.01, maxSlPips: 500, typicalSpread: 15 },  // ~$15 spread
-  'ETHUSD': { pipSize: 1, contractSize: 1, minVolume: 0.01, maxSlPips: 200, typicalSpread: 2 },  // ~$2 spread, $1 pip
+  'XAUUSD.s': { pipSize: 0.1, contractSize: 100, minVolume: 0.01, maxSlPips: 50, minSlPips: 15, typicalSpread: 0.25 },  // ~25 cents spread, $1.50 min SL
+  'XAGUSD.s': { pipSize: 0.01, contractSize: 5000, minVolume: 0.01, maxSlPips: 100, minSlPips: 5, typicalSpread: 0.025 }, // ~2.5 cents spread, TEMP: 5 pips for testing
+  'BTCUSD': { pipSize: 1, contractSize: 1, minVolume: 0.01, maxSlPips: 500, minSlPips: 100, typicalSpread: 15 },  // ~$15 spread, $100 min SL
+  'ETHUSD': { pipSize: 1, contractSize: 1, minVolume: 0.01, maxSlPips: 200, minSlPips: 20, typicalSpread: 2 },  // ~$2 spread, $20 min SL
 };
 
 // Kill Zone definitions (UTC)
@@ -289,6 +289,7 @@ class SMCBacktestEngine {
     this.atrMult = config.atrMult || 1.5; // ATR multiplier for OB detection
     this.requireConfirmation = config.requireConfirmation || false; // Wait for confirmation candle
     this.confirmationType = config.confirmationType || 'close'; // 'close' = candle close in direction, 'engulf' = engulfing pattern
+    this.debugFilters = config.debugFilters || false; // Log filter rejections
     this.orderBlocks = [];
     this.fvgs = [];           // Fair Value Gaps
     this.swingPoints = [];    // Tracked swing highs/lows for liquidity
@@ -493,7 +494,14 @@ class SMCBacktestEngine {
       // Recalculate SL distance with spread-adjusted entry
       const slDistance = Math.abs(entryPrice - signal.sl);
       const slPips = slDistance / symbolInfo.pipSize;
-      if (slPips > symbolInfo.maxSlPips) continue;
+      if (slPips > symbolInfo.maxSlPips) {
+        if (this.debugFilters) console.log(`  [FILTER] maxSL: ${slPips.toFixed(1)} > ${symbolInfo.maxSlPips} pips`);
+        continue;
+      }
+      if (slPips < symbolInfo.minSlPips) {
+        if (this.debugFilters) console.log(`  [FILTER] minSL: ${slPips.toFixed(1)} < ${symbolInfo.minSlPips} pips`);
+        continue;
+      }
 
       // Calculate position size with spread-adjusted entry
       const riskAmount = this.balance * (this.config.risk / 100);

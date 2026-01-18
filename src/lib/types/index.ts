@@ -162,6 +162,8 @@ export interface SymbolInfo {
   volumeStep: number;
   tickSize: number;
   tickValue: number;
+  /** Minimum stop loss distance in pips - signals with smaller SL are rejected */
+  minSlPips?: number;
 }
 
 // Kill zone and session types for SMC trading

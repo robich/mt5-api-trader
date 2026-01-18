@@ -79,14 +79,22 @@ class TradingBot {
     console.log(`  Risk per trade: ${this.config.risk.riskPerTrade}%`);
     console.log('='.repeat(60));
 
-    // Dynamic import MetaAPI client
+    // Dynamic import MetaAPI client and trade manager
     const { metaApiClient } = await import('../src/lib/metaapi/client.ts');
+    const { tradeManager } = await import('../src/lib/risk/trade-manager.ts');
     this.client = metaApiClient;
+    this.tradeManager = tradeManager;
 
     // Connect with streaming for live trading
     console.log('\nConnecting to MetaAPI...');
     await this.client.connect();
     console.log('Connected!\n');
+
+    // Sync historical trades from MT5
+    await this.syncHistoricalTrades();
+
+    // Sync open positions
+    await this.syncOpenPositions();
 
     // Get initial account info
     const accountInfo = await this.client.getAccountInfo();
@@ -94,6 +102,46 @@ class TradingBot {
     console.log(`Account Balance: $${accountInfo.balance.toFixed(2)}`);
     console.log(`Account Equity: $${accountInfo.equity.toFixed(2)}`);
     console.log(`Free Margin: $${accountInfo.freeMargin.toFixed(2)}\n`);
+  }
+
+  async syncHistoricalTrades() {
+    console.log('[Sync] Fetching historical trades from MT5...');
+    try {
+      const endTime = new Date();
+      const startTime = new Date();
+      startTime.setDate(startTime.getDate() - 30);
+
+      const deals = await this.client.getHistoricalDeals(startTime, endTime);
+      console.log(`[Sync] Found ${deals.length} trading deals from MT5`);
+
+      if (deals.length > 0) {
+        const result = await this.tradeManager.syncHistoricalTrades(deals);
+        if (result.imported > 0) {
+          console.log(`[Sync] Historical sync complete: ${result.imported} imported, ${result.skipped} skipped`);
+        } else {
+          console.log('[Sync] Historical sync complete: No new trades to import');
+        }
+      }
+    } catch (error) {
+      console.error('[Sync] Error syncing historical trades:', error.message);
+    }
+  }
+
+  async syncOpenPositions() {
+    console.log('[Sync] Syncing open positions with MT5...');
+    try {
+      const positions = await this.client.getPositions();
+      console.log(`[Sync] Found ${positions.length} open positions on MT5`);
+
+      const result = await this.tradeManager.syncWithBrokerPositions(positions);
+      if (result.imported > 0 || result.closed > 0) {
+        console.log(`[Sync] Position sync complete: ${result.imported} imported, ${result.closed} closed`);
+      } else {
+        console.log('[Sync] Position sync complete: No changes needed');
+      }
+    } catch (error) {
+      console.error('[Sync] Error syncing positions:', error.message);
+    }
   }
 
   isInKillZone() {

@@ -28,6 +28,7 @@ import {
 import {
   getSymbolTimeframes,
   DEFAULT_LIVE_CONFIG,
+  SYMBOL_TRADING_LIMITS,
 } from '../lib/strategies/strategy-profiles';
 
 /**
@@ -557,6 +558,25 @@ export class TradingBot {
       // Get account info for position sizing
       const accountInfo = await metaApiClient.getAccountInfo();
       const symbolInfo = await metaApiClient.getSymbolInfo(signal.symbol);
+
+      // Validate minimum stop loss distance
+      const tradingLimits = SYMBOL_TRADING_LIMITS[signal.symbol];
+      if (tradingLimits) {
+        const slDistance = Math.abs(signal.entryPrice - signal.stopLoss);
+        const slPips = slDistance / symbolInfo.pipSize;
+        if (slPips < tradingLimits.minSlPips) {
+          const reason = `SL too close: ${slPips.toFixed(1)} pips < ${tradingLimits.minSlPips} min`;
+          console.log(`Signal rejected: ${reason}`);
+          await tradeManager.updateSignalStatus(signal.id, 'REJECTED', reason);
+          return;
+        }
+        if (slPips > tradingLimits.maxSlPips) {
+          const reason = `SL too far: ${slPips.toFixed(1)} pips > ${tradingLimits.maxSlPips} max`;
+          console.log(`Signal rejected: ${reason}`);
+          await tradeManager.updateSignalStatus(signal.id, 'REJECTED', reason);
+          return;
+        }
+      }
 
       // Calculate position size
       const positionInfo = calculatePositionSize(

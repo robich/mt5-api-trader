@@ -618,6 +618,12 @@ export class TradeManager {
    * Sync historical trades (closed deals) from MT5 to the database
    * This ensures all past trades are known in the local DB
    *
+   * Deal format from MetaAPI historyStorage:
+   * - type: "DEAL_TYPE_BUY" or "DEAL_TYPE_SELL"
+   * - entryType: "DEAL_ENTRY_IN" (open) or "DEAL_ENTRY_OUT" (close)
+   * - positionId: Position ID string
+   * - symbol, volume, price, profit, stopLoss, takeProfit, comment, time
+   *
    * @param deals - Array of historical deals from MT5
    * @returns Number of trades imported
    */
@@ -628,7 +634,7 @@ export class TradeManager {
     // Group deals by position ID to handle partial closes and entry/exit pairs
     const dealsByPosition = new Map<string, any[]>();
     for (const deal of deals) {
-      const positionId = deal.positionId?.toString() || deal.position?.toString();
+      const positionId = deal.positionId?.toString();
       if (!positionId) continue;
 
       if (!dealsByPosition.has(positionId)) {
@@ -636,6 +642,8 @@ export class TradeManager {
       }
       dealsByPosition.get(positionId)!.push(deal);
     }
+
+    console.log(`[TradeManager] Processing ${dealsByPosition.size} positions from ${deals.length} deals`);
 
     // Process each position's deals
     for (const [positionId, positionDeals] of dealsByPosition) {
@@ -650,7 +658,7 @@ export class TradeManager {
           if (existingTrade.status === 'OPEN') {
             // Look for exit deal
             const exitDeal = positionDeals.find(
-              (d: any) => d.entryType === 'DEAL_ENTRY_OUT' || d.type?.includes('OUT')
+              (d: any) => d.entryType === 'DEAL_ENTRY_OUT'
             );
             if (exitDeal) {
               await prisma.trade.update({
@@ -672,12 +680,14 @@ export class TradeManager {
           continue;
         }
 
-        // Find entry and exit deals
+        // Find entry deal (DEAL_ENTRY_IN)
         const entryDeal = positionDeals.find(
-          (d: any) => d.entryType === 'DEAL_ENTRY_IN' || d.type?.includes('IN')
+          (d: any) => d.entryType === 'DEAL_ENTRY_IN'
         );
+
+        // Find exit deal (DEAL_ENTRY_OUT)
         const exitDeal = positionDeals.find(
-          (d: any) => d.entryType === 'DEAL_ENTRY_OUT' || d.type?.includes('OUT')
+          (d: any) => d.entryType === 'DEAL_ENTRY_OUT'
         );
 
         if (!entryDeal) {
@@ -687,13 +697,13 @@ export class TradeManager {
         }
 
         // Determine direction from deal type
-        const isBuy = entryDeal.type?.includes('BUY') || entryDeal.dealType === 'DEAL_TYPE_BUY';
+        const isBuy = entryDeal.type === 'DEAL_TYPE_BUY';
         const direction: Direction = isBuy ? 'BUY' : 'SELL';
 
         // Parse strategy from comment
         let strategy: StrategyType | 'EXTERNAL' = 'EXTERNAL';
         let notes = 'Synced from MT5 history';
-        const comment = entryDeal.comment || '';
+        const comment = entryDeal.comment || entryDeal.brokerComment || '';
 
         if (comment.startsWith('SMC ')) {
           const parsedStrategy = comment.substring(4).trim();
@@ -704,9 +714,21 @@ export class TradeManager {
           }
         }
 
-        // Calculate total profit from all deals for this position
-        const totalProfit = positionDeals.reduce((sum: number, d: any) => sum + (d.profit || 0), 0);
+        // Calculate total profit from exit deal (entry deals have profit=0)
+        const totalProfit = exitDeal?.profit || 0;
         const totalVolume = entryDeal.volume || 0;
+
+        // Get SL/TP from entry deal if available
+        const stopLoss = entryDeal.stopLoss || 0;
+        const takeProfit = entryDeal.takeProfit || 0;
+
+        // Calculate R:R if SL and TP are available
+        let riskRewardRatio = 0;
+        if (stopLoss > 0 && takeProfit > 0) {
+          const riskPips = Math.abs(entryDeal.price - stopLoss);
+          const rewardPips = Math.abs(takeProfit - entryDeal.price);
+          riskRewardRatio = riskPips > 0 ? rewardPips / riskPips : 0;
+        }
 
         // Estimate risk amount (2% of typical balance)
         const estimatedRiskAmount = 20;
@@ -722,8 +744,8 @@ export class TradeManager {
             direction,
             strategy,
             entryPrice: entryDeal.price,
-            stopLoss: 0, // Not available from deals
-            takeProfit: 0, // Not available from deals
+            stopLoss,
+            takeProfit,
             lotSize: totalVolume,
             openTime: new Date(entryDeal.time),
             closeTime: isClosed ? new Date(exitDeal.time) : null,
@@ -733,7 +755,7 @@ export class TradeManager {
             status,
             mt5PositionId: positionId,
             riskAmount: estimatedRiskAmount,
-            riskRewardRatio: 0,
+            riskRewardRatio,
             notes,
           },
         });
