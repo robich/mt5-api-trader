@@ -21,7 +21,7 @@
  * - XAGUSD.s: 66.1% win rate, PF 1.94 (OB65|RR2)
  */
 
-import { StrategyType, Timeframe, KillZoneType } from '../types';
+import { StrategyType, Timeframe, KillZoneType, BreakevenConfig } from '../types';
 
 /**
  * Confirmation candle types for Order Block entries
@@ -70,6 +70,8 @@ export interface StrategyProfile {
   maxConcurrentTrades: number;
   /** Recommended symbols for this profile */
   recommendedSymbols: string[];
+  /** Breakeven configuration - moves SL to entry + buffer when target R is reached */
+  breakeven?: BreakevenConfig;
 }
 
 /**
@@ -117,7 +119,7 @@ export const STRATEGY_PROFILES: Record<string, StrategyProfile> = {
   // BTCUSD Optimal: ATR0.8 with RR1.5 - 68.8% win rate, PF 2.62
   'BTC_OPTIMAL': {
     name: 'BTC Optimal',
-    description: 'ATR0.8|RR1.5|NoConf - Optimized for BTCUSD (68.8% WR, 2.62 PF)',
+    description: 'ATR0.8|RR1.5|NoConf|BE1R - Optimized for BTCUSD (68.8% WR, 2.62 PF)',
     riskTier: 'aggressive',
     strategy: 'ORDER_BLOCK',
     minOBScore: 70,
@@ -130,12 +132,13 @@ export const STRATEGY_PROFILES: Record<string, StrategyProfile> = {
     atrMultiplier: 0.8,
     maxConcurrentTrades: 3,
     recommendedSymbols: ['BTCUSD'],
+    breakeven: { enabled: true, triggerR: 1.0, bufferPips: 5 },
   },
 
   // XAUUSD Optimal: ATR1.5 with RR2 - 75.4% win rate, PF 3.07
   'XAU_OPTIMAL': {
     name: 'Gold Optimal',
-    description: 'ATR1.5|RR2|NoConf - Optimized for XAUUSD (75.4% WR, 3.07 PF)',
+    description: 'ATR1.5|RR2|NoConf|BE1R - Optimized for XAUUSD (75.4% WR, 3.07 PF)',
     riskTier: 'aggressive',
     strategy: 'ORDER_BLOCK',
     minOBScore: 70,
@@ -148,12 +151,13 @@ export const STRATEGY_PROFILES: Record<string, StrategyProfile> = {
     atrMultiplier: 1.5,
     maxConcurrentTrades: 3,
     recommendedSymbols: ['XAUUSD.s'],
+    breakeven: { enabled: true, triggerR: 1.0, bufferPips: 5 },
   },
 
   // XAGUSD Optimal: OB65 with RR2 - 66.1% win rate, PF 1.94
   'XAG_OPTIMAL': {
     name: 'Silver Optimal',
-    description: 'OB65|RR2|NoConf - Optimized for XAGUSD (66.1% WR, 1.94 PF)',
+    description: 'OB65|RR2|NoConf|BE1R - Optimized for XAGUSD (66.1% WR, 1.94 PF)',
     riskTier: 'aggressive',
     strategy: 'ORDER_BLOCK',
     minOBScore: 65,
@@ -166,12 +170,13 @@ export const STRATEGY_PROFILES: Record<string, StrategyProfile> = {
     atrMultiplier: 1.0,
     maxConcurrentTrades: 3,
     recommendedSymbols: ['XAGUSD.s'],
+    breakeven: { enabled: true, triggerR: 1.0, bufferPips: 5 },
   },
 
   // === UNIVERSAL STRATEGIES (work across all symbols) ===
   'UNIVERSAL_NOCONF': {
     name: 'Universal NoConf',
-    description: 'OB70|All|DD8%|NoConf|RR2 - Works across all symbols',
+    description: 'OB70|All|DD8%|NoConf|RR2|BE1R - Works across all symbols',
     riskTier: 'aggressive',
     strategy: 'ORDER_BLOCK',
     minOBScore: 70,
@@ -184,11 +189,12 @@ export const STRATEGY_PROFILES: Record<string, StrategyProfile> = {
     atrMultiplier: 1.0,
     maxConcurrentTrades: 3,
     recommendedSymbols: ['BTCUSD', 'XAUUSD.s', 'XAGUSD.s'],
+    breakeven: { enabled: true, triggerR: 1.0, bufferPips: 5 },
   },
 
   'UNIVERSAL_RR15': {
     name: 'Universal RR1.5',
-    description: 'OB70|All|DD8%|NoConf|RR1.5 - Higher win rate, smaller targets',
+    description: 'OB70|All|DD8%|NoConf|RR1.5|BE1R - Higher win rate, smaller targets',
     riskTier: 'aggressive',
     strategy: 'ORDER_BLOCK',
     minOBScore: 70,
@@ -201,12 +207,13 @@ export const STRATEGY_PROFILES: Record<string, StrategyProfile> = {
     atrMultiplier: 1.0,
     maxConcurrentTrades: 3,
     recommendedSymbols: ['BTCUSD', 'XAUUSD.s', 'XAGUSD.s'],
+    breakeven: { enabled: true, triggerR: 1.0, bufferPips: 5 },
   },
 
   // === CONSERVATIVE/SAFE STRATEGIES (for prop firms) ===
   'SAFE_KZ': {
     name: 'Safe Kill Zones',
-    description: 'OB70|KZ|DD6%|NoConf - Lower DD for prop firms',
+    description: 'OB70|KZ|DD6%|NoConf|BE1R - Lower DD for prop firms',
     riskTier: 'conservative',
     strategy: 'ORDER_BLOCK',
     minOBScore: 70,
@@ -219,11 +226,12 @@ export const STRATEGY_PROFILES: Record<string, StrategyProfile> = {
     atrMultiplier: 1.0,
     maxConcurrentTrades: 1,
     recommendedSymbols: ['XAUUSD.s', 'XAGUSD.s'],
+    breakeven: { enabled: true, triggerR: 1.0, bufferPips: 5 },
   },
 
   'SAFE_STRICT': {
     name: 'Safe Strict',
-    description: 'OB65|KZ|DD5%|NoConf - Very conservative for challenges',
+    description: 'OB65|KZ|DD5%|NoConf|BE1R - Very conservative for challenges',
     riskTier: 'conservative',
     strategy: 'ORDER_BLOCK',
     minOBScore: 65,
@@ -236,12 +244,13 @@ export const STRATEGY_PROFILES: Record<string, StrategyProfile> = {
     atrMultiplier: 1.0,
     maxConcurrentTrades: 1,
     recommendedSymbols: ['XAUUSD.s', 'XAGUSD.s'],
+    breakeven: { enabled: true, triggerR: 1.0, bufferPips: 5 },
   },
 
   // === LEGACY STRATEGIES (kept for backwards compatibility) ===
   'AGGRESSIVE_ENGULF': {
     name: 'Aggressive Engulfing (Legacy)',
-    description: 'OB70|All|DD8%|Engulf - Use UNIVERSAL_NOCONF instead',
+    description: 'OB70|All|DD8%|Engulf|BE1R - Use UNIVERSAL_NOCONF instead',
     riskTier: 'aggressive',
     strategy: 'ORDER_BLOCK',
     minOBScore: 70,
@@ -254,11 +263,12 @@ export const STRATEGY_PROFILES: Record<string, StrategyProfile> = {
     atrMultiplier: 1.0,
     maxConcurrentTrades: 3,
     recommendedSymbols: ['BTCUSD', 'XAUUSD.s'],
+    breakeven: { enabled: true, triggerR: 1.0, bufferPips: 5 },
   },
 
   'BALANCED_STRONG': {
     name: 'Balanced Strong (Legacy)',
-    description: 'OB70|KZ|DD6%|Strong - Use SAFE_KZ instead',
+    description: 'OB70|KZ|DD6%|Strong|BE1R - Use SAFE_KZ instead',
     riskTier: 'balanced',
     strategy: 'ORDER_BLOCK',
     minOBScore: 70,
@@ -271,6 +281,7 @@ export const STRATEGY_PROFILES: Record<string, StrategyProfile> = {
     atrMultiplier: 1.0,
     maxConcurrentTrades: 2,
     recommendedSymbols: ['XAUUSD.s', 'XAGUSD.s'],
+    breakeven: { enabled: true, triggerR: 1.0, bufferPips: 5 },
   },
 };
 

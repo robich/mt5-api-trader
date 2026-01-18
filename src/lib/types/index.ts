@@ -315,6 +315,18 @@ export interface SymbolStrategySettings {
   confirmationType?: ConfirmationType;
 }
 
+/**
+ * Breakeven configuration for automatic SL management
+ */
+export interface BreakevenConfig {
+  /** Whether breakeven management is enabled */
+  enabled: boolean;
+  /** Move SL at this R multiple (e.g., 1.0 = 1R profit) */
+  triggerR: number;
+  /** Lock in this many pips of profit above entry */
+  bufferPips: number;
+}
+
 export interface BotConfig {
   symbols: string[];
   riskPercent: number;
@@ -346,6 +358,8 @@ export interface BotConfig {
   maxDailyDrawdown?: number;
   /** Per-symbol settings */
   symbolSettings?: SymbolStrategySettings[];
+  /** Breakeven configuration */
+  breakeven?: BreakevenConfig;
 }
 
 export const DEFAULT_BOT_CONFIG: BotConfig = {
@@ -366,6 +380,12 @@ export const DEFAULT_BOT_CONFIG: BotConfig = {
   minOBScore: 70,
   confirmationType: 'strong',
   maxDailyDrawdown: 6,
+  // Breakeven: Move SL to entry + 5 pips when position reaches 1R profit
+  breakeven: {
+    enabled: true,
+    triggerR: 1.0,
+    bufferPips: 5,
+  },
 };
 
 // MetaAPI timeframe mapping

@@ -10,11 +10,13 @@ import {
   Timeframe,
   StrategyType,
   TIMEFRAME_MAP,
+  BreakevenConfig,
 } from '../lib/types';
 import { performMTFAnalysis } from '../lib/analysis/multi-timeframe';
 import { runAllStrategies, StrategyContext } from '../lib/strategies';
 import { calculatePositionSize } from '../lib/risk/position-sizing';
 import { tradeManager } from '../lib/risk/trade-manager';
+import { BreakevenManager } from '../lib/risk/breakeven-manager';
 import { analysisStore } from './analysis-store';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -43,9 +45,17 @@ export class TradingBot {
   private latestPrices: Map<string, SymbolPrice> = new Map();
   private candleBuffers: Map<string, Map<string, Candle[]>> = new Map(); // symbol -> timeframe -> candles
   private lastKnownPositions: Map<string, PositionUpdate> = new Map(); // positionId -> last known state
+  private breakevenManager: BreakevenManager;
 
   private constructor(config?: Partial<BotConfig>) {
     this.config = { ...DEFAULT_BOT_CONFIG, ...config };
+    // Initialize breakeven manager with config
+    const beConfig: BreakevenConfig = this.config.breakeven || {
+      enabled: true,
+      triggerR: 1.0,
+      bufferPips: 5,
+    };
+    this.breakevenManager = new BreakevenManager(beConfig);
   }
 
   static getInstance(config?: Partial<BotConfig>): TradingBot {
@@ -114,8 +124,9 @@ export class TradingBot {
       }
 
       // Store initial position state for tracking (convert to PositionUpdate format for lastKnownPositions)
+      const positionUpdates: PositionUpdate[] = [];
       for (const pos of positions) {
-        this.lastKnownPositions.set(pos.id, {
+        const posUpdate: PositionUpdate = {
           id: pos.id,
           symbol: pos.symbol,
           type: pos.type === 'BUY' ? 'POSITION_TYPE_BUY' : 'POSITION_TYPE_SELL',
@@ -128,7 +139,15 @@ export class TradingBot {
           swap: pos.swap,
           time: pos.openTime,
           comment: pos.comment,
-        });
+        };
+        this.lastKnownPositions.set(pos.id, posUpdate);
+        positionUpdates.push(posUpdate);
+      }
+
+      // Initialize breakeven manager with current positions
+      if (this.breakevenManager.isEnabled()) {
+        await this.breakevenManager.initializeFromPositions(positionUpdates);
+        console.log(`[Bot] Breakeven manager initialized`);
       }
 
     } catch (error) {
@@ -248,10 +267,23 @@ export class TradingBot {
           );
         }
 
+        // Clean up breakeven tracking
+        this.breakevenManager.onPositionClosed(removedId);
+
         // Remove from tracking
         this.lastKnownPositions.delete(removedId);
       } else {
         console.log(`[Bot] Position ${removedId} removed but no last known state`);
+      }
+    }
+
+    // Check breakeven for all current positions
+    if (this.breakevenManager.isEnabled()) {
+      for (const pos of positions) {
+        const result = await this.breakevenManager.checkAndMoveToBreakeven(pos);
+        if (result.moved) {
+          console.log(`[Bot] ${pos.symbol} moved to breakeven: ${result.reason}`);
+        }
       }
     }
 
@@ -572,6 +604,10 @@ export class TradingBot {
 
   updateConfig(config: Partial<BotConfig>): void {
     this.config = { ...this.config, ...config };
+    // Update breakeven manager if config changed
+    if (config.breakeven) {
+      this.breakevenManager.updateConfig(config.breakeven);
+    }
   }
 
   async getAccountInfo() {
