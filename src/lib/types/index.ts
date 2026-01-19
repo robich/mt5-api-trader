@@ -218,7 +218,6 @@ export interface BacktestConfig {
   fixedRR?: number;
   atrMultiplier?: number;
   // Position management
-  maxSlPips?: number;
   maxConcurrentTrades?: number;
   maxDrawdownPercent?: number;
   maxDailyDrawdownPercent?: number;

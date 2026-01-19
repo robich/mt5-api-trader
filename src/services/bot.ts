@@ -585,19 +585,13 @@ export class TradingBot {
       const accountInfo = await metaApiClient.getAccountInfo();
       const symbolInfo = await metaApiClient.getSymbolInfo(signal.symbol);
 
-      // Validate minimum stop loss distance
+      // Validate minimum stop loss distance (prevents being stopped by spread/noise)
       const tradingLimits = SYMBOL_TRADING_LIMITS[signal.symbol];
       if (tradingLimits) {
         const slDistance = Math.abs(signal.entryPrice - signal.stopLoss);
         const slPips = slDistance / symbolInfo.pipSize;
         if (slPips < tradingLimits.minSlPips) {
           const reason = `SL too close: ${slPips.toFixed(1)} pips < ${tradingLimits.minSlPips} min`;
-          console.log(`Signal rejected: ${reason}`);
-          await tradeManager.updateSignalStatus(signal.id, 'REJECTED', reason);
-          return;
-        }
-        if (slPips > tradingLimits.maxSlPips) {
-          const reason = `SL too far: ${slPips.toFixed(1)} pips > ${tradingLimits.maxSlPips} max`;
           console.log(`Signal rejected: ${reason}`);
           await tradeManager.updateSignalStatus(signal.id, 'REJECTED', reason);
           return;
@@ -614,6 +608,15 @@ export class TradingBot {
       );
 
       console.log(`Position size calculated: ${positionInfo.lotSize} lots, Risk: $${positionInfo.riskAmount.toFixed(2)}`);
+
+      // Reject if SL is too wide to size properly (would exceed intended risk)
+      if (positionInfo.wasClampedToMin) {
+        const actualRisk = positionInfo.lotSize * positionInfo.pipRisk * positionInfo.pipValue;
+        const reason = `SL too wide: min lot ${symbolInfo.minVolume} would risk $${actualRisk.toFixed(2)} vs intended $${positionInfo.riskAmount.toFixed(2)}`;
+        console.log(`Signal rejected: ${reason}`);
+        await tradeManager.updateSignalStatus(signal.id, 'REJECTED', reason);
+        return;
+      }
 
       // Execute the trade
       const orderResult = await metaApiClient.placeMarketOrder(

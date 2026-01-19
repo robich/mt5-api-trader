@@ -34,7 +34,6 @@ interface ExtendedBacktestConfig extends BacktestConfig {
   atrMultiplier?: number;
 
   // Position management
-  maxSlPips?: number;
   maxConcurrentTrades?: number;
   maxDrawdownPercent?: number;
   maxDailyDrawdownPercent?: number;

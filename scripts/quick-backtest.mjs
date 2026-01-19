@@ -259,11 +259,12 @@ const VARIATIONS = [
 ];
 
 // Symbol info for backtesting (including typical spreads)
+// Wide stop losses are handled by position sizing (lot size reduced if SL is wider)
 const SYMBOL_INFO = {
-  'XAUUSD.s': { pipSize: 0.1, contractSize: 100, minVolume: 0.01, maxSlPips: 50, minSlPips: 15, typicalSpread: 0.25 },  // ~25 cents spread, $1.50 min SL
-  'XAGUSD.s': { pipSize: 0.01, contractSize: 5000, minVolume: 0.01, maxSlPips: 100, minSlPips: 10, typicalSpread: 0.025 }, // ~2.5 cents spread, $0.10 min SL
-  'BTCUSD': { pipSize: 1, contractSize: 1, minVolume: 0.01, maxSlPips: 500, minSlPips: 100, typicalSpread: 15 },  // ~$15 spread, $100 min SL
-  'ETHUSD': { pipSize: 1, contractSize: 1, minVolume: 0.01, maxSlPips: 200, minSlPips: 20, typicalSpread: 2 },  // ~$2 spread, $20 min SL
+  'XAUUSD.s': { pipSize: 0.1, contractSize: 100, minVolume: 0.01, minSlPips: 15, typicalSpread: 0.25 },  // ~25 cents spread, $1.50 min SL
+  'XAGUSD.s': { pipSize: 0.01, contractSize: 5000, minVolume: 0.01, minSlPips: 10, typicalSpread: 0.025 }, // ~2.5 cents spread, $0.10 min SL
+  'BTCUSD': { pipSize: 1, contractSize: 1, minVolume: 0.01, minSlPips: 100, typicalSpread: 15 },  // ~$15 spread, $100 min SL
+  'ETHUSD': { pipSize: 1, contractSize: 1, minVolume: 0.01, minSlPips: 20, typicalSpread: 2 },  // ~$2 spread, $20 min SL
 };
 
 // Kill Zone definitions (UTC)
@@ -425,10 +426,13 @@ class SMCBacktestEngine {
           const slDistance = Math.abs(entryPrice - signal.sl);
           const slPips = slDistance / symbolInfo.pipSize;
 
-          if (slPips <= symbolInfo.maxSlPips) {
-            const riskAmount = this.balance * (this.config.risk / 100);
-            const lotSize = Math.max(symbolInfo.minVolume,
-              Math.round(riskAmount / (slDistance * symbolInfo.contractSize) * 100) / 100);
+          // Calculate position size
+          const riskAmount = this.balance * (this.config.risk / 100);
+          const rawLotSize = Math.round(riskAmount / (slDistance * symbolInfo.contractSize) * 100) / 100;
+
+          // Only open if SL can be properly sized (raw lot >= minVolume)
+          if (rawLotSize >= symbolInfo.minVolume && slPips >= symbolInfo.minSlPips) {
+            const lotSize = rawLotSize;
 
             const intendedRR = this.config.fixedRR;
             let adjustedTP;
@@ -506,10 +510,6 @@ class SMCBacktestEngine {
       // Recalculate SL distance with spread-adjusted entry
       const slDistance = Math.abs(entryPrice - signal.sl);
       const slPips = slDistance / symbolInfo.pipSize;
-      if (slPips > symbolInfo.maxSlPips) {
-        if (this.debugFilters) console.log(`  [FILTER] maxSL: ${slPips.toFixed(1)} > ${symbolInfo.maxSlPips} pips`);
-        continue;
-      }
       if (slPips < symbolInfo.minSlPips) {
         if (this.debugFilters) console.log(`  [FILTER] minSL: ${slPips.toFixed(1)} < ${symbolInfo.minSlPips} pips`);
         continue;
@@ -517,8 +517,14 @@ class SMCBacktestEngine {
 
       // Calculate position size with spread-adjusted entry
       const riskAmount = this.balance * (this.config.risk / 100);
-      const lotSize = Math.max(symbolInfo.minVolume,
-        Math.round(riskAmount / (slDistance * symbolInfo.contractSize) * 100) / 100);
+      const rawLotSize = Math.round(riskAmount / (slDistance * symbolInfo.contractSize) * 100) / 100;
+
+      // Skip if SL is too wide to size properly (would exceed intended risk)
+      if (rawLotSize < symbolInfo.minVolume) {
+        if (this.debugFilters) console.log(`  [FILTER] SL too wide: lot ${rawLotSize.toFixed(3)} < min ${symbolInfo.minVolume}`);
+        continue;
+      }
+      const lotSize = rawLotSize;
 
       // Adjust TP to maintain the intended R:R ratio
       const intendedRR = this.config.fixedRR;

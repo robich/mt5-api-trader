@@ -383,14 +383,6 @@ export class BacktestEngine {
           }
         }
 
-        // Apply max stop loss limit
-        if (this.config.maxSlPips) {
-          const slPips = Math.abs(signal.entryPrice - signal.stopLoss) / symbolInfo.pipSize;
-          if (slPips > this.config.maxSlPips) {
-            continue; // Skip - stop loss too wide
-          }
-        }
-
         // Calculate position size
         const positionInfo = calculatePositionSize(
           this.balance,
@@ -410,6 +402,11 @@ export class BacktestEngine {
             tickValue: symbolInfo.tickValue,
           }
         );
+
+        // Skip if SL is too wide to size properly (would exceed intended risk)
+        if (positionInfo.wasClampedToMin) {
+          continue;
+        }
 
         // Open position
         this.openPosition = {

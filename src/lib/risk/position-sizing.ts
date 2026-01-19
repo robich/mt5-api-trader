@@ -19,6 +19,8 @@ export function calculatePositionSize(
   riskAmount: number;
   pipRisk: number;
   pipValue: number;
+  rawLotSize: number;
+  wasClampedToMin: boolean;
 } {
   // Calculate risk amount in account currency
   const riskAmount = accountBalance * (riskPercent / 100);
@@ -60,11 +62,16 @@ export function calculatePositionSize(
     Math.min(lotSize, symbolInfo.maxVolume)
   );
 
+  // Check if we had to clamp UP to minimum (meaning SL is too wide to size properly)
+  const wasClampedToMin = lotSize < symbolInfo.minVolume;
+
   return {
     lotSize: Number(clampedLotSize.toFixed(2)),
     riskAmount,
     pipRisk,
     pipValue: pipValuePerLot,
+    rawLotSize,
+    wasClampedToMin,
   };
 }
 

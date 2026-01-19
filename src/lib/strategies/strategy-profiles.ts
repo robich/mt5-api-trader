@@ -339,14 +339,15 @@ export const SYMBOL_TIMEFRAMES: Record<string, SymbolTimeframeConfig> = {
 };
 
 /**
- * Symbol trading limits - minimum and maximum stop loss distances in pips
+ * Symbol trading limits
  * minSlPips prevents entries with stop losses too close (easily stopped by spread/noise)
+ * Wide stop losses are handled by position sizing (smaller lot if SL is wider)
  */
-export const SYMBOL_TRADING_LIMITS: Record<string, { minSlPips: number; maxSlPips: number; typicalSpread: number }> = {
-  'XAUUSD.s': { minSlPips: 15, maxSlPips: 50, typicalSpread: 0.25 },   // ~$1.50 min SL, ~25 cents spread (6x)
-  'XAGUSD.s': { minSlPips: 10, maxSlPips: 100, typicalSpread: 0.025 }, // ~$0.10 min SL, ~2.5 cents spread (4x)
-  'BTCUSD': { minSlPips: 100, maxSlPips: 500, typicalSpread: 15 },     // ~$100 min SL, ~$15 spread (6-7x)
-  'ETHUSD': { minSlPips: 20, maxSlPips: 200, typicalSpread: 2 },       // ~$20 min SL, ~$2 spread (10x)
+export const SYMBOL_TRADING_LIMITS: Record<string, { minSlPips: number; typicalSpread: number }> = {
+  'XAUUSD.s': { minSlPips: 15, typicalSpread: 0.25 },   // ~$1.50 min SL, ~25 cents spread (6x)
+  'XAGUSD.s': { minSlPips: 10, typicalSpread: 0.025 },  // ~$0.10 min SL, ~2.5 cents spread (4x)
+  'BTCUSD': { minSlPips: 100, typicalSpread: 15 },      // ~$100 min SL, ~$15 spread (6-7x)
+  'ETHUSD': { minSlPips: 20, typicalSpread: 2 },        // ~$20 min SL, ~$2 spread (10x)
 };
 
 /**
