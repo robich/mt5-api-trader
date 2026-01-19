@@ -43,6 +43,87 @@ class MarketAnalysisService {
   }
 
   /**
+   * Fetch real-time news data from multiple sources
+   */
+  private async fetchNewsData(): Promise<string> {
+    console.log('[MarketAnalysis] Fetching real-time news data...');
+
+    try {
+      const newsPromises = [
+        this.fetchWithPrompt('Latest gold market news and price movements', 'Gold (XAUUSD)'),
+        this.fetchWithPrompt('Latest Bitcoin cryptocurrency news and analysis', 'Bitcoin (BTCUSD)'),
+        this.fetchWithPrompt('EUR/USD and GBP/USD forex market news', 'Forex Markets'),
+        this.fetchWithPrompt('Upcoming economic calendar events Fed FOMC NFP CPI inflation', 'Economic Calendar'),
+        this.fetchWithPrompt('Trump administration policy trade tariffs geopolitical tensions', 'Geopolitical News'),
+        this.fetchWithPrompt('Federal Reserve interest rate policy central bank decisions', 'Central Bank Policy'),
+      ];
+
+      const results = await Promise.allSettled(newsPromises);
+
+      const newsData: string[] = [];
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled' && result.value) {
+          newsData.push(result.value);
+        } else {
+          console.warn(`[MarketAnalysis] Failed to fetch news ${index + 1}`);
+        }
+      });
+
+      if (newsData.length === 0) {
+        return 'Note: Unable to fetch real-time news. Proceeding with general market analysis.';
+      }
+
+      console.log('[MarketAnalysis] Successfully fetched news from', newsData.length, 'sources');
+      return newsData.join('\n\n---\n\n');
+    } catch (error) {
+      console.error('[MarketAnalysis] Error fetching news:', error);
+      return 'Note: Unable to fetch real-time news. Proceeding with general market analysis.';
+    }
+  }
+
+  /**
+   * Use Claude to search and summarize a specific topic
+   */
+  private async fetchWithPrompt(searchQuery: string, category: string): Promise<string> {
+    if (!this.anthropic) return '';
+
+    try {
+      const message = await this.anthropic.messages.create({
+        model: 'claude-sonnet-4-5-20250929', // Using Sonnet for faster news gathering
+        max_tokens: 1024,
+        temperature: 0.3,
+        messages: [
+          {
+            role: 'user',
+            content: `Search for: "${searchQuery}"
+
+Provide a brief summary (2-4 paragraphs) of the most current and relevant information. Today's date is ${format(new Date(), 'MMMM d, yyyy')}.
+
+Focus on:
+- Very recent developments (last few days/weeks)
+- Key facts, figures, and price levels
+- Important upcoming events or dates
+- Market sentiment and analyst views
+
+Be factual and concise.`,
+          },
+        ],
+      });
+
+      const content = message.content[0].type === 'text' ? message.content[0].text : '';
+
+      if (content) {
+        return `## ${category}\n\n${content}`;
+      }
+
+      return '';
+    } catch (error) {
+      console.error(`[MarketAnalysis] Error fetching ${category}:`, error);
+      return '';
+    }
+  }
+
+  /**
    * Run the daily market analysis
    */
   async runDailyAnalysis(): Promise<MarketAnalysisResult | null> {
@@ -59,11 +140,14 @@ class MarketAnalysisService {
       const weekStart = startOfWeek(addDays(today, 1), { weekStartsOn: 1 }); // Next Monday
       const weekEnd = endOfWeek(addDays(today, 1), { weekStartsOn: 1 }); // Next Sunday
 
-      // Create the analysis prompt
-      const prompt = this.createAnalysisPrompt(weekStart, weekEnd);
+      // Fetch real-time news data
+      const newsData = await this.fetchNewsData();
 
-      // Call Claude Opus 4.5
-      console.log('[MarketAnalysis] Calling Claude Opus 4.5...');
+      // Create the analysis prompt with real news
+      const prompt = this.createAnalysisPrompt(weekStart, weekEnd, newsData);
+
+      // Call Claude Opus 4.5 for analysis
+      console.log('[MarketAnalysis] Calling Claude Opus 4.5 for analysis...');
       const message = await this.anthropic.messages.create({
         model: 'claude-opus-4-5-20251101',
         max_tokens: 4096,
@@ -98,7 +182,7 @@ class MarketAnalysisService {
   /**
    * Create the analysis prompt for Claude
    */
-  private createAnalysisPrompt(weekStart: Date, weekEnd: Date): string {
+  private createAnalysisPrompt(weekStart: Date, weekEnd: Date, newsData: string): string {
     const weekStartStr = format(weekStart, 'MMMM d, yyyy');
     const weekEndStr = format(weekEnd, 'YYYY-MM-dd');
     const todayStr = format(new Date(), 'MMMM d, yyyy');
@@ -114,7 +198,13 @@ Focus on these markets:
 - EUR/USD - Major forex pair
 - GBP/USD - Major forex pair
 
-Please provide your analysis in the following structured format:
+=== CURRENT MARKET NEWS AND DEVELOPMENTS ===
+
+${newsData}
+
+===  END OF NEWS DATA ===
+
+Based on the above real-time market information, news, and economic calendar data, please provide your analysis in the following structured format:
 
 # MARKET NEWS SUMMARY
 [Summarize the key market news, economic data releases, central bank decisions, geopolitical events, and other factors that could impact these markets during the upcoming week]

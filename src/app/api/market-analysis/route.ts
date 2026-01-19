@@ -8,6 +8,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { marketAnalysisService } from '@/services/market-analysis';
 import { analysisScheduler } from '@/services/analysis-scheduler';
 
+// Mark as dynamic to prevent static generation
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/market-analysis
  * Fetch market analysis history

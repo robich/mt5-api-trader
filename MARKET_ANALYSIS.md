@@ -6,10 +6,16 @@ This feature uses Claude Opus 4.5 AI to analyze key market news and economic eve
 
 ## Features
 
+- **Real-Time News Fetching**: Automatically gathers current market news, economic calendar, and geopolitical events
 - **Daily Automated Analysis**: Runs automatically once per day (default: 9 AM UTC)
-- **AI-Powered Insights**: Uses Claude Opus 4.5 for comprehensive market analysis
+- **AI-Powered Insights**: Uses Claude Opus 4.5 for comprehensive market analysis with real-time data
 - **Multi-Asset Coverage**: Analyzes XAUUSD (Gold), XAGUSD (Silver), BTCUSD (Bitcoin), EURUSD, and GBPUSD
-- **Trade Recommendations**: Provides clear RECOMMENDED/NOT_RECOMMENDED/NEUTRAL signals
+- **Comprehensive News Sources**:
+  - Latest gold, silver, Bitcoin, and forex market news
+  - Upcoming economic calendar events (NFP, CPI, Fed decisions)
+  - Geopolitical developments (trade policy, tensions, etc.)
+  - Central bank policy updates
+- **Trade Recommendations**: Provides clear RECOMMENDED/NOT_RECOMMENDED/NEUTRAL signals based on real data
 - **Confidence Scoring**: Each analysis includes a confidence level (0-100%)
 - **Telegram Notifications**: Sends formatted analysis reports directly to your Telegram
 - **Historical Records**: Maintains a complete database of all past analyses
@@ -100,6 +106,37 @@ ANALYSIS_SCHEDULE=0 7 * * 1-5
 # Twice daily: 6 AM and 6 PM UTC
 ANALYSIS_SCHEDULE=0 6,18 * * *
 ```
+
+## How It Works
+
+### 1. News Gathering Phase
+The system automatically fetches real-time information from multiple sources:
+
+- **Market News**: Latest developments for Gold, Silver, Bitcoin, EUR/USD, GBP/USD
+- **Economic Calendar**: Upcoming Fed meetings, NFP, CPI, inflation data, etc.
+- **Geopolitical Events**: Trump administration policies, trade tensions, global developments
+- **Central Bank Policy**: Interest rate decisions, monetary policy statements
+
+This is done using Claude Sonnet 4.5 to search and summarize current information, ensuring the analysis is based on the latest market conditions - including breaking news like geopolitical tensions, policy announcements, or unexpected economic data.
+
+### 2. Analysis Phase
+Claude Opus 4.5 receives the gathered news and performs:
+
+- **Fundamental Analysis**: Impact of news events on each market
+- **Sentiment Analysis**: Market positioning and trader sentiment
+- **Technical Context**: Current price levels and key support/resistance
+- **Risk Assessment**: Potential market volatility and uncertainty levels
+
+### 3. Recommendation Generation
+Based on the comprehensive analysis, Claude provides:
+
+- **Trade Signal**: RECOMMENDED, NOT_RECOMMENDED, or NEUTRAL
+- **Target Symbols**: Which specific markets to trade (if recommended)
+- **Confidence Score**: How strong the conviction is (0-100%)
+- **Detailed Reasoning**: Why the recommendation was made
+
+### 4. Notification Delivery
+The analysis is formatted and sent via Telegram with all key information in an easy-to-read format.
 
 ## Analysis Output
 
@@ -259,10 +296,18 @@ Get scheduler and service status
 
 ## Cost Considerations
 
-- Each analysis uses Claude Opus 4.5 (highest quality model)
-- Typical analysis costs ~$0.15-0.30 per run
-- Daily analysis = ~$5-10/month
-- Consider using scheduled runs only on trading days to reduce costs
+The analysis uses a hybrid approach to minimize costs while maintaining quality:
+
+- **News Gathering**: 6x Claude Sonnet 4.5 calls (~$0.10-0.15 total)
+- **Analysis**: 1x Claude Opus 4.5 call (~$0.20-0.30)
+- **Total per analysis**: ~$0.30-0.45 per run
+- **Daily schedule**: ~$10-15/month
+- **Recommendation**: Schedule only on trading days (Mon-Fri) to reduce to ~$7-10/month
+
+To reduce costs further:
+- Use `ANALYSIS_SCHEDULE=0 8 * * 1-5` for weekdays only
+- Run manually only when needed instead of daily schedule
+- The news gathering step can be skipped in testing by modifying the service
 
 ## Smart Money Concepts Integration
 

@@ -7,6 +7,9 @@ import { NextResponse } from 'next/server';
 import { analysisScheduler } from '@/services/analysis-scheduler';
 import { marketAnalysisService } from '@/services/market-analysis';
 
+// Mark as dynamic to prevent static generation
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/market-analysis/status
  * Get scheduler and service status
@@ -14,7 +17,14 @@ import { marketAnalysisService } from '@/services/market-analysis';
 export async function GET() {
   try {
     const schedulerStatus = analysisScheduler.getStatus();
-    const latestAnalysis = await marketAnalysisService.getLatestAnalysis();
+
+    let latestAnalysis = null;
+    try {
+      latestAnalysis = await marketAnalysisService.getLatestAnalysis();
+    } catch (dbError) {
+      // Database might not be available during build time
+      console.warn('[MarketAnalysis] Could not fetch latest analysis:', dbError);
+    }
 
     return NextResponse.json({
       success: true,
