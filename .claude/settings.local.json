@@ -73,7 +73,9 @@
       "Bash(curl -s \"http://localhost:3001/api/trades?status=OPEN\")",
       "Bash(grep:*)",
       "Bash(node scripts/test-deals-sync.mjs:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(curl:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

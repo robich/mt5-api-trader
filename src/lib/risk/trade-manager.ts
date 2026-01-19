@@ -8,7 +8,7 @@ import { isInKillZone, KILL_ZONES } from '../analysis/kill-zones';
  * and manages position lifecycle.
  *
  * Enhanced with backtest-optimized parameters:
- * - Daily drawdown limits (symbol-specific)
+ * - Drawdown limits (12-hour rolling window, symbol-specific)
  * - Kill zone filtering
  * - Confirmation candle tracking
  */
@@ -21,10 +21,10 @@ export interface TradeManagerConfig {
 }
 
 /**
- * Daily drawdown tracking per symbol
+ * Drawdown tracking per symbol (12-hour rolling window)
  */
 export interface DailyDrawdownState {
-  date: string;
+  lockTime: number | null; // Timestamp when locked (null if not locked)
   startBalance: number;
   currentLoss: number;
   isLocked: boolean;
@@ -55,12 +55,11 @@ export class TradeManager {
   }
 
   /**
-   * Reset daily drawdown tracking (call at start of day)
+   * Reset drawdown tracking for a symbol
    */
   resetDailyDrawdown(symbol: string, startBalance: number): void {
-    const today = new Date().toISOString().split('T')[0];
     this.dailyDrawdown.set(symbol, {
-      date: today,
+      lockTime: null,
       startBalance,
       currentLoss: 0,
       isLocked: false,
@@ -68,12 +67,11 @@ export class TradeManager {
   }
 
   /**
-   * Reset global daily drawdown
+   * Reset global drawdown
    */
   resetGlobalDrawdown(startBalance: number): void {
-    const today = new Date().toISOString().split('T')[0];
     this.globalDrawdown = {
-      date: today,
+      lockTime: null,
       startBalance,
       currentLoss: 0,
       isLocked: false,
@@ -81,16 +79,31 @@ export class TradeManager {
   }
 
   /**
-   * Record a loss and check if daily DD limit is hit
+   * Record a loss and check if DD limit is hit (12-hour rolling window)
    */
   recordLoss(symbol: string, lossAmount: number, maxDailyDD: number): boolean {
-    const today = new Date().toISOString().split('T')[0];
+    const now = Date.now();
+    const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
     let state = this.dailyDrawdown.get(symbol);
 
-    // Initialize if new day or no state
-    if (!state || state.date !== today) {
+    // Check if existing lock has expired (12 hours passed)
+    if (state?.isLocked && state.lockTime) {
+      if (now - state.lockTime >= TWELVE_HOURS_MS) {
+        // Lock expired, reset state
+        state = {
+          lockTime: null,
+          startBalance: state.startBalance,
+          currentLoss: 0,
+          isLocked: false,
+        };
+        this.dailyDrawdown.set(symbol, state);
+      }
+    }
+
+    // Initialize if no state
+    if (!state) {
       state = {
-        date: today,
+        lockTime: null,
         startBalance: 0, // Will be set properly when balance is available
         currentLoss: 0,
         isLocked: false,
@@ -105,7 +118,8 @@ export class TradeManager {
       const ddPercent = (state.currentLoss / state.startBalance) * 100;
       if (ddPercent >= maxDailyDD) {
         state.isLocked = true;
-        state.lockReason = `Daily DD limit ${maxDailyDD}% reached (${ddPercent.toFixed(2)}%)`;
+        state.lockTime = now;
+        state.lockReason = `DD limit ${maxDailyDD}% reached (${ddPercent.toFixed(2)}%) - locked for 12h`;
         return false;
       }
     }
@@ -114,14 +128,27 @@ export class TradeManager {
   }
 
   /**
-   * Check if symbol is locked due to daily DD
+   * Check if symbol is locked due to DD (12-hour rolling window)
    */
   isSymbolLocked(symbol: string): { locked: boolean; reason?: string } {
-    const today = new Date().toISOString().split('T')[0];
+    const now = Date.now();
+    const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
     const state = this.dailyDrawdown.get(symbol);
 
-    if (!state || state.date !== today) {
+    if (!state) {
       return { locked: false };
+    }
+
+    // Check if lock has expired (12 hours passed)
+    if (state.isLocked && state.lockTime) {
+      if (now - state.lockTime >= TWELVE_HOURS_MS) {
+        // Lock expired, clear it
+        state.isLocked = false;
+        state.lockTime = null;
+        state.lockReason = undefined;
+        state.currentLoss = 0;
+        return { locked: false };
+      }
     }
 
     return {
@@ -181,13 +208,13 @@ export class TradeManager {
       }
     }
 
-    // Check daily loss limit
+    // Check loss limit (12-hour rolling window)
     if (this.config.maxDailyLossPercent) {
-      const dailyLossOk = await this.checkDailyLossLimit();
-      if (!dailyLossOk) {
+      const lossLimitOk = await this.checkDailyLossLimit();
+      if (!lossLimitOk) {
         return {
           canOpen: false,
-          reason: `Daily loss limit reached (${this.config.maxDailyLossPercent}%)`,
+          reason: `Loss limit reached in last 12h (${this.config.maxDailyLossPercent}%)`,
         };
       }
     }
@@ -246,22 +273,21 @@ export class TradeManager {
   }
 
   /**
-   * Check if daily loss limit has been reached
+   * Check if loss limit has been reached (12-hour rolling window)
    */
   private async checkDailyLossLimit(): Promise<boolean> {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
 
-    const todayTrades = await prisma.trade.findMany({
+    const recentTrades = await prisma.trade.findMany({
       where: {
         closeTime: {
-          gte: todayStart,
+          gte: twelveHoursAgo,
         },
         status: 'CLOSED',
       },
     });
 
-    const totalLoss = todayTrades
+    const totalLoss = recentTrades
       .filter((t) => t.pnlPercent && t.pnlPercent < 0)
       .reduce((sum, t) => sum + Math.abs(t.pnlPercent || 0), 0);
 

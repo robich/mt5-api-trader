@@ -30,10 +30,14 @@ interface Trade {
   status: string;
 }
 
+type Timeframe = 'M5' | 'M15' | 'H1' | 'H4' | 'D1';
+
 interface TradingViewChartProps {
   symbol: string;
   trades?: Trade[];
   currency?: string;
+  timeframe?: Timeframe;
+  onTimeframeChange?: (tf: Timeframe) => void;
 }
 
 interface CandleData {
@@ -295,13 +299,22 @@ class TradeRectPrimitive implements ISeriesPrimitive<Time> {
   }
 }
 
-function TradingViewChartComponent({ symbol, trades = [], currency = 'USD' }: TradingViewChartProps) {
+const TIMEFRAMES: { value: Timeframe; label: string }[] = [
+  { value: 'M5', label: '5m' },
+  { value: 'M15', label: '15m' },
+  { value: 'H1', label: '1H' },
+  { value: 'H4', label: '4H' },
+  { value: 'D1', label: '1D' },
+];
+
+function TradingViewChartComponent({ symbol, trades = [], currency = 'USD', timeframe = 'M15', onTimeframeChange }: TradingViewChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const tradeRectPrimitiveRef = useRef<TradeRectPrimitive | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [internalTimeframe, setInternalTimeframe] = useState<Timeframe>(timeframe);
 
   // Fetch candle data and create chart
   useEffect(() => {
@@ -352,7 +365,8 @@ function TradingViewChartComponent({ symbol, trades = [], currency = 'USD' }: Tr
     tradeRectPrimitiveRef.current = tradeRectPrimitive;
 
     // Fetch candle data
-    fetchCandleData(symbol).then((data) => {
+    const currentTf = onTimeframeChange ? timeframe : internalTimeframe;
+    fetchCandleData(symbol, currentTf).then((data) => {
       if (data && data.length > 0) {
         candlestickSeries.setData(data);
 
@@ -386,22 +400,50 @@ function TradingViewChartComponent({ symbol, trades = [], currency = 'USD' }: Tr
       window.removeEventListener('resize', handleResize);
       chart.remove();
     };
-  }, [symbol]);
+  }, [symbol, timeframe, internalTimeframe]);
 
   // Update rectangles when trades change
   useEffect(() => {
+    const currentTf = onTimeframeChange ? timeframe : internalTimeframe;
     if (candlestickSeriesRef.current && tradeRectPrimitiveRef.current && !isLoading) {
-      fetchCandleData(symbol).then((data) => {
+      fetchCandleData(symbol, currentTf).then((data) => {
         if (data && data.length > 0) {
           const tradeRects = convertTradesToRects(trades, data);
           tradeRectPrimitiveRef.current!.setTrades(tradeRects);
         }
       });
     }
-  }, [trades, symbol, isLoading]);
+  }, [trades, symbol, isLoading, timeframe, internalTimeframe]);
+
+  const currentTf = onTimeframeChange ? timeframe : internalTimeframe;
+
+  const handleTimeframeChange = (tf: Timeframe) => {
+    if (onTimeframeChange) {
+      onTimeframeChange(tf);
+    } else {
+      setInternalTimeframe(tf);
+    }
+  };
 
   return (
     <div className="relative w-full" style={{ height: '500px' }}>
+      {/* Timeframe Selector */}
+      <div className="absolute top-2 right-2 z-20 flex gap-1 bg-background/90 backdrop-blur-sm rounded-md p-1 border border-border">
+        {TIMEFRAMES.map(({ value, label }) => (
+          <button
+            key={value}
+            onClick={() => handleTimeframeChange(value)}
+            className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+              currentTf === value
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -436,9 +478,29 @@ function convertTradesToRects(trades: Trade[], candleData: CandlestickData[]): T
 
   console.log('[Chart] Candle range:', new Date(firstCandleTime * 1000).toISOString(), 'to', new Date(lastCandleTime * 1000).toISOString());
 
-  // Helper to find nearest candle time
-  const findNearestCandleTime = (timestamp: string, tradeId: string): number | null => {
+  // Helper to check if trade time is within candle range
+  const isWithinRange = (timestamp: string): boolean => {
     const tradeTime = Math.floor(new Date(timestamp).getTime() / 1000);
+    // Allow trades that are within the candle range (with some buffer)
+    const buffer = 86400; // 24 hours buffer on each side
+    return tradeTime >= (firstCandleTime - buffer) && tradeTime <= (lastCandleTime + buffer);
+  };
+
+  // Helper to find the exact candle time for a trade timestamp
+  const findCandleTime = (timestamp: string, tradeId: string): number => {
+    const tradeTime = Math.floor(new Date(timestamp).getTime() / 1000);
+
+    // If trade time is before first candle, use first candle
+    if (tradeTime <= firstCandleTime) {
+      return firstCandleTime;
+    }
+
+    // If trade time is after last candle, use last candle
+    if (tradeTime >= lastCandleTime) {
+      return lastCandleTime;
+    }
+
+    // Find the nearest candle
     let nearestCandle = candleData[0];
     let minDiff = Infinity;
 
@@ -452,26 +514,25 @@ function convertTradesToRects(trades: Trade[], candleData: CandlestickData[]): T
     }
 
     console.log(`[Chart] Trade ${tradeId}: openTime=${timestamp}, tradeTime=${new Date(tradeTime * 1000).toISOString()}, minDiff=${minDiff}s (${(minDiff/3600).toFixed(1)}h)`);
-
-    // Only return if within reasonable range (24 hours = 86400 seconds)
-    if (minDiff < 86400 && nearestCandle) {
-      return typeof nearestCandle.time === 'number' ? nearestCandle.time : null;
-    }
-    console.log(`[Chart] Trade ${tradeId}: SKIPPED - outside 24h range`);
-    return null;
+    return typeof nearestCandle.time === 'number' ? nearestCandle.time : tradeTime;
   };
 
   for (const trade of trades) {
     console.log(`[Chart] Processing trade:`, trade.id, trade.symbol, trade.direction, trade.status);
-    const startTime = findNearestCandleTime(trade.openTime, trade.id);
-    if (startTime === null) continue;
+
+    // Skip trades that are completely outside the candle range
+    if (!isWithinRange(trade.openTime)) {
+      console.log(`[Chart] Trade ${trade.id}: SKIPPED - outside candle range`);
+      continue;
+    }
+
+    const startTime = findCandleTime(trade.openTime, trade.id);
 
     let endTime: number;
     let exitPrice: number;
 
     if (trade.status === 'CLOSED' && trade.closeTime && trade.closePrice) {
-      const closeT = findNearestCandleTime(trade.closeTime, trade.id + '-close');
-      endTime = closeT !== null ? closeT : lastCandleTime;
+      endTime = findCandleTime(trade.closeTime, trade.id + '-close');
       exitPrice = trade.closePrice;
     } else {
       // Open trade: extend to current time and use current price estimation
@@ -500,49 +561,108 @@ function convertTradesToRects(trades: Trade[], candleData: CandlestickData[]): T
   return rects;
 }
 
-async function fetchCandleData(symbol: string): Promise<CandlestickData[]> {
+// Calculate date range based on timeframe
+function getDateRangeForTimeframe(tf: Timeframe): { startDate: Date; endDate: Date } {
+  const endDate = new Date();
+  const startDate = new Date();
+
+  switch (tf) {
+    case 'M5':
+      startDate.setDate(startDate.getDate() - 3); // 3 days for M5
+      break;
+    case 'M15':
+      startDate.setDate(startDate.getDate() - 7); // 7 days for M15
+      break;
+    case 'H1':
+      startDate.setDate(startDate.getDate() - 30); // 30 days for H1
+      break;
+    case 'H4':
+      startDate.setDate(startDate.getDate() - 60); // 60 days for H4
+      break;
+    case 'D1':
+      startDate.setDate(startDate.getDate() - 180); // 180 days for D1
+      break;
+  }
+
+  return { startDate, endDate };
+}
+
+async function fetchCandleData(symbol: string, tf: Timeframe = 'M15'): Promise<CandlestickData[]> {
   // Keep the symbol exactly as provided (preserve case for broker compatibility)
   const apiSymbol = symbol;
 
-  // Calculate date range: last 5 days
-  const endDate = new Date();
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - 5);
+  // Calculate date range based on timeframe
+  const { startDate, endDate } = getDateRangeForTimeframe(tf);
 
   // Try to fetch from our API first
   try {
     const params = new URLSearchParams({
       symbol: apiSymbol,
-      timeframe: 'M15',
+      timeframe: tf,
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
     });
     const url = `/api/candles?${params.toString()}`;
     console.log('[Chart] Fetching candles:', url);
 
-    const response = await fetch(url);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
     if (response.ok) {
-      const data = await response.json();
-      console.log('[Chart] Received', data.count, 'candles from API');
-      if (data.candles && data.candles.length > 0) {
-        return data.candles.map((c: any) => ({
-          time: Math.floor(new Date(c.time).getTime() / 1000) as Time,
-          open: c.open,
-          high: c.high,
-          low: c.low,
-          close: c.close,
-        }));
+      const text = await response.text();
+      if (text && text.trim()) {
+        const data = JSON.parse(text);
+        console.log('[Chart] Received', data.count, 'candles from API');
+        if (data.candles && data.candles.length > 0) {
+          const startTimestamp = Math.floor(startDate.getTime() / 1000);
+          const endTimestamp = Math.floor(endDate.getTime() / 1000);
+
+          const candles = data.candles
+            .map((c: any) => ({
+              time: Math.floor(new Date(c.time).getTime() / 1000) as Time,
+              open: c.open,
+              high: c.high,
+              low: c.low,
+              close: c.close,
+            }))
+            // Filter to requested date range (API sometimes returns wrong range)
+            .filter((c: CandlestickData) => {
+              const t = c.time as number;
+              return t >= startTimestamp && t <= endTimestamp;
+            })
+            // Sort by time ascending (required by lightweight-charts)
+            .sort((a: CandlestickData, b: CandlestickData) => (a.time as number) - (b.time as number))
+            // Remove duplicates (same timestamp)
+            .filter((c: CandlestickData, i: number, arr: CandlestickData[]) =>
+              i === 0 || (c.time as number) !== (arr[i - 1].time as number)
+            );
+
+          console.log('[Chart] Processed', candles.length, 'candles (filtered, sorted, deduplicated)');
+
+          if (candles.length > 0) {
+            return candles;
+          }
+          console.log('[Chart] No candles in requested date range, using demo data');
+        }
       }
+      console.log('[Chart] API returned empty response, using demo data');
     } else {
-      const errorText = await response.text();
+      const errorText = await response.text().catch(() => 'Unknown error');
       console.log('[Chart] API error:', response.status, errorText);
     }
-  } catch (err) {
-    console.log('[Chart] API candles not available, using demo data:', err);
+  } catch (err: any) {
+    if (err.name === 'AbortError') {
+      console.log('[Chart] API request timed out, using demo data');
+    } else {
+      console.log('[Chart] API candles not available, using demo data:', err.message || err);
+    }
   }
 
   // Generate demo data if API not available
-  console.log('[Chart] Falling back to demo data for', apiSymbol);
+  console.log('[Chart] Falling back to demo data for', apiSymbol, tf);
   return generateDemoData(apiSymbol);
 }
 
@@ -582,3 +702,4 @@ function generateDemoData(symbol: string): CandlestickData[] {
 }
 
 export const TradingViewChart = memo(TradingViewChartComponent);
+export type { Timeframe };
