@@ -38,6 +38,16 @@ interface OpenPosition {
   lotSize: number;
 }
 
+interface MarketAnalysisNotification {
+  weekStartDate: string;
+  weekEndDate: string;
+  likelyOutcome: string;
+  tradeRecommendation: string;
+  recommendedSymbols?: string[];
+  confidence?: number;
+  reasoning?: string;
+}
+
 class TelegramNotifier {
   private config: TelegramConfig | null = null;
   private enabled = false;
@@ -201,6 +211,72 @@ class TelegramNotifier {
         success: false,
         message: `Error sending test message: ${error}`,
       };
+    }
+  }
+
+  async notifyMarketAnalysis(analysis: MarketAnalysisNotification): Promise<void> {
+    if (!this.enabled) {
+      console.log('[Telegram] Skipping market analysis notification (disabled)');
+      return;
+    }
+
+    try {
+      // Determine emoji based on recommendation
+      let recommendationEmoji = '⚪️';
+      let recommendationText = analysis.tradeRecommendation;
+
+      if (analysis.tradeRecommendation === 'RECOMMENDED') {
+        recommendationEmoji = '🟢';
+        recommendationText = '✅ TRADE RECOMMENDED';
+      } else if (analysis.tradeRecommendation === 'NOT_RECOMMENDED') {
+        recommendationEmoji = '🔴';
+        recommendationText = '⛔️ NO TRADES RECOMMENDED';
+      } else {
+        recommendationEmoji = '🟡';
+        recommendationText = '⚠️ NEUTRAL - MONITOR MARKETS';
+      }
+
+      // Build confidence indicator
+      const confidencePercent = analysis.confidence ? Math.round(analysis.confidence * 100) : 50;
+      const confidenceBars = '█'.repeat(Math.floor(confidencePercent / 10)) + '░'.repeat(10 - Math.floor(confidencePercent / 10));
+
+      let message = `📊 <b>WEEKLY MARKET ANALYSIS</b>\n\n`;
+      message += `📅 Week: ${analysis.weekStartDate} - ${analysis.weekEndDate}\n`;
+      message += `─────────────────\n\n`;
+
+      message += `<b>${recommendationEmoji} ${recommendationText}</b>\n\n`;
+
+      if (analysis.recommendedSymbols && analysis.recommendedSymbols.length > 0) {
+        message += `🎯 <b>Recommended Symbols:</b>\n`;
+        message += analysis.recommendedSymbols.map(s => `   • ${s}`).join('\n');
+        message += `\n\n`;
+      }
+
+      message += `📈 <b>Market Outlook:</b>\n`;
+      // Truncate outcome if too long
+      const outcome = analysis.likelyOutcome.length > 400
+        ? analysis.likelyOutcome.substring(0, 400) + '...'
+        : analysis.likelyOutcome;
+      message += `${outcome}\n\n`;
+
+      if (analysis.reasoning) {
+        message += `💡 <b>Key Points:</b>\n`;
+        // Truncate reasoning if too long
+        const reasoning = analysis.reasoning.length > 400
+          ? analysis.reasoning.substring(0, 400) + '...'
+          : analysis.reasoning;
+        message += `${reasoning}\n\n`;
+      }
+
+      message += `🎯 <b>Confidence:</b> ${confidencePercent}%\n`;
+      message += `${confidenceBars}\n\n`;
+
+      message += `<i>🤖 Analysis powered by Claude Opus 4.5</i>`;
+
+      await this.sendMessage(message);
+      console.log('[Telegram] Market analysis notification sent');
+    } catch (error) {
+      console.error('[Telegram] Error sending market analysis:', error);
     }
   }
 }

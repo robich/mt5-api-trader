@@ -19,6 +19,7 @@ import { tradeManager } from '../lib/risk/trade-manager';
 import { BreakevenManager } from '../lib/risk/breakeven-manager';
 import { analysisStore } from './analysis-store';
 import { telegramNotifier } from './telegram';
+import { analysisScheduler } from './analysis-scheduler';
 import { v4 as uuidv4 } from 'uuid';
 import {
   TradingBotSyncListener,
@@ -77,6 +78,9 @@ export class TradingBot {
 
     // Initialize Telegram notifications
     telegramNotifier.initialize();
+
+    // Start market analysis scheduler
+    analysisScheduler.start();
 
     try {
       // Connect to MetaAPI
@@ -401,6 +405,9 @@ export class TradingBot {
     }
 
     console.log('Stopping trading bot...');
+
+    // Stop market analysis scheduler
+    analysisScheduler.stop();
 
     // Stop heartbeat
     if (this.heartbeatInterval) {

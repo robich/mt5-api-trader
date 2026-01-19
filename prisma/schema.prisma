@@ -240,3 +240,25 @@ model StrategyConfig {
   @@index([isActive])
   @@index([activatedAt])
 }
+
+// Daily market analysis using Claude AI
+model MarketAnalysis {
+  id                 String   @id @default(uuid())
+  analysisDate       DateTime @default(now())
+  weekStartDate      DateTime // Start of the week being analyzed
+  weekEndDate        DateTime // End of the week being analyzed
+  marketNews         String   @db.Text // Summary of key market news considered
+  analysis           String   @db.Text // Claude's full analysis
+  likelyOutcome      String   @db.Text // Most likely market outcome
+  tradeRecommendation String  // RECOMMENDED, NOT_RECOMMENDED, NEUTRAL
+  recommendedSymbols String?  // JSON array of symbols if trade recommended
+  confidence         Float?   // Confidence score 0-1
+  reasoning          String?  @db.Text // Reasoning for the recommendation
+  sentToTelegram     Boolean  @default(false)
+  telegramSentAt     DateTime?
+  createdAt          DateTime @default(now())
+
+  @@index([analysisDate])
+  @@index([weekStartDate])
+  @@index([sentToTelegram])
+}
