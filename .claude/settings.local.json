@@ -75,7 +75,8 @@
       "Bash(node scripts/test-deals-sync.mjs:*)",
       "Bash(dir:*)",
       "Bash(curl:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(node:*)"
     ]
   }
 }

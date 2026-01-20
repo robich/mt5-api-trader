@@ -59,6 +59,7 @@ const options = {
   verbose: false,
   help: false,
   clearCache: false,
+  debug: false,
 };
 
 for (let i = 0; i < args.length; i++) {
@@ -107,6 +108,10 @@ for (let i = 0; i < args.length; i++) {
       break;
     case '--clear-cache':
       options.clearCache = true;
+      break;
+    case '--debug':
+    case '-d':
+      options.debug = true;
       break;
     case '--timeframe':
     case '--tf':
@@ -385,6 +390,11 @@ class SMCBacktestEngine {
 
       // Determine HTF bias
       const htfBias = this.determineHTFBias(recentHTF);
+      if (this.debugFilters && i === 100) {
+        console.log(`  [DEBUG] First candle analysis:`);
+        console.log(`    HTF candles available: ${recentHTF.length}`);
+        console.log(`    HTF Bias: ${htfBias}`);
+      }
       if (htfBias === 'NEUTRAL') continue;
 
       // Calculate ATR for dynamic levels
@@ -396,6 +406,15 @@ class SMCBacktestEngine {
       this.updateFVGs(recentMTF, currentTime, atr);
       this.updateSwingPoints(recentMTF, currentTime);
       this.checkBOS(recentMTF, htfBias);
+
+      if (this.debugFilters && i === 100) {
+        const validOBs = this.orderBlocks.filter(ob => !ob.mitigated && !ob.used && ob.score >= this.minOBScore);
+        console.log(`    Order Blocks found: ${this.orderBlocks.length}, Valid: ${validOBs.length}`);
+        console.log(`    MinOB Score: ${this.minOBScore}`);
+        validOBs.slice(0, 3).forEach(ob => {
+          console.log(`      ${ob.type} OB: Score=${ob.score}, ${ob.low.toFixed(2)}-${ob.high.toFixed(2)}`);
+        });
+      }
 
       // Get signal based on strategy type
       // Check if we have a pending signal waiting for confirmation
@@ -479,6 +498,9 @@ class SMCBacktestEngine {
           signal = this.getOrderBlockSignal(currentPrice, currentCandle, recentLTF, htfBias, symbolInfo);
       }
 
+      if (this.debugFilters && i === 100) {
+        console.log(`    Signal generated: ${signal ? 'YES' : 'NO'}`);
+      }
       if (!signal) continue;
 
       // OTE Filter (if enabled)
@@ -2146,6 +2168,7 @@ async function main() {
           enableBreakeven: true,
           breakevenTriggerR: 1.0,  // Move SL to BE at 1R profit
           beBufferPips: 5,         // Lock in 5 pips profit
+          debugFilters: options.debug,
         };
 
         const engine = new SMCBacktestEngine(config);

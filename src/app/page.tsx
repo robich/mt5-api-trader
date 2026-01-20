@@ -10,6 +10,7 @@ import { SignalsList } from '@/components/dashboard/SignalsList';
 import { TradingViewChart } from '@/components/dashboard/TradingViewChart';
 import { BotControls } from '@/components/dashboard/BotControls';
 import { AnalysisPanel } from '@/components/dashboard/AnalysisPanel';
+import { MarketAnalysisPanel } from '@/components/dashboard/MarketAnalysisPanel';
 import { EquityCurveChart } from '@/components/dashboard/EquityCurveChart';
 
 interface AccountData {
@@ -332,7 +333,10 @@ export default function Dashboard() {
 
           {/* Signals & Analysis Panel */}
           <div className="space-y-6">
-            {/* Market Analysis */}
+            {/* Daily Market News Analysis */}
+            <MarketAnalysisPanel />
+
+            {/* Technical Analysis */}
             <AnalysisPanel analysisResults={analysisData?.analysis || []} />
 
             <Card>
