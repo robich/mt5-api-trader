@@ -106,6 +106,13 @@ interface AccountInfo {
   freeMargin: number;
 }
 
+interface AccountDataResponse {
+  account: AccountInfo;
+  positions?: any[];
+  botStatus?: any;
+  stats?: any;
+}
+
 export default function TradeCalculator() {
   const [accountInfo, setAccountInfo] = useState<AccountInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -125,8 +132,9 @@ export default function TradeCalculator() {
       try {
         const response = await fetch('/api/account');
         if (response.ok) {
-          const data = await response.json();
-          setAccountInfo(data);
+          const data: AccountDataResponse = await response.json();
+          // Extract the nested account object
+          setAccountInfo(data.account);
         }
       } catch (error) {
         console.error('Failed to fetch account info:', error);
@@ -305,24 +313,24 @@ export default function TradeCalculator() {
                 <div>
                   <p className="text-sm text-muted-foreground">Balance</p>
                   <p className="text-lg font-semibold">
-                    ${accountInfo.balance.toLocaleString()}
+                    ${(accountInfo?.balance ?? 0).toLocaleString()}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Equity</p>
                   <p className="text-lg font-semibold">
-                    ${accountInfo.equity.toLocaleString()}
+                    ${(accountInfo?.equity ?? 0).toLocaleString()}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Free Margin</p>
                   <p className="text-lg font-semibold">
-                    ${accountInfo.freeMargin.toLocaleString()}
+                    ${(accountInfo?.freeMargin ?? 0).toLocaleString()}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Leverage</p>
-                  <p className="text-lg font-semibold">1:{accountInfo.leverage}</p>
+                  <p className="text-lg font-semibold">1:{accountInfo?.leverage ?? 100}</p>
                 </div>
               </div>
             </div>
