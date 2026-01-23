@@ -305,24 +305,24 @@ export default function TradeCalculator() {
                 <div>
                   <p className="text-sm text-muted-foreground">Balance</p>
                   <p className="text-lg font-semibold">
-                    ${accountInfo.balance.toLocaleString()}
+                    ${(accountInfo.balance ?? 0).toLocaleString()}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Equity</p>
                   <p className="text-lg font-semibold">
-                    ${accountInfo.equity.toLocaleString()}
+                    ${(accountInfo.equity ?? 0).toLocaleString()}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Free Margin</p>
                   <p className="text-lg font-semibold">
-                    ${accountInfo.freeMargin.toLocaleString()}
+                    ${(accountInfo.freeMargin ?? 0).toLocaleString()}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Leverage</p>
-                  <p className="text-lg font-semibold">1:{accountInfo.leverage}</p>
+                  <p className="text-lg font-semibold">1:{accountInfo.leverage ?? 100}</p>
                 </div>
               </div>
             </div>
