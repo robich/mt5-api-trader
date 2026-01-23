@@ -22,6 +22,7 @@ import {
 } from '@/lib/risk/position-sizing';
 import { SymbolInfo } from '@/lib/types';
 import { Calculator, TrendingUp, TrendingDown, AlertCircle } from 'lucide-react';
+import InteractiveTradeChart from './InteractiveTradeChart';
 
 // Default symbol specifications
 const DEFAULT_SYMBOL_INFO: Record<string, Partial<SymbolInfo>> = {
@@ -265,6 +266,24 @@ export default function TradeCalculator() {
     setLotSize(result.lotSize.toFixed(2));
   };
 
+  // Handle price changes from the interactive chart
+  const handleChartPriceChange = (type: 'entry' | 'sl' | 'tp', price: number) => {
+    const digits = symbolInfo?.digits || 2;
+    const formattedPrice = price.toFixed(digits);
+
+    switch (type) {
+      case 'entry':
+        setEntryPrice(formattedPrice);
+        break;
+      case 'sl':
+        setStopLoss(formattedPrice);
+        break;
+      case 'tp':
+        setTakeProfit(formattedPrice);
+        break;
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -310,6 +329,23 @@ export default function TradeCalculator() {
           </CardContent>
         </Card>
       )}
+
+      {/* Interactive Chart with M1 Candles */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Live Market Price</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <InteractiveTradeChart
+            symbol={symbol}
+            entryPrice={parseFloat(entryPrice) || null}
+            stopLoss={parseFloat(stopLoss) || null}
+            takeProfit={parseFloat(takeProfit) || null}
+            direction={direction}
+            onPriceChange={handleChartPriceChange}
+          />
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
         {/* Input Form */}
