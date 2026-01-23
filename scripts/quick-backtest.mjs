@@ -164,6 +164,7 @@ Strategies:
   LIQUIDITY_SWEEP   Enter after liquidity sweep reversal
   BOS               Break of Structure pullback entries
   OB_FVG            Order Block + FVG confluence (high probability)
+  M1_TREND          M1-only trend following using EMAs (9/21/50)
 
 Timeframe Presets:
   standard          H4/H1/M5  - Standard multi-timeframe (default)
@@ -261,6 +262,15 @@ const VARIATIONS = [
   // === SYMBOL-SPECIFIC with BE ===
   { name: 'BTC-BE: ATR0.8|BE1R|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 0.8, enableBreakeven: true, breakevenTriggerR: 1.0, beBufferPips: 5 },
   { name: 'XAU-BE: ATR1.5|BE1R|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.5, enableBreakeven: true, breakevenTriggerR: 1.0, beBufferPips: 2 },
+
+  // === M1 TREND STRATEGIES (EMA-based trend following) ===
+  { name: 'M1-TREND: RR2|DD8%', strategy: 'M1_TREND', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: false },
+  { name: 'M1-TREND: RR1.5|DD8%', strategy: 'M1_TREND', requireOTE: false, fixedRR: 1.5, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: false },
+  { name: 'M1-TREND: RR2.5|DD8%', strategy: 'M1_TREND', requireOTE: false, fixedRR: 2.5, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: false },
+  { name: 'M1-TREND: RR2|KZ|DD8%', strategy: 'M1_TREND', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: true, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: false },
+  { name: 'M1-TREND: RR2|DD6%', strategy: 'M1_TREND', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 6, atrMult: 1.0, requireConfirmation: false },
+  { name: 'M1-TREND: RR2|BE1R', strategy: 'M1_TREND', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 1.0, beBufferPips: 5 },
+  { name: 'M1-TREND: RR3|DD8%', strategy: 'M1_TREND', requireOTE: false, fixedRR: 3, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: false },
 ];
 
 // Symbol info for backtesting (including typical spreads)
@@ -383,19 +393,21 @@ class SMCBacktestEngine {
       // Cooldown check (5 min after session opens)
       if (this.config.useKillZones && this.isInCooldown(currentTime)) continue;
 
-      // Get recent candles for analysis
-      const recentLTF = ltfCandles.slice(Math.max(0, i - 50), i + 1);
+      // Get recent candles for analysis (60 candles for M1_TREND EMA50 + buffer)
+      const ltfLookback = this.strategy === 'M1_TREND' ? 60 : 50;
+      const recentLTF = ltfCandles.slice(Math.max(0, i - ltfLookback), i + 1);
       const recentMTF = this.getRecentMTF(mtfCandles, currentTime, 30);
       const recentHTF = this.getRecentHTF(htfCandles, currentTime, 20);
 
-      // Determine HTF bias
+      // Determine HTF bias (not required for M1_TREND strategy)
       const htfBias = this.determineHTFBias(recentHTF);
       if (this.debugFilters && i === 100) {
         console.log(`  [DEBUG] First candle analysis:`);
         console.log(`    HTF candles available: ${recentHTF.length}`);
         console.log(`    HTF Bias: ${htfBias}`);
       }
-      if (htfBias === 'NEUTRAL') continue;
+      // Skip HTF bias check for M1_TREND (it determines trend internally from M1 EMAs)
+      if (htfBias === 'NEUTRAL' && this.strategy !== 'M1_TREND') continue;
 
       // Calculate ATR for dynamic levels
       const atr = this.calculateATR(recentMTF);
@@ -493,6 +505,9 @@ class SMCBacktestEngine {
           break;
         case 'OB_FVG':
           signal = this.getOBFVGConfluenceSignal(currentPrice, currentCandle, recentLTF, htfBias, atr, symbolInfo);
+          break;
+        case 'M1_TREND':
+          signal = this.getM1TrendSignal(currentPrice, currentCandle, recentLTF, symbolInfo);
           break;
         default:
           signal = this.getOrderBlockSignal(currentPrice, currentCandle, recentLTF, htfBias, symbolInfo);
@@ -1495,6 +1510,145 @@ class SMCBacktestEngine {
     validOB.used = true;
     overlappingFVG.filled = true;
     return { direction, entry, sl, tp };
+  }
+
+  /**
+   * M1 Trend Strategy
+   * Pure trend-following using EMAs on M1 timeframe only.
+   * Ignores HTF bias - determines trend direction from M1 EMAs.
+   *
+   * Entry Logic:
+   * 1. Determine trend using EMA crossover (fast EMA vs slow EMA)
+   * 2. Enter on pullbacks to fast EMA when momentum resumes
+   * 3. Confirmation: current candle closes in trend direction after pullback
+   */
+  getM1TrendSignal(currentPrice, currentCandle, recentLTF, symbolInfo) {
+    // Need enough candles for EMA calculation
+    if (recentLTF.length < 55) return null;
+
+    const closes = recentLTF.map(c => c.close);
+
+    // Calculate EMAs
+    const ema9 = this.calculateEMA(closes, 9);
+    const ema21 = this.calculateEMA(closes, 21);
+    const ema50 = this.calculateEMA(closes, 50);
+
+    // Calculate previous EMAs (for crossover detection)
+    const prevCloses = closes.slice(0, -1);
+    const prevEma9 = this.calculateEMA(prevCloses, 9);
+    const prevEma21 = this.calculateEMA(prevCloses, 21);
+
+    // Determine trend direction
+    // BULLISH: EMA9 > EMA21 > EMA50 AND price > EMA50
+    // BEARISH: EMA9 < EMA21 < EMA50 AND price < EMA50
+    const isBullishAlignment = ema9 > ema21 && ema21 > ema50;
+    const isBearishAlignment = ema9 < ema21 && ema21 < ema50;
+
+    // Check for recent crossover (momentum signal)
+    const bullishCrossover = prevEma9 <= prevEma21 && ema9 > ema21;
+    const bearishCrossover = prevEma9 >= prevEma21 && ema9 < ema21;
+
+    // Price position relative to slow EMA
+    const priceAboveEma50 = currentPrice > ema50;
+    const priceBelowEma50 = currentPrice < ema50;
+
+    let trend = 'NEUTRAL';
+    if ((isBullishAlignment || bullishCrossover) && priceAboveEma50) {
+      trend = 'BULLISH';
+    } else if ((isBearishAlignment || bearishCrossover) && priceBelowEma50) {
+      trend = 'BEARISH';
+    }
+
+    if (trend === 'NEUTRAL') return null;
+
+    // Check for pullback entry
+    const lastCandle = currentCandle;
+    const prevCandle = recentLTF[recentLTF.length - 2];
+    if (!prevCandle) return null;
+
+    // Pullback tolerance: 0.05% of price
+    const pullbackTolerance = currentPrice * 0.0005;
+
+    if (trend === 'BULLISH') {
+      // Bullish entry conditions:
+      // 1. Price pulled back to near EMA9
+      // 2. Previous candle was bearish or touched EMA9
+      // 3. Current candle shows bullish momentum
+      const pullbackToEma = Math.abs(currentPrice - ema9) < pullbackTolerance ||
+                            (lastCandle.low <= ema9 * 1.001 && currentPrice > ema9);
+
+      const wasPullback = prevCandle.close < prevCandle.open ||
+                          prevCandle.low <= ema9 * 1.002;
+
+      const hasMomentum = lastCandle.close > lastCandle.open &&
+                          lastCandle.close > ema9;
+
+      if (!pullbackToEma && !wasPullback) return null;
+      if (!hasMomentum) return null;
+
+      // Find swing low for stop loss (last 10 candles)
+      const lookbackCandles = recentLTF.slice(-10);
+      const swingLow = Math.min(...lookbackCandles.map(c => c.low));
+      if (swingLow >= currentPrice) return null;
+
+      // Add buffer to stop loss (10% of risk)
+      const slBuffer = (currentPrice - swingLow) * 0.1;
+      const sl = swingLow - slBuffer;
+      const entry = currentPrice;
+      const risk = entry - sl;
+      const tp = entry + (risk * this.config.fixedRR);
+
+      return { direction: 'BUY', entry, sl, tp };
+
+    } else {
+      // Bearish entry conditions
+      const pullbackToEma = Math.abs(currentPrice - ema9) < pullbackTolerance ||
+                            (lastCandle.high >= ema9 * 0.999 && currentPrice < ema9);
+
+      const wasPullback = prevCandle.close > prevCandle.open ||
+                          prevCandle.high >= ema9 * 0.998;
+
+      const hasMomentum = lastCandle.close < lastCandle.open &&
+                          lastCandle.close < ema9;
+
+      if (!pullbackToEma && !wasPullback) return null;
+      if (!hasMomentum) return null;
+
+      // Find swing high for stop loss
+      const lookbackCandles = recentLTF.slice(-10);
+      const swingHigh = Math.max(...lookbackCandles.map(c => c.high));
+      if (swingHigh <= currentPrice) return null;
+
+      // Add buffer to stop loss
+      const slBuffer = (swingHigh - currentPrice) * 0.1;
+      const sl = swingHigh + slBuffer;
+      const entry = currentPrice;
+      const risk = sl - entry;
+      const tp = entry - (risk * this.config.fixedRR);
+
+      return { direction: 'SELL', entry, sl, tp };
+    }
+  }
+
+  /**
+   * Calculate Exponential Moving Average
+   */
+  calculateEMA(values, period) {
+    if (values.length < period) {
+      return values[values.length - 1];
+    }
+
+    const multiplier = 2 / (period + 1);
+
+    // Start with SMA for the first 'period' values
+    let ema = values.slice(0, period).reduce((sum, v) => sum + v, 0) / period;
+
+    // Calculate EMA for remaining values
+    for (let i = period; i < values.length; i++) {
+      ema = (values[i] - ema) * multiplier + ema;
+    }
+
+    return ema;
   }
 
   /**

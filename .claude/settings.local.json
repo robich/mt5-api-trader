@@ -76,7 +76,10 @@
       "Bash(dir:*)",
       "Bash(curl:*)",
       "Bash(npx tsc:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(pkill:*)",
+      "Bash(taskkill:*)",
+      "Bash(tee:*)"
     ]
   }
 }
