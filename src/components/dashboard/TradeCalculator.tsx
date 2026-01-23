@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
 import {
   Select,
   SelectContent,
@@ -18,7 +19,6 @@ import {
   calculatePositionSize,
   calculateRiskReward,
   calculatePotentialPnL,
-  getSymbolPipInfo,
 } from '@/lib/risk/position-sizing';
 import { SymbolInfo } from '@/lib/types';
 import { Calculator, TrendingUp, TrendingDown, AlertCircle } from 'lucide-react';
@@ -114,10 +114,12 @@ export default function TradeCalculator() {
   const [symbol, setSymbol] = useState('XAUUSD.s');
   const [direction, setDirection] = useState<'BUY' | 'SELL'>('BUY');
   const [lotSize, setLotSize] = useState('0.01');
+  const [riskPercent, setRiskPercent] = useState(1); // Risk percentage slider value
   const [entryPrice, setEntryPrice] = useState('');
   const [stopLoss, setStopLoss] = useState('');
   const [takeProfit, setTakeProfit] = useState('');
   const [customLeverage, setCustomLeverage] = useState('');
+  const [currentMarketPrice, setCurrentMarketPrice] = useState<number | null>(null);
 
   // Fetch account info
   useEffect(() => {
@@ -139,6 +141,51 @@ export default function TradeCalculator() {
     const interval = setInterval(fetchAccountInfo, 30000); // Refresh every 30s
     return () => clearInterval(interval);
   }, []);
+
+  // Fetch current market price
+  useEffect(() => {
+    const fetchMarketPrice = async () => {
+      try {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setMinutes(startDate.getMinutes() - 5); // Last 5 minutes
+
+        const params = new URLSearchParams({
+          symbol,
+          timeframe: 'M1',
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        });
+
+        const response = await fetch(`/api/candles?${params.toString()}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.candles && data.candles.length > 0) {
+            // Get the latest candle's close price
+            const latestCandle = data.candles[data.candles.length - 1];
+            const price = latestCandle.close;
+            setCurrentMarketPrice(price);
+
+            // Auto-populate entry price if it's empty on initial load
+            setEntryPrice((prevEntry) => {
+              if (!prevEntry || prevEntry === '') {
+                const digits = symbolInfo?.digits || 2;
+                return price.toFixed(digits);
+              }
+              return prevEntry;
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch market price:', error);
+      }
+    };
+
+    fetchMarketPrice();
+    const interval = setInterval(fetchMarketPrice, 5000); // Refresh every 5s
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbol]); // Re-fetch when symbol changes
 
   // Get symbol info
   const symbolInfo = useMemo(() => {
@@ -173,7 +220,6 @@ export default function TradeCalculator() {
     if (lots <= 0 || entry <= 0) return null;
 
     // Calculate pip values
-    const pipInfo = getSymbolPipInfo(symbolInfo.symbol);
     const pipValuePerLot = (symbolInfo.contractSize * symbolInfo.pipSize) / entry;
 
     // Calculate position value
@@ -247,7 +293,7 @@ export default function TradeCalculator() {
   ]);
 
   // Auto-calculate lot size based on risk percentage
-  const handleCalculateByRisk = (riskPercent: number) => {
+  const handleCalculateByRisk = useCallback((riskPercent: number) => {
     if (!symbolInfo || !accountInfo || !entryPrice || !stopLoss) return;
 
     const entry = parseFloat(entryPrice);
@@ -264,7 +310,14 @@ export default function TradeCalculator() {
     );
 
     setLotSize(result.lotSize.toFixed(2));
-  };
+  }, [symbolInfo, accountInfo, entryPrice, stopLoss]);
+
+  // Auto-update lot size when risk slider changes
+  useEffect(() => {
+    if (riskPercent > 0) {
+      handleCalculateByRisk(riskPercent);
+    }
+  }, [riskPercent, handleCalculateByRisk]);
 
   // Handle price changes from the interactive chart
   const handleChartPriceChange = (type: 'entry' | 'sl' | 'tp', price: number) => {
@@ -393,57 +446,89 @@ export default function TradeCalculator() {
               </Select>
             </div>
 
-            {/* Lot Size */}
+            {/* Risk Percentage Slider */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="riskPercent">Risk Percentage</Label>
+                <Badge variant="outline" className="text-sm font-semibold">
+                  {riskPercent.toFixed(1)}%
+                </Badge>
+              </div>
+              <Slider
+                id="riskPercent"
+                min={0.1}
+                max={5}
+                step={0.1}
+                value={[riskPercent]}
+                onValueChange={(values) => setRiskPercent(values[0])}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Conservative (0.1%)</span>
+                <span>Aggressive (5%)</span>
+              </div>
+            </div>
+
+            {/* Calculated Lot Size (Read-only) */}
             <div className="space-y-2">
-              <Label htmlFor="lotSize">Lot Size</Label>
+              <Label htmlFor="lotSize">
+                Calculated Lot Size
+                {!entryPrice || !stopLoss ? (
+                  <span className="text-xs text-muted-foreground ml-2">
+                    (Enter entry & SL first)
+                  </span>
+                ) : null}
+              </Label>
               <Input
                 id="lotSize"
-                type="number"
-                step="0.01"
-                min="0.01"
+                type="text"
                 value={lotSize}
-                onChange={(e) => setLotSize(e.target.value)}
-                placeholder="0.01"
+                readOnly
+                className="bg-muted font-semibold"
+                placeholder="Auto-calculated"
               />
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleCalculateByRisk(1)}
-                  className="text-xs"
-                >
-                  1% Risk
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleCalculateByRisk(2)}
-                  className="text-xs"
-                >
-                  2% Risk
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleCalculateByRisk(3)}
-                  className="text-xs"
-                >
-                  3% Risk
-                </Button>
-              </div>
+              <p className="text-xs text-muted-foreground">
+                Based on {riskPercent.toFixed(1)}% account risk
+              </p>
             </div>
 
             {/* Entry Price */}
             <div className="space-y-2">
-              <Label htmlFor="entryPrice">Entry Price</Label>
-              <Input
-                id="entryPrice"
-                type="number"
-                step="0.01"
-                value={entryPrice}
-                onChange={(e) => setEntryPrice(e.target.value)}
-                placeholder="e.g., 2650.50"
-              />
+              <div className="flex items-center justify-between">
+                <Label htmlFor="entryPrice">Entry Price</Label>
+                {currentMarketPrice && (
+                  <Badge variant="outline" className="text-xs">
+                    Live: {currentMarketPrice.toFixed(symbolInfo?.digits || 2)}
+                  </Badge>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  id="entryPrice"
+                  type="number"
+                  step="0.01"
+                  value={entryPrice}
+                  onChange={(e) => setEntryPrice(e.target.value)}
+                  placeholder="Auto-filled from market"
+                  className="flex-1"
+                />
+                {currentMarketPrice && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const digits = symbolInfo?.digits || 2;
+                      setEntryPrice(currentMarketPrice.toFixed(digits));
+                    }}
+                    className="shrink-0"
+                  >
+                    Use Live
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Auto-updates every 5 seconds
+              </p>
             </div>
 
             {/* Stop Loss */}

@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
+import { Calculator } from 'lucide-react';
 import { KPICards } from '@/components/dashboard/KPICards';
 import { TradeTable } from '@/components/dashboard/TradeTable';
 import { SignalsList } from '@/components/dashboard/SignalsList';
@@ -12,7 +14,6 @@ import { BotControls } from '@/components/dashboard/BotControls';
 import { AnalysisPanel } from '@/components/dashboard/AnalysisPanel';
 import { MarketAnalysisPanel } from '@/components/dashboard/MarketAnalysisPanel';
 import { EquityCurveChart } from '@/components/dashboard/EquityCurveChart';
-import TradeCalculator from '@/components/dashboard/TradeCalculator';
 
 interface AccountData {
   account: {
@@ -267,23 +268,28 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            {/* Trades & Calculator Tabs */}
+            {/* Trades Tabs */}
             <Card>
               <Tabs defaultValue="open">
                 <CardHeader className="pb-0">
                   <div className="flex items-center justify-between">
-                    <CardTitle>Trades & Calculator</CardTitle>
-                    <TabsList>
-                      <TabsTrigger value="open">
-                        Open ({openTrades?.trades.length || 0})
-                      </TabsTrigger>
-                      <TabsTrigger value="closed">
-                        History ({(closedTrades?.trades || []).filter((t: any) => t.pnl != null).length})
-                      </TabsTrigger>
-                      <TabsTrigger value="calculator">
-                        Trade Calculator
-                      </TabsTrigger>
-                    </TabsList>
+                    <CardTitle>Trades</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <TabsList>
+                        <TabsTrigger value="open">
+                          Open ({openTrades?.trades.length || 0})
+                        </TabsTrigger>
+                        <TabsTrigger value="closed">
+                          History ({(closedTrades?.trades || []).filter((t: any) => t.pnl != null).length})
+                        </TabsTrigger>
+                      </TabsList>
+                      <Link href="/calculator">
+                        <Button size="sm" variant="outline">
+                          <Calculator className="h-4 w-4 mr-2" />
+                          Trade Calculator
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -329,9 +335,6 @@ export default function Dashboard() {
                       type="closed"
                       currency={accountData?.account.currency || 'USD'}
                     />
-                  </TabsContent>
-                  <TabsContent value="calculator" className="mt-0">
-                    <TradeCalculator />
                   </TabsContent>
                 </CardContent>
               </Tabs>
