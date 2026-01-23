@@ -12,6 +12,7 @@ import { BotControls } from '@/components/dashboard/BotControls';
 import { AnalysisPanel } from '@/components/dashboard/AnalysisPanel';
 import { MarketAnalysisPanel } from '@/components/dashboard/MarketAnalysisPanel';
 import { EquityCurveChart } from '@/components/dashboard/EquityCurveChart';
+import TradeCalculator from '@/components/dashboard/TradeCalculator';
 
 interface AccountData {
   account: {
@@ -266,18 +267,21 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            {/* Trades Tabs */}
+            {/* Trades & Calculator Tabs */}
             <Card>
               <Tabs defaultValue="open">
                 <CardHeader className="pb-0">
                   <div className="flex items-center justify-between">
-                    <CardTitle>Trades</CardTitle>
+                    <CardTitle>Trades & Calculator</CardTitle>
                     <TabsList>
                       <TabsTrigger value="open">
                         Open ({openTrades?.trades.length || 0})
                       </TabsTrigger>
                       <TabsTrigger value="closed">
                         History ({(closedTrades?.trades || []).filter((t: any) => t.pnl != null).length})
+                      </TabsTrigger>
+                      <TabsTrigger value="calculator">
+                        Trade Calculator
                       </TabsTrigger>
                     </TabsList>
                   </div>
@@ -325,6 +329,9 @@ export default function Dashboard() {
                       type="closed"
                       currency={accountData?.account.currency || 'USD'}
                     />
+                  </TabsContent>
+                  <TabsContent value="calculator" className="mt-0">
+                    <TradeCalculator />
                   </TabsContent>
                 </CardContent>
               </Tabs>
