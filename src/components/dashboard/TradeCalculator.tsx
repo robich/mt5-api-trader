@@ -118,8 +118,18 @@ export default function TradeCalculator() {
   const [entryPrice, setEntryPrice] = useState('');
   const [stopLoss, setStopLoss] = useState('');
   const [takeProfit, setTakeProfit] = useState('');
-  const [customLeverage, setCustomLeverage] = useState('');
+  const [customLeverage, setCustomLeverage] = useState('1000');
+  const [customBalance, setCustomBalance] = useState('');
   const [currentMarketPrice, setCurrentMarketPrice] = useState<number | null>(null);
+
+  // Multiple TP levels
+  const [useMultipleTPs, setUseMultipleTPs] = useState(false);
+  const [tp1Price, setTp1Price] = useState('');
+  const [tp2Price, setTp2Price] = useState('');
+  const [tp3Price, setTp3Price] = useState('');
+  const [tp1Allocation, setTp1Allocation] = useState('30');
+  const [tp2Allocation, setTp2Allocation] = useState('30');
+  const [tp3Allocation, setTp3Allocation] = useState('20');
 
   // Fetch account info
   useEffect(() => {
@@ -214,8 +224,8 @@ export default function TradeCalculator() {
     const entry = parseFloat(entryPrice) || 0;
     const sl = parseFloat(stopLoss) || 0;
     const tp = parseFloat(takeProfit) || 0;
-    const leverage = parseFloat(customLeverage) || accountInfo?.leverage || 100;
-    const balance = accountInfo?.balance || 10000;
+    const leverage = parseFloat(customLeverage) || accountInfo?.leverage || 1000;
+    const balance = parseFloat(customBalance) || accountInfo?.balance || 10000;
 
     if (lots <= 0 || entry <= 0) return null;
 
@@ -244,13 +254,63 @@ export default function TradeCalculator() {
       slPercentage = (slAmount / balance) * 100;
     }
 
-    // Calculate take profit metrics
+    // Calculate take profit metrics (multiple TPs if enabled)
     let tpPips = 0;
     let tpAmount = 0;
     let tpPercentage = 0;
     let rrRatio = 0;
+    let tpLevels: Array<{ price: number; allocation: number; pips: number; amount: number; rr: number }> = [];
 
-    if (tp > 0) {
+    if (useMultipleTPs) {
+      // Multiple TP levels
+      const tps = [
+        { price: tp1Price, allocation: tp1Allocation },
+        { price: tp2Price, allocation: tp2Allocation },
+        { price: tp3Price, allocation: tp3Allocation },
+      ];
+
+      let totalAmount = 0;
+      let totalAllocation = 0;
+
+      for (const tp of tps) {
+        if (!tp.price || tp.price.trim() === '') continue;
+
+        const tpPriceNum = parseFloat(tp.price);
+        const allocation = parseFloat(tp.allocation) || 0;
+
+        if (isNaN(tpPriceNum) || tpPriceNum <= 0 || allocation <= 0) continue;
+
+        const tpLotSize = (lots * allocation) / 100;
+        const tpPipsCalc = Math.abs(tpPriceNum - entry) / symbolInfo.pipSize;
+        const tpResult = calculatePotentialPnL(
+          tpLotSize,
+          entry,
+          tpPriceNum,
+          direction,
+          symbolInfo
+        );
+        const tpRR = sl > 0 ? calculateRiskReward(direction, entry, sl, tpPriceNum) : 0;
+
+        tpLevels.push({
+          price: tpPriceNum,
+          allocation: allocation,
+          pips: tpPipsCalc,
+          amount: Math.abs(tpResult.pnl),
+          rr: tpRR,
+        });
+
+        totalAmount += Math.abs(tpResult.pnl);
+        totalAllocation += allocation;
+      }
+
+      tpAmount = totalAmount;
+      tpPercentage = (tpAmount / balance) * 100;
+      // Weighted average R:R
+      if (totalAllocation > 0 && sl > 0) {
+        rrRatio = tpLevels.reduce((sum, tp) => sum + (tp.rr * tp.allocation), 0) / totalAllocation;
+      }
+    } else if (tp > 0) {
+      // Single TP
       tpPips = Math.abs(tp - entry) / symbolInfo.pipSize;
       const tpResult = calculatePotentialPnL(
         lots,
@@ -280,6 +340,7 @@ export default function TradeCalculator() {
       tpPercentage,
       rrRatio,
       leverage,
+      tpLevels: tpLevels.length > 0 ? tpLevels : undefined,
     };
   }, [
     symbolInfo,
@@ -290,19 +351,27 @@ export default function TradeCalculator() {
     direction,
     customLeverage,
     accountInfo,
+    useMultipleTPs,
+    tp1Price,
+    tp2Price,
+    tp3Price,
+    tp1Allocation,
+    tp2Allocation,
+    tp3Allocation,
   ]);
 
   // Auto-calculate lot size based on risk percentage
   const handleCalculateByRisk = useCallback((riskPercent: number) => {
-    if (!symbolInfo || !accountInfo || !entryPrice || !stopLoss) return;
+    if (!symbolInfo || !entryPrice || !stopLoss) return;
 
     const entry = parseFloat(entryPrice);
     const sl = parseFloat(stopLoss);
+    const balance = parseFloat(customBalance) || accountInfo?.balance || 10000;
 
     if (entry <= 0 || sl <= 0) return;
 
     const result = calculatePositionSize(
-      accountInfo.balance,
+      balance,
       riskPercent,
       entry,
       sl,
@@ -310,7 +379,7 @@ export default function TradeCalculator() {
     );
 
     setLotSize(result.lotSize.toFixed(2));
-  }, [symbolInfo, accountInfo, entryPrice, stopLoss]);
+  }, [symbolInfo, accountInfo, customBalance, entryPrice, stopLoss]);
 
   // Auto-update lot size when risk slider changes
   useEffect(() => {
@@ -350,38 +419,46 @@ export default function TradeCalculator() {
   return (
     <div className="space-y-4">
       {/* Account Info Banner */}
-      {accountInfo && (
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex gap-6">
-                <div>
-                  <p className="text-sm text-muted-foreground">Balance</p>
-                  <p className="text-lg font-semibold">
-                    ${(accountInfo.balance ?? 0).toLocaleString()}
-                  </p>
-                </div>
+      <Card>
+        <CardContent className="p-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <Label htmlFor="customBalance" className="text-sm text-muted-foreground">
+                Balance
+              </Label>
+              <Input
+                id="customBalance"
+                type="number"
+                step="100"
+                value={customBalance}
+                onChange={(e) => setCustomBalance(e.target.value)}
+                placeholder={accountInfo ? `${accountInfo.balance.toFixed(2)}` : '10000'}
+                className="mt-1 font-semibold"
+              />
+            </div>
+            {accountInfo && (
+              <>
                 <div>
                   <p className="text-sm text-muted-foreground">Equity</p>
-                  <p className="text-lg font-semibold">
+                  <p className="text-lg font-semibold mt-1">
                     ${(accountInfo.equity ?? 0).toLocaleString()}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Free Margin</p>
-                  <p className="text-lg font-semibold">
+                  <p className="text-lg font-semibold mt-1">
                     ${(accountInfo.freeMargin ?? 0).toLocaleString()}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Leverage</p>
-                  <p className="text-lg font-semibold">1:{accountInfo.leverage ?? 100}</p>
+                  <p className="text-sm text-muted-foreground">Account Leverage</p>
+                  <p className="text-lg font-semibold mt-1">1:{accountInfo.leverage ?? 100}</p>
                 </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Interactive Chart with M1 Candles */}
       <Card>
@@ -457,7 +534,7 @@ export default function TradeCalculator() {
               <Slider
                 id="riskPercent"
                 min={0.1}
-                max={5}
+                max={50}
                 step={0.1}
                 value={[riskPercent]}
                 onValueChange={(values) => setRiskPercent(values[0])}
@@ -465,7 +542,7 @@ export default function TradeCalculator() {
               />
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>Conservative (0.1%)</span>
-                <span>Aggressive (5%)</span>
+                <span>Aggressive (50%)</span>
               </div>
             </div>
 
@@ -544,31 +621,172 @@ export default function TradeCalculator() {
               />
             </div>
 
-            {/* Take Profit */}
+            {/* Take Profit - Toggle between Single and Multiple */}
             <div className="space-y-2">
-              <Label htmlFor="takeProfit">Take Profit (TP)</Label>
-              <Input
-                id="takeProfit"
-                type="number"
-                step="0.01"
-                value={takeProfit}
-                onChange={(e) => setTakeProfit(e.target.value)}
-                placeholder="e.g., 2680.00"
-              />
+              <div className="flex items-center justify-between">
+                <Label>Take Profit</Label>
+                <Button
+                  size="sm"
+                  variant={useMultipleTPs ? 'default' : 'outline'}
+                  onClick={() => setUseMultipleTPs(!useMultipleTPs)}
+                  className="h-7 text-xs"
+                >
+                  {useMultipleTPs ? 'Multiple TPs' : 'Single TP'}
+                </Button>
+              </div>
+
+              {!useMultipleTPs ? (
+                <Input
+                  id="takeProfit"
+                  type="number"
+                  step="0.01"
+                  value={takeProfit}
+                  onChange={(e) => setTakeProfit(e.target.value)}
+                  placeholder="e.g., 2680.00"
+                />
+              ) : (
+                <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
+                  {/* TP1 */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">TP1</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={tp1Price}
+                        onChange={(e) => setTp1Price(e.target.value)}
+                        placeholder="Price"
+                        className="text-sm"
+                      />
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          step="1"
+                          min="0"
+                          max="100"
+                          value={tp1Allocation}
+                          onChange={(e) => setTp1Allocation(e.target.value)}
+                          placeholder="30"
+                          className="text-sm"
+                        />
+                        <span className="text-xs text-muted-foreground">%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* TP2 */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">TP2</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={tp2Price}
+                        onChange={(e) => setTp2Price(e.target.value)}
+                        placeholder="Price"
+                        className="text-sm"
+                      />
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          step="1"
+                          min="0"
+                          max="100"
+                          value={tp2Allocation}
+                          onChange={(e) => setTp2Allocation(e.target.value)}
+                          placeholder="30"
+                          className="text-sm"
+                        />
+                        <span className="text-xs text-muted-foreground">%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* TP3 */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">TP3</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={tp3Price}
+                        onChange={(e) => setTp3Price(e.target.value)}
+                        placeholder="Price"
+                        className="text-sm"
+                      />
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          step="1"
+                          min="0"
+                          max="100"
+                          value={tp3Allocation}
+                          onChange={(e) => setTp3Allocation(e.target.value)}
+                          placeholder="20"
+                          className="text-sm"
+                        />
+                        <span className="text-xs text-muted-foreground">%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Total Allocation */}
+                  {(() => {
+                    const total =
+                      (parseFloat(tp1Allocation) || 0) +
+                      (parseFloat(tp2Allocation) || 0) +
+                      (parseFloat(tp3Allocation) || 0);
+                    return (
+                      <div className="flex items-center justify-between text-xs pt-2 border-t">
+                        <span className="text-muted-foreground">Total Allocation:</span>
+                        <Badge variant={total > 100 ? 'destructive' : total === 100 ? 'default' : 'outline'}>
+                          {total}%
+                        </Badge>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
 
-            {/* Custom Leverage (Optional) */}
+            {/* Custom Leverage */}
             <div className="space-y-2">
-              <Label htmlFor="customLeverage">
-                Leverage (Optional, defaults to account leverage)
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="customLeverage">Leverage</Label>
+                <div className="flex gap-1">
+                  <Button
+                    size="sm"
+                    variant={customLeverage === '100' ? 'default' : 'outline'}
+                    onClick={() => setCustomLeverage('100')}
+                    className="h-7 text-xs px-2"
+                  >
+                    1:100
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={customLeverage === '500' ? 'default' : 'outline'}
+                    onClick={() => setCustomLeverage('500')}
+                    className="h-7 text-xs px-2"
+                  >
+                    1:500
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={customLeverage === '1000' ? 'default' : 'outline'}
+                    onClick={() => setCustomLeverage('1000')}
+                    className="h-7 text-xs px-2"
+                  >
+                    1:1000
+                  </Button>
+                </div>
+              </div>
               <Input
                 id="customLeverage"
                 type="number"
                 step="1"
                 value={customLeverage}
                 onChange={(e) => setCustomLeverage(e.target.value)}
-                placeholder={`Default: ${accountInfo?.leverage || 100}`}
+                placeholder="1000"
               />
             </div>
           </CardContent>
@@ -666,7 +884,7 @@ export default function TradeCalculator() {
                     <div className="rounded-lg bg-green-500/10 p-3 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">
-                          Profit Amount
+                          Total Profit
                         </span>
                         <span className="text-lg font-bold text-green-500">
                           +${calculations.tpAmount.toFixed(2)}
@@ -680,12 +898,47 @@ export default function TradeCalculator() {
                           {calculations.tpPercentage.toFixed(2)}%
                         </Badge>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">Pips</span>
-                        <span className="text-sm font-medium">
-                          {calculations.tpPips.toFixed(1)} pips
-                        </span>
-                      </div>
+                      {!useMultipleTPs && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Pips</span>
+                          <span className="text-sm font-medium">
+                            {calculations.tpPips.toFixed(1)} pips
+                          </span>
+                        </div>
+                      )}
+
+                      {/* TP Levels Breakdown */}
+                      {calculations.tpLevels && calculations.tpLevels.length > 0 && (
+                        <div className="mt-3 pt-3 border-t space-y-2">
+                          <p className="text-xs font-semibold text-muted-foreground">
+                            TP Levels Breakdown:
+                          </p>
+                          {calculations.tpLevels.map((tp, index) => {
+                            const remainingAllocation = calculations.tpLevels!
+                              .slice(index + 1)
+                              .reduce((sum, t) => sum + t.allocation, 0);
+
+                            return (
+                              <div
+                                key={index}
+                                className="text-xs space-y-1 p-2 rounded bg-background/50"
+                              >
+                                <div className="flex items-center justify-between font-semibold">
+                                  <span>TP{index + 1} @ {tp.price.toFixed(symbolInfo?.digits || 2)}</span>
+                                  <Badge variant="outline" className="text-xs">
+                                    {tp.allocation}% / ${tp.amount.toFixed(2)}
+                                  </Badge>
+                                </div>
+                                <div className="flex items-center justify-between text-muted-foreground">
+                                  <span>{tp.pips.toFixed(1)} pips</span>
+                                  <span>R:R 1:{tp.rr.toFixed(2)}</span>
+                                  <span>% to run: {remainingAllocation.toFixed(0)}%</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

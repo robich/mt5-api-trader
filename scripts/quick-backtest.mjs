@@ -271,6 +271,70 @@ const VARIATIONS = [
   { name: 'M1-TREND: RR2|DD6%', strategy: 'M1_TREND', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 6, atrMult: 1.0, requireConfirmation: false },
   { name: 'M1-TREND: RR2|BE1R', strategy: 'M1_TREND', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 1.0, beBufferPips: 5 },
   { name: 'M1-TREND: RR3|DD8%', strategy: 'M1_TREND', requireOTE: false, fixedRR: 3, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: false },
+
+  // === TIERED TP STRATEGIES (TP1/TP2/TP3 with partial closes) ===
+  // Standard tiered: 50% at 1R, 30% at 2R, 20% at 3R
+  { name: 'TIERED: 50@1R|30@2R|20@3R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 3 },
+
+  // Conservative tiered: 60% at 1R, 25% at 1.5R, 15% at 2R
+  { name: 'TIERED: 60@1R|25@1.5R|15@2R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 60, tp2RR: 1.5, tp2Percent: 25, tp3RR: 2.0, tp3Percent: 15, moveSlOnTP1: true, beBufferPips: 3 },
+
+  // Aggressive tiered: 40% at 1.5R, 35% at 2.5R, 25% at 4R
+  { name: 'TIERED: 40@1.5R|35@2.5R|25@4R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 4, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.5, tp1Percent: 40, tp2RR: 2.5, tp2Percent: 35, tp3RR: 4.0, tp3Percent: 25, moveSlOnTP1: true, beBufferPips: 3 },
+
+  // Quick lock: 70% at 0.5R, 20% at 1R, 10% at 2R (lock profits fast)
+  { name: 'TIERED: 70@0.5R|20@1R|10@2R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 0.5, tp1Percent: 70, tp2RR: 1.0, tp2Percent: 20, tp3RR: 2.0, tp3Percent: 10, moveSlOnTP1: true, beBufferPips: 2 },
+
+  // Balanced tiered: 33% at 1R, 33% at 2R, 34% at 3R (equal splits)
+  { name: 'TIERED: 33@1R|33@2R|34@3R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 33, tp2RR: 2.0, tp2Percent: 33, tp3RR: 3.0, tp3Percent: 34, moveSlOnTP1: true, beBufferPips: 3 },
+
+  // Runner focus: 25% at 1R, 25% at 2R, 50% at 4R (let winners run)
+  { name: 'TIERED: 25@1R|25@2R|50@4R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 4, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 25, tp2RR: 2.0, tp2Percent: 25, tp3RR: 4.0, tp3Percent: 50, moveSlOnTP1: true, beBufferPips: 3 },
+
+  // Tiered with Kill Zones
+  { name: 'TIERED: 50@1R|30@2R|20@3R|KZ', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 70, useKillZones: true, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 3 },
+
+  // Tiered with OTE
+  { name: 'TIERED: 50@1R|30@2R|20@3R|OTE', strategy: 'ORDER_BLOCK', requireOTE: true, fixedRR: 3, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 3 },
+
+  // Symbol-specific tiered strategies
+  { name: 'BTC-TIERED: 50@1R|30@2R|20@3R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 0.8, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 5 },
+  { name: 'XAU-TIERED: 50@1R|30@2R|20@3R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.5, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 2 },
+
+  // Tiered without moving SL (more aggressive)
+  { name: 'TIERED-NOSL: 50@1R|30@2R|20@3R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: false },
+
+  // Move SL to TP1 after TP2 (trail the SL)
+  { name: 'TIERED-TRAIL: 50@1R|30@2R|20@3R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: true, moveSlOnTP2: true, beBufferPips: 3 },
+
+  // === OPTIMIZED TIERED TP STRATEGIES (Based on backtest results) ===
+
+  // High win-rate tiered: OTE + OB75 combo (best performer potential)
+  { name: 'TIERED-OTE: OB75|50@1R|30@2R|20@3R', strategy: 'ORDER_BLOCK', requireOTE: true, fixedRR: 3, minOBScore: 75, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 5 },
+
+  // Aggressive runner with OTE
+  { name: 'TIERED-OTE: 30@1R|30@2R|40@4R', strategy: 'ORDER_BLOCK', requireOTE: true, fixedRR: 4, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 30, tp2RR: 2.0, tp2Percent: 30, tp3RR: 4.0, tp3Percent: 40, moveSlOnTP1: true, beBufferPips: 5 },
+
+  // Quick secure with OTE (lock profits fast)
+  { name: 'TIERED-OTE: 60@0.75R|25@1.5R|15@2.5R', strategy: 'ORDER_BLOCK', requireOTE: true, fixedRR: 2.5, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 0.75, tp1Percent: 60, tp2RR: 1.5, tp2Percent: 25, tp3RR: 2.5, tp3Percent: 15, moveSlOnTP1: true, beBufferPips: 3 },
+
+  // Higher RR targets (big moves)
+  { name: 'TIERED: 40@1.5R|30@3R|30@5R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 5, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.5, tp1Percent: 40, tp2RR: 3.0, tp2Percent: 30, tp3RR: 5.0, tp3Percent: 30, moveSlOnTP1: true, beBufferPips: 5 },
+
+  // Scalp tiered (quick profits)
+  { name: 'TIERED: 50@0.5R|30@1R|20@1.5R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 1.5, minOBScore: 65, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 0.5, tp1Percent: 50, tp2RR: 1.0, tp2Percent: 30, tp3RR: 1.5, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 2 },
+
+  // Two-tier only (simpler management)
+  { name: 'TIERED-2: 50@1R|50@2R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 50, tp3RR: 3.0, tp3Percent: 0, moveSlOnTP1: true, beBufferPips: 3 },
+
+  // OTE + Kill Zone combo (highest quality entries)
+  { name: 'TIERED-OTE-KZ: 50@1R|30@2R|20@3R', strategy: 'ORDER_BLOCK', requireOTE: true, fixedRR: 3, minOBScore: 70, useKillZones: true, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 5 },
+
+  // Swing tiered (bigger targets for position trades)
+  { name: 'TIERED-SWING: 30@2R|35@3R|35@5R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 5, minOBScore: 75, useKillZones: false, maxDailyDD: 10, atrMult: 1.2, enableTieredTP: true, tp1RR: 2.0, tp1Percent: 30, tp2RR: 3.0, tp2Percent: 35, tp3RR: 5.0, tp3Percent: 35, moveSlOnTP1: true, beBufferPips: 5 },
+
+  // Asymmetric tiered (heavy on first TP for consistency)
+  { name: 'TIERED: 70@1R|20@2R|10@4R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 4, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 70, tp2RR: 2.0, tp2Percent: 20, tp3RR: 4.0, tp3Percent: 10, moveSlOnTP1: true, beBufferPips: 3 },
 ];
 
 // Symbol info for backtesting (including typical spreads)
@@ -333,9 +397,24 @@ class SMCBacktestEngine {
     this.enableOpposingExit = config.enableOpposingExit || false;
     this.minOpposingScore = config.minOpposingScore || 75; // High score for opposing signal
 
+    // Tiered Take Profit settings (TP1, TP2, TP3)
+    // Each tier has: RR level and percentage of position to close
+    this.enableTieredTP = config.enableTieredTP || false;
+    this.tp1RR = config.tp1RR || 1.0;    // First TP at 1R
+    this.tp1Percent = config.tp1Percent || 50; // Close 50% at TP1
+    this.tp2RR = config.tp2RR || 2.0;    // Second TP at 2R
+    this.tp2Percent = config.tp2Percent || 30; // Close 30% at TP2
+    this.tp3RR = config.tp3RR || 3.0;    // Final TP at 3R
+    this.tp3Percent = config.tp3Percent || 20; // Close remaining 20% at TP3
+    this.moveSlOnTP1 = config.moveSlOnTP1 !== false; // Move SL to BE after TP1 (default true)
+    this.moveSlOnTP2 = config.moveSlOnTP2 || false; // Move SL to TP1 after TP2
+
     // Tracking stats
     this.beMovedCount = 0;
     this.opposingExitCount = 0;
+    this.tp1Hits = 0;
+    this.tp2Hits = 0;
+    this.tp3Hits = 0;
   }
 
   async run(htfCandles, mtfCandles, ltfCandles) {
@@ -473,15 +552,37 @@ class SMCBacktestEngine {
               adjustedTP = entryPrice - (slDistance * intendedRR);
             }
 
-            this.position = {
+            // Open position with tiered TP support
+            const position = {
               direction: signal.direction,
               entry: entryPrice,
               sl: signal.sl,
+              originalSl: signal.sl,
               tp: adjustedTP,
               lotSize,
+              originalLotSize: lotSize,
               entryTime: currentTime,
               strategyType: this.strategy,
             };
+
+            // Add tiered TP levels if enabled
+            if (this.enableTieredTP) {
+              if (signal.direction === 'BUY') {
+                position.tp1 = entryPrice + (slDistance * this.tp1RR);
+                position.tp2 = entryPrice + (slDistance * this.tp2RR);
+                position.tp3 = entryPrice + (slDistance * this.tp3RR);
+              } else {
+                position.tp1 = entryPrice - (slDistance * this.tp1RR);
+                position.tp2 = entryPrice - (slDistance * this.tp2RR);
+                position.tp3 = entryPrice - (slDistance * this.tp3RR);
+              }
+              position.tp1Hit = false;
+              position.tp2Hit = false;
+              position.tp3Hit = false;
+              position.partialPnl = 0;
+            }
+
+            this.position = position;
           }
           continue;
         }
@@ -572,16 +673,37 @@ class SMCBacktestEngine {
         adjustedTP = entryPrice - (slDistance * intendedRR);
       }
 
-      // Open position
-      this.position = {
+      // Open position with tiered TP support
+      const position = {
         direction: signal.direction,
         entry: entryPrice,
         sl: signal.sl,
+        originalSl: signal.sl,
         tp: adjustedTP,
         lotSize,
+        originalLotSize: lotSize,
         entryTime: currentTime,
         strategyType: this.strategy,
       };
+
+      // Add tiered TP levels if enabled
+      if (this.enableTieredTP) {
+        if (signal.direction === 'BUY') {
+          position.tp1 = entryPrice + (slDistance * this.tp1RR);
+          position.tp2 = entryPrice + (slDistance * this.tp2RR);
+          position.tp3 = entryPrice + (slDistance * this.tp3RR);
+        } else {
+          position.tp1 = entryPrice - (slDistance * this.tp1RR);
+          position.tp2 = entryPrice - (slDistance * this.tp2RR);
+          position.tp3 = entryPrice - (slDistance * this.tp3RR);
+        }
+        position.tp1Hit = false;
+        position.tp2Hit = false;
+        position.tp3Hit = false;
+        position.partialPnl = 0; // Track accumulated partial profits
+      }
+
+      this.position = position;
     }
 
     // Close any remaining position
@@ -608,6 +730,9 @@ class SMCBacktestEngine {
     this.pendingSignal = null;
     this.beMovedCount = 0;
     this.opposingExitCount = 0;
+    this.tp1Hits = 0;
+    this.tp2Hits = 0;
+    this.tp3Hits = 0;
   }
 
   /**
@@ -1653,6 +1778,7 @@ class SMCBacktestEngine {
 
   /**
    * Check exit with realistic intra-candle price simulation
+   * Supports tiered TP (TP1, TP2, TP3) with partial closes
    *
    * OHLC Sequence Heuristic:
    * - Bullish candle (close > open): O -> L -> H -> C (dip then rally)
@@ -1665,6 +1791,11 @@ class SMCBacktestEngine {
   checkExit(candle) {
     if (!this.position) return null;
     const pos = this.position;
+
+    // Handle tiered TP if enabled
+    if (this.enableTieredTP) {
+      return this.checkTieredExit(candle);
+    }
 
     const slHit = pos.direction === 'BUY'
       ? candle.low <= pos.sl
@@ -1711,6 +1842,123 @@ class SMCBacktestEngine {
 
     // Fallback (shouldn't reach here)
     return { price: pos.sl, reason: 'SL' };
+  }
+
+  /**
+   * Check tiered TP exits (TP1, TP2, TP3 with partial closes)
+   * Returns exit result or null, handles partial closes internally
+   */
+  checkTieredExit(candle) {
+    const pos = this.position;
+    const symbolInfo = SYMBOL_INFO[this.config.symbol] || SYMBOL_INFO['XAUUSD.s'];
+
+    // Check SL first (full close)
+    const slHit = pos.direction === 'BUY'
+      ? candle.low <= pos.sl
+      : candle.high >= pos.sl;
+
+    // Check each TP level
+    const tp1Hit = !pos.tp1Hit && (pos.direction === 'BUY'
+      ? candle.high >= pos.tp1
+      : candle.low <= pos.tp1);
+
+    const tp2Hit = !pos.tp2Hit && pos.tp1Hit && (pos.direction === 'BUY'
+      ? candle.high >= pos.tp2
+      : candle.low <= pos.tp2);
+
+    const tp3Hit = !pos.tp3Hit && pos.tp2Hit && (pos.direction === 'BUY'
+      ? candle.high >= pos.tp3
+      : candle.low <= pos.tp3);
+
+    // Simulate price path to determine order of hits
+    const pricePath = this.simulatePricePath(candle);
+
+    for (const price of pricePath) {
+      // Check SL
+      if (pos.direction === 'BUY' && price <= pos.sl) {
+        return { price: pos.sl, reason: 'SL', isFull: true };
+      }
+      if (pos.direction === 'SELL' && price >= pos.sl) {
+        return { price: pos.sl, reason: 'SL', isFull: true };
+      }
+
+      // Check TP1
+      if (!pos.tp1Hit) {
+        if ((pos.direction === 'BUY' && price >= pos.tp1) ||
+            (pos.direction === 'SELL' && price <= pos.tp1)) {
+          // Partial close at TP1
+          const closePercent = this.tp1Percent / 100;
+          const closeLots = pos.originalLotSize * closePercent;
+          const pnl = this.calculatePartialPnl(pos.entry, pos.tp1, closeLots, pos.direction, symbolInfo);
+
+          pos.partialPnl += pnl;
+          pos.lotSize = pos.originalLotSize * (1 - closePercent);
+          pos.tp1Hit = true;
+          this.tp1Hits++;
+
+          // Move SL to breakeven after TP1 if enabled
+          if (this.moveSlOnTP1) {
+            const bufferAmount = this.beBufferPips * symbolInfo.pipSize;
+            if (pos.direction === 'BUY') {
+              pos.sl = pos.entry + bufferAmount;
+            } else {
+              pos.sl = pos.entry - bufferAmount;
+            }
+            pos.movedToBreakeven = true;
+          }
+
+          // Continue checking for more TPs in same candle
+          continue;
+        }
+      }
+
+      // Check TP2
+      if (pos.tp1Hit && !pos.tp2Hit) {
+        if ((pos.direction === 'BUY' && price >= pos.tp2) ||
+            (pos.direction === 'SELL' && price <= pos.tp2)) {
+          // Partial close at TP2
+          const closePercent = this.tp2Percent / (100 - this.tp1Percent);
+          const closeLots = pos.lotSize * closePercent;
+          const pnl = this.calculatePartialPnl(pos.entry, pos.tp2, closeLots, pos.direction, symbolInfo);
+
+          pos.partialPnl += pnl;
+          pos.lotSize -= closeLots;
+          pos.tp2Hit = true;
+          this.tp2Hits++;
+
+          // Optionally move SL to TP1 level after TP2
+          if (this.moveSlOnTP2) {
+            pos.sl = pos.tp1;
+          }
+
+          continue;
+        }
+      }
+
+      // Check TP3 (final close)
+      if (pos.tp2Hit && !pos.tp3Hit) {
+        if ((pos.direction === 'BUY' && price >= pos.tp3) ||
+            (pos.direction === 'SELL' && price <= pos.tp3)) {
+          pos.tp3Hit = true;
+          this.tp3Hits++;
+          return { price: pos.tp3, reason: 'TP3', isFull: true };
+        }
+      }
+    }
+
+    // No exit this candle
+    return null;
+  }
+
+  /**
+   * Calculate P&L for partial close
+   */
+  calculatePartialPnl(entry, exitPrice, lotSize, direction, symbolInfo) {
+    if (direction === 'BUY') {
+      return (exitPrice - entry) * lotSize * symbolInfo.contractSize;
+    } else {
+      return (entry - exitPrice) * lotSize * symbolInfo.contractSize;
+    }
   }
 
   /**
@@ -1776,19 +2024,36 @@ class SMCBacktestEngine {
   closePosition(exitPrice, exitTime, reason, symbolInfo) {
     if (!this.position) return;
 
-    let pnl;
+    // Calculate remaining P&L for current position size
+    let remainingPnl;
     if (this.position.direction === 'BUY') {
-      pnl = (exitPrice - this.position.entry) * this.position.lotSize * symbolInfo.contractSize;
+      remainingPnl = (exitPrice - this.position.entry) * this.position.lotSize * symbolInfo.contractSize;
     } else {
-      pnl = (this.position.entry - exitPrice) * this.position.lotSize * symbolInfo.contractSize;
+      remainingPnl = (this.position.entry - exitPrice) * this.position.lotSize * symbolInfo.contractSize;
     }
 
-    this.balance += pnl;
+    // Add partial profits from tiered TP if applicable
+    const partialPnl = this.position.partialPnl || 0;
+    const totalPnl = remainingPnl + partialPnl;
+
+    this.balance += totalPnl;
     this.equity = this.balance;
 
     if (this.equity > this.peakEquity) this.peakEquity = this.equity;
     const dd = ((this.peakEquity - this.equity) / this.peakEquity) * 100;
     if (dd > this.maxDrawdown) this.maxDrawdown = dd;
+
+    // Determine exit reason for tiered TP
+    let finalReason = reason;
+    if (this.enableTieredTP) {
+      if (this.position.tp3Hit) {
+        finalReason = 'TP3';
+      } else if (this.position.tp2Hit && reason === 'SL') {
+        finalReason = 'SL_AFTER_TP2';
+      } else if (this.position.tp1Hit && reason === 'SL') {
+        finalReason = 'SL_AFTER_TP1';
+      }
+    }
 
     this.trades.push({
       direction: this.position.direction,
@@ -1797,11 +2062,17 @@ class SMCBacktestEngine {
       sl: this.position.sl,
       originalSl: this.position.originalSl,
       tp: this.position.tp,
-      pnl,
-      isWinner: pnl > 0,
-      reason,
+      pnl: totalPnl,
+      partialPnl,
+      remainingPnl,
+      isWinner: totalPnl > 0,
+      reason: finalReason,
       obScore: this.position.obScore,
       movedToBreakeven: this.position.movedToBreakeven || false,
+      // Tiered TP info
+      tp1Hit: this.position.tp1Hit || false,
+      tp2Hit: this.position.tp2Hit || false,
+      tp3Hit: this.position.tp3Hit || false,
     });
 
     this.position = null;
@@ -1837,6 +2108,13 @@ class SMCBacktestEngine {
     const opposingExits = this.trades.filter(t => t.reason === 'OPPOSING').length;
     const beHits = this.trades.filter(t => t.movedToBreakeven && t.reason === 'SL').length;
 
+    // Tiered TP metrics
+    const tp1Exits = this.trades.filter(t => t.tp1Hit).length;
+    const tp2Exits = this.trades.filter(t => t.tp2Hit).length;
+    const tp3Exits = this.trades.filter(t => t.tp3Hit).length;
+    const slAfterTp1 = this.trades.filter(t => t.reason === 'SL_AFTER_TP1').length;
+    const slAfterTp2 = this.trades.filter(t => t.reason === 'SL_AFTER_TP2').length;
+
     return {
       totalTrades: this.trades.length,
       winningTrades: winning.length,
@@ -1847,12 +2125,21 @@ class SMCBacktestEngine {
       totalPnl,
       totalPnlPercent: (totalPnl / this.config.initialBalance) * 100,
       finalBalance: this.balance,
-      // New metrics
+      // Existing metrics
       beMovedCount: this.beMovedCount,
       beHits, // Trades that were moved to BE and then hit SL
       opposingExits,
       slExits,
       tpExits,
+      // Tiered TP metrics
+      tp1Hits: this.tp1Hits,
+      tp2Hits: this.tp2Hits,
+      tp3Hits: this.tp3Hits,
+      tp1Exits,
+      tp2Exits,
+      tp3Exits,
+      slAfterTp1,
+      slAfterTp2,
     };
   }
 }
@@ -2033,16 +2320,19 @@ async function fetchCandles(account, symbol, timeframe, startDate, endDate) {
 function printTable(results, periodInfo = null) {
   const sorted = [...results].sort((a, b) => b.totalPnl - a.totalPnl);
 
-  // Check if any results have BE or opposing exit data
+  // Check if any results have BE, opposing exit, or tiered TP data
   const hasBEData = sorted.some(r => r.beMovedCount > 0 || r.beHits > 0);
   const hasOpposingData = sorted.some(r => r.opposingExits > 0);
+  const hasTieredData = sorted.some(r => r.tp1Hits > 0 || r.tp2Hits > 0 || r.tp3Hits > 0);
 
-  console.log('\n' + '='.repeat(hasBEData || hasOpposingData ? 130 : 100));
+  const lineWidth = hasTieredData ? 160 : (hasBEData || hasOpposingData ? 130 : 100);
+
+  console.log('\n' + '='.repeat(lineWidth));
   console.log('BACKTEST COMPARISON RESULTS');
   if (periodInfo) {
     console.log(`Period: ${periodInfo.startDate} to ${periodInfo.endDate} (${periodInfo.days} days)`);
   }
-  console.log('='.repeat(hasBEData || hasOpposingData ? 130 : 100));
+  console.log('='.repeat(lineWidth));
 
   let header = 'Strategy'.padEnd(30) +
     'Trades'.padStart(8) +
@@ -2058,9 +2348,12 @@ function printTable(results, periodInfo = null) {
   if (hasOpposingData) {
     header += 'OppEx'.padStart(8);
   }
+  if (hasTieredData) {
+    header += 'TP1'.padStart(6) + 'TP2'.padStart(6) + 'TP3'.padStart(6) + 'SL@TP1'.padStart(8);
+  }
 
   console.log(header);
-  console.log('-'.repeat(hasBEData || hasOpposingData ? 130 : 100));
+  console.log('-'.repeat(lineWidth));
 
   for (const r of sorted) {
     const color = r.totalPnl >= 0 ? '\x1b[32m' : '\x1b[31m';
@@ -2080,11 +2373,17 @@ function printTable(results, periodInfo = null) {
     if (hasOpposingData) {
       row += (r.opposingExits || 0).toString().padStart(8);
     }
+    if (hasTieredData) {
+      row += (r.tp1Hits || 0).toString().padStart(6) +
+             (r.tp2Hits || 0).toString().padStart(6) +
+             (r.tp3Hits || 0).toString().padStart(6) +
+             (r.slAfterTp1 || 0).toString().padStart(8);
+    }
 
     console.log(row);
   }
 
-  console.log('='.repeat(hasBEData || hasOpposingData ? 130 : 100));
+  console.log('='.repeat(lineWidth));
 
   if (sorted.length > 0) {
     const winner = sorted[0];
@@ -2096,6 +2395,9 @@ function printTable(results, periodInfo = null) {
     }
     if (winner.opposingExits > 0) {
       console.log(`  Opposing Exits: ${winner.opposingExits}`);
+    }
+    if (winner.tp1Hits > 0) {
+      console.log(`  Tiered TP: TP1=${winner.tp1Hits} | TP2=${winner.tp2Hits || 0} | TP3=${winner.tp3Hits || 0} | SL after TP1=${winner.slAfterTp1 || 0}`);
     }
     console.log(`${'*'.repeat(60)}\n`);
   }

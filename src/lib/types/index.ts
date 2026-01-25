@@ -328,6 +328,99 @@ export interface BreakevenConfig {
   bufferPips: number;
 }
 
+/**
+ * Tiered take-profit configuration
+ * Based on backtest optimization: "TIERED-OTE: 30@1R|30@2R|40@4R"
+ * Allows partial position closes at multiple TP levels
+ */
+export interface TieredTPConfig {
+  /** Whether tiered TP is enabled */
+  enabled: boolean;
+  /** TP1: First partial take-profit level */
+  tp1: {
+    /** R multiple for TP1 (e.g., 1.0 = 1R) */
+    rr: number;
+    /** Percentage of position to close at TP1 (e.g., 30 = 30%) */
+    percent: number;
+  };
+  /** TP2: Second partial take-profit level */
+  tp2: {
+    /** R multiple for TP2 (e.g., 2.0 = 2R) */
+    rr: number;
+    /** Percentage of position to close at TP2 (e.g., 30 = 30%) */
+    percent: number;
+  };
+  /** TP3: Final take-profit level (remaining position) */
+  tp3: {
+    /** R multiple for TP3 (e.g., 4.0 = 4R) */
+    rr: number;
+    /** Percentage of position to close at TP3 (remaining, e.g., 40 = 40%) */
+    percent: number;
+  };
+  /** Whether to move SL to breakeven after TP1 hit */
+  moveSlOnTP1: boolean;
+  /** Buffer pips for breakeven after TP1 */
+  beBufferPips: number;
+  /** Whether to move SL to TP1 level after TP2 hit */
+  moveSlOnTP2: boolean;
+}
+
+/**
+ * Predefined tiered TP profiles based on backtest results
+ */
+export const TIERED_TP_PROFILES: Record<string, TieredTPConfig> = {
+  /** Best performer on BTCUSD: aggressive runner */
+  'RUNNER': {
+    enabled: true,
+    tp1: { rr: 1.0, percent: 30 },
+    tp2: { rr: 2.0, percent: 30 },
+    tp3: { rr: 4.0, percent: 40 },
+    moveSlOnTP1: true,
+    beBufferPips: 5,
+    moveSlOnTP2: true,
+  },
+  /** Conservative: lock profits fast */
+  'CONSERVATIVE': {
+    enabled: true,
+    tp1: { rr: 0.75, percent: 60 },
+    tp2: { rr: 1.5, percent: 25 },
+    tp3: { rr: 2.5, percent: 15 },
+    moveSlOnTP1: true,
+    beBufferPips: 3,
+    moveSlOnTP2: false,
+  },
+  /** Balanced: 50/30/20 split */
+  'BALANCED': {
+    enabled: true,
+    tp1: { rr: 1.0, percent: 50 },
+    tp2: { rr: 2.0, percent: 30 },
+    tp3: { rr: 3.0, percent: 20 },
+    moveSlOnTP1: true,
+    beBufferPips: 5,
+    moveSlOnTP2: false,
+  },
+  /** Simple 2-tier: 50/50 */
+  'SIMPLE_2TIER': {
+    enabled: true,
+    tp1: { rr: 1.0, percent: 50 },
+    tp2: { rr: 2.0, percent: 50 },
+    tp3: { rr: 2.0, percent: 0 }, // Not used
+    moveSlOnTP1: true,
+    beBufferPips: 3,
+    moveSlOnTP2: false,
+  },
+  /** Disabled (single TP mode) */
+  'DISABLED': {
+    enabled: false,
+    tp1: { rr: 2.0, percent: 100 },
+    tp2: { rr: 2.0, percent: 0 },
+    tp3: { rr: 2.0, percent: 0 },
+    moveSlOnTP1: false,
+    beBufferPips: 0,
+    moveSlOnTP2: false,
+  },
+};
+
 export interface BotConfig {
   symbols: string[];
   riskPercent: number;
@@ -361,6 +454,8 @@ export interface BotConfig {
   symbolSettings?: SymbolStrategySettings[];
   /** Breakeven configuration */
   breakeven?: BreakevenConfig;
+  /** Tiered take-profit configuration */
+  tieredTP?: TieredTPConfig;
 }
 
 export const DEFAULT_BOT_CONFIG: BotConfig = {
@@ -383,9 +478,20 @@ export const DEFAULT_BOT_CONFIG: BotConfig = {
   maxDailyDrawdown: 6,
   // Breakeven: Move SL to entry + 5 pips when position reaches 1R profit
   breakeven: {
-    enabled: true,
+    enabled: false, // Disabled when using tiered TP (tiered TP handles BE)
     triggerR: 1.0,
     bufferPips: 5,
+  },
+  // Tiered TP: RUNNER profile (optimal for BTCUSD based on Jan 2026 backtests)
+  // 30% at 1R, 30% at 2R, 40% at 4R with SL management
+  tieredTP: {
+    enabled: true,
+    tp1: { rr: 1.0, percent: 30 },
+    tp2: { rr: 2.0, percent: 30 },
+    tp3: { rr: 4.0, percent: 40 },
+    moveSlOnTP1: true,
+    beBufferPips: 5,
+    moveSlOnTP2: true,
   },
 };
 

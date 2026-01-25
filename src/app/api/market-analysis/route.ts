@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       count: analyses.length,
-      analyses: analyses.map(a => ({
+      analyses: analyses.map((a: any) => ({
         id: a.id,
         analysisDate: a.analysisDate,
         weekStartDate: a.weekStartDate,

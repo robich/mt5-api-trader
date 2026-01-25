@@ -76,7 +76,7 @@ class TelegramNotifier {
     return this.enabled;
   }
 
-  private async sendMessage(text: string): Promise<void> {
+  async sendMessage(text: string): Promise<void> {
     if (!this.enabled || !this.config) return;
 
     try {

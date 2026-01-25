@@ -11,12 +11,15 @@ import {
   StrategyType,
   TIMEFRAME_MAP,
   BreakevenConfig,
+  TieredTPConfig,
+  TIERED_TP_PROFILES,
 } from '../lib/types';
 import { performMTFAnalysis } from '../lib/analysis/multi-timeframe';
 import { runAllStrategies, StrategyContext } from '../lib/strategies';
 import { calculatePositionSize } from '../lib/risk/position-sizing';
 import { tradeManager } from '../lib/risk/trade-manager';
 import { BreakevenManager } from '../lib/risk/breakeven-manager';
+import { TieredTPManager } from '../lib/risk/tiered-tp-manager';
 import { analysisStore } from './analysis-store';
 import { telegramNotifier } from './telegram';
 import { analysisScheduler } from './analysis-scheduler';
@@ -49,6 +52,7 @@ export class TradingBot {
   private candleBuffers: Map<string, Map<string, Candle[]>> = new Map(); // symbol -> timeframe -> candles
   private lastKnownPositions: Map<string, PositionUpdate> = new Map(); // positionId -> last known state
   private breakevenManager: BreakevenManager;
+  private tieredTPManager: TieredTPManager;
 
   private constructor(config?: Partial<BotConfig>) {
     this.config = { ...DEFAULT_BOT_CONFIG, ...config };
@@ -59,6 +63,10 @@ export class TradingBot {
       bufferPips: 5,
     };
     this.breakevenManager = new BreakevenManager(beConfig);
+
+    // Initialize tiered TP manager with config
+    const tieredConfig: TieredTPConfig = this.config.tieredTP || TIERED_TP_PROFILES['RUNNER'];
+    this.tieredTPManager = new TieredTPManager(tieredConfig);
   }
 
   static getInstance(config?: Partial<BotConfig>): TradingBot {
@@ -193,6 +201,27 @@ export class TradingBot {
         console.log(`[Bot] Breakeven manager initialized`);
       }
 
+      // Initialize tiered TP manager with current positions
+      if (this.tieredTPManager.isEnabled()) {
+        for (const pos of positionUpdates) {
+          // Get the trade from DB to find entry details
+          const trade = await prisma.trade.findFirst({
+            where: { mt5PositionId: pos.id },
+          });
+          if (trade) {
+            await this.tieredTPManager.initializePosition(
+              pos.id,
+              pos.symbol,
+              pos.type === 'POSITION_TYPE_BUY' ? 'BUY' : 'SELL',
+              trade.entryPrice,
+              trade.stopLoss,
+              pos.volume
+            );
+          }
+        }
+        console.log(`[Bot] Tiered TP manager initialized`);
+      }
+
     } catch (error) {
       console.error('[Bot] Error syncing positions on startup:', error);
       // Don't throw - allow bot to start even if sync fails
@@ -313,6 +342,9 @@ export class TradingBot {
         // Clean up breakeven tracking
         this.breakevenManager.onPositionClosed(removedId);
 
+        // Clean up tiered TP tracking
+        this.tieredTPManager.onPositionClosed(removedId);
+
         // Send Telegram notification for closed trade
         if (telegramNotifier.isEnabled()) {
           const openPositions = positions.map(p => ({
@@ -342,12 +374,23 @@ export class TradingBot {
       }
     }
 
-    // Check breakeven for all current positions
-    if (this.breakevenManager.isEnabled()) {
+    // Check breakeven for all current positions (only if tiered TP is disabled)
+    // Tiered TP handles its own BE management, so don't run both
+    if (this.breakevenManager.isEnabled() && !this.tieredTPManager.isEnabled()) {
       for (const pos of positions) {
         const result = await this.breakevenManager.checkAndMoveToBreakeven(pos);
         if (result.moved) {
           console.log(`[Bot] ${pos.symbol} moved to breakeven: ${result.reason}`);
+        }
+      }
+    }
+
+    // Check tiered take-profits for all current positions
+    if (this.tieredTPManager.isEnabled()) {
+      for (const pos of positions) {
+        const result = await this.tieredTPManager.checkAndExecuteTieredTP(pos);
+        if (result.tpHit) {
+          console.log(`[Bot] ${pos.symbol} tiered TP executed: ${result.tpHit} - ${result.reason}`);
         }
       }
     }
@@ -659,6 +702,19 @@ export class TradingBot {
       await tradeManager.recordTrade(trade);
       await tradeManager.updateSignalStatus(signal.id, 'TAKEN');
 
+      // Initialize tiered TP tracking for this position
+      if (this.tieredTPManager.isEnabled() && orderResult.positionId) {
+        await this.tieredTPManager.initializePosition(
+          orderResult.positionId,
+          signal.symbol,
+          signal.direction,
+          trade.entryPrice,
+          signal.stopLoss,
+          positionInfo.lotSize
+        );
+        console.log(`[Bot] Tiered TP initialized for position ${orderResult.positionId}`);
+      }
+
       // Record account snapshot
       await prisma.accountSnapshot.create({
         data: {
@@ -723,6 +779,10 @@ export class TradingBot {
     // Update breakeven manager if config changed
     if (config.breakeven) {
       this.breakevenManager.updateConfig(config.breakeven);
+    }
+    // Update tiered TP manager if config changed
+    if (config.tieredTP) {
+      this.tieredTPManager.updateConfig(config.tieredTP);
     }
   }
 
