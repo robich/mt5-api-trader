@@ -79,7 +79,9 @@
       "Bash(node:*)",
       "Bash(pkill:*)",
       "Bash(taskkill:*)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "Bash(npx next lint:*)",
+      "Bash(npx eslint:*)"
     ]
   }
 }

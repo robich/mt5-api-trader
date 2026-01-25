@@ -259,7 +259,7 @@ export default function TradeCalculator() {
     let tpAmount = 0;
     let tpPercentage = 0;
     let rrRatio = 0;
-    let tpLevels: Array<{ price: number; allocation: number; pips: number; amount: number; rr: number }> = [];
+    const tpLevels: Array<{ price: number; allocation: number; pips: number; amount: number; rr: number }> = [];
 
     if (useMultipleTPs) {
       // Multiple TP levels
@@ -351,6 +351,7 @@ export default function TradeCalculator() {
     direction,
     customLeverage,
     accountInfo,
+    customBalance,
     useMultipleTPs,
     tp1Price,
     tp2Price,

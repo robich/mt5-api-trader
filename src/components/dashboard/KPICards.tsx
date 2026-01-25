@@ -5,7 +5,6 @@ import {
   TrendingUp,
   TrendingDown,
   DollarSign,
-  Percent,
   Activity,
   Target,
 } from 'lucide-react';
