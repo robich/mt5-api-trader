@@ -1,27 +1,23 @@
 /**
  * Strategy Profiles - Production-ready configurations from backtest optimization
  *
- * Based on .claude/backtest-insights.md results from Dec 15, 2025 - Jan 14, 2026
- * Updated Jan 2026 with iterative optimization findings:
+ * Based on comprehensive backtesting from Jan 5-26, 2026 (21 days)
+ * Updated Jan 27, 2026 with new optimal strategies:
  *
  * KEY FINDINGS:
- * 1. NoConf (no confirmation) strategies significantly outperform confirmation-based
- * 2. ATR multiplier is symbol-specific:
- *    - BTCUSD: ATR 0.8 (more sensitive)
- *    - XAUUSD: ATR 1.5 (stricter filtering)
- *    - XAGUSD: ATR 1.0-1.2 (standard)
- * 3. R:R 1.5-2.0 is optimal (higher R:R reduces win rate too much)
- * 4. Timeframe matters:
- *    - BTCUSD: M5 entries (H4/M30/M5)
- *    - Metals: M1 scalp entries (H1/M15/M1)
+ * 1. BTCUSD: ATR-based OB with lower RR (1.3-1.5) dominates - 82.4% WR!
+ * 2. XAUUSD/XAGUSD: M1-TREND EMA strategy significantly outperforms OB
+ * 3. ETHUSD: Kill Zone filtering is essential for profitability
+ * 4. Tiered TP (30@1R|30@2R|40@4R) produces highest profits on metals
  *
- * Best performing strategies:
- * - BTCUSD: 68.8% win rate, PF 2.62 (ATR0.8|RR1.5)
- * - XAUUSD.s: 75.4% win rate, PF 3.07 (ATR1.5|RR2)
- * - XAGUSD.s: 66.1% win rate, PF 1.94 (OB65|RR2)
+ * NEW OPTIMAL STRATEGIES (Jan 2026):
+ * - BTCUSD: CRYPTO-OPT ATR1.3|RR1.5 -> $435, 82.4% WR, PF 6.79
+ * - XAUUSD.s: M1-TREND RR2|DD6% -> $478, 51.9% WR, PF 2.56
+ * - XAGUSD.s: M1-TREND-TIERED 30@1R|30@2R|40@4R -> $869, 29.5% WR, PF 1.56
+ * - ETHUSD: M1-TREND-KZ RR2.5|DD6% -> $226, 41.7% WR, PF 1.76
  */
 
-import { StrategyType, Timeframe, KillZoneType, BreakevenConfig } from '../types';
+import { StrategyType, Timeframe, KillZoneType, BreakevenConfig, TieredTPConfig, TIERED_TP_PROFILES } from '../types';
 
 /**
  * Confirmation candle types for Order Block entries
@@ -72,6 +68,8 @@ export interface StrategyProfile {
   recommendedSymbols: string[];
   /** Breakeven configuration - moves SL to entry + buffer when target R is reached */
   breakeven?: BreakevenConfig;
+  /** Tiered take-profit configuration for partial closes */
+  tieredTP?: TieredTPConfig;
 }
 
 /**
@@ -120,12 +118,100 @@ export interface LiveStrategyConfig {
  * Pre-defined strategy profiles based on backtest results (Jan 2026 optimization)
  */
 export const STRATEGY_PROFILES: Record<string, StrategyProfile> = {
-  // === OPTIMAL SYMBOL-SPECIFIC STRATEGIES (from backtesting) ===
+  // === NEW OPTIMAL STRATEGIES (Jan 27, 2026 Backtests) ===
 
-  // BTCUSD Optimal: ATR0.8 with RR1.5 - 68.8% win rate, PF 2.62
+  // BTCUSD Optimal: CRYPTO-OPT ATR1.3|RR1.5 - 82.4% win rate, PF 6.79, $435 profit
   'BTC_OPTIMAL': {
-    name: 'BTC Optimal',
-    description: 'ATR0.8|RR1.5|NoConf|BE1R - Optimized for BTCUSD (68.8% WR, 2.62 PF)',
+    name: 'BTC Optimal (Jan 2026)',
+    description: 'ATR1.3|RR1.5 - BEST for BTCUSD (82.4% WR, PF 6.79)',
+    riskTier: 'aggressive',
+    strategy: 'ORDER_BLOCK',
+    minOBScore: 70,
+    useKillZones: false,
+    killZones: [],
+    maxDailyDrawdown: 8,
+    confirmationType: 'none',
+    riskReward: 1.5,
+    riskPercent: 2,
+    atrMultiplier: 1.3,
+    maxConcurrentTrades: 3,
+    recommendedSymbols: ['BTCUSD'],
+    breakeven: { enabled: false, triggerR: 1.0, bufferPips: 5 }, // Disabled - tiered TP handles this
+    tieredTP: TIERED_TP_PROFILES['RUNNER'], // 30@1R|30@2R|40@4R
+  },
+
+  // XAUUSD Optimal: M1-TREND RR2|DD6% - 51.9% win rate, PF 2.56, $478 profit
+  'XAU_OPTIMAL': {
+    name: 'Gold Optimal (M1 Trend)',
+    description: 'M1-TREND|RR2|DD6% - BEST for Gold (51.9% WR, PF 2.56)',
+    riskTier: 'aggressive',
+    strategy: 'M1_TREND',
+    minOBScore: 50, // Not used for M1_TREND
+    useKillZones: false,
+    killZones: [],
+    maxDailyDrawdown: 6,
+    confirmationType: 'none',
+    riskReward: 2.0,
+    riskPercent: 2,
+    atrMultiplier: 1.0,
+    maxConcurrentTrades: 3,
+    recommendedSymbols: ['XAUUSD.s'],
+    breakeven: { enabled: false, triggerR: 1.0, bufferPips: 3 },
+  },
+
+  // XAGUSD Optimal: M1-TREND-TIERED 30@1R|30@2R|40@4R - 29.5% win rate, PF 1.56, $869 profit
+  'XAG_OPTIMAL': {
+    name: 'Silver Optimal (M1 Trend Tiered)',
+    description: 'M1-TREND-TIERED|30@1R|30@2R|40@4R - BEST for Silver ($869 profit!)',
+    riskTier: 'aggressive',
+    strategy: 'M1_TREND',
+    minOBScore: 50,
+    useKillZones: false,
+    killZones: [],
+    maxDailyDrawdown: 8,
+    confirmationType: 'none',
+    riskReward: 4.0, // Final TP at 4R
+    riskPercent: 2,
+    atrMultiplier: 1.0,
+    maxConcurrentTrades: 3,
+    recommendedSymbols: ['XAGUSD.s'],
+    breakeven: { enabled: false, triggerR: 1.0, bufferPips: 3 },
+    tieredTP: {
+      enabled: true,
+      tp1: { rr: 1.0, percent: 30 },
+      tp2: { rr: 2.0, percent: 30 },
+      tp3: { rr: 4.0, percent: 40 },
+      moveSlOnTP1: true,
+      beBufferPips: 3,
+      moveSlOnTP2: true,
+    },
+  },
+
+  // ETHUSD Optimal: M1-TREND-KZ RR2.5|DD6% - 41.7% win rate, PF 1.76, $226 profit
+  'ETH_OPTIMAL': {
+    name: 'ETH Optimal (M1 Trend KZ)',
+    description: 'M1-TREND|KZ|RR2.5|DD6% - BEST for ETH (41.7% WR, PF 1.76)',
+    riskTier: 'balanced',
+    strategy: 'M1_TREND',
+    minOBScore: 50,
+    useKillZones: true,
+    killZones: ['LONDON_OPEN', 'NY_OPEN', 'LONDON_NY_OVERLAP'],
+    maxDailyDrawdown: 6,
+    confirmationType: 'none',
+    riskReward: 2.5,
+    riskPercent: 2,
+    atrMultiplier: 1.0,
+    maxConcurrentTrades: 3,
+    recommendedSymbols: ['ETHUSD'],
+    breakeven: { enabled: false, triggerR: 1.0, bufferPips: 3 },
+  },
+
+  // === LEGACY SYMBOL-SPECIFIC STRATEGIES (keep for backwards compatibility) ===
+
+  // Legacy BTC: ATR0.8 with RR1.5
+  'BTC_LEGACY': {
+    name: 'BTC Legacy (ATR0.8)',
+    description: 'ATR0.8|RR1.5|NoConf|BE1R - Previous optimal',
     riskTier: 'aggressive',
     strategy: 'ORDER_BLOCK',
     minOBScore: 70,
@@ -138,44 +224,6 @@ export const STRATEGY_PROFILES: Record<string, StrategyProfile> = {
     atrMultiplier: 0.8,
     maxConcurrentTrades: 3,
     recommendedSymbols: ['BTCUSD'],
-    breakeven: { enabled: true, triggerR: 1.0, bufferPips: 5 },
-  },
-
-  // XAUUSD Optimal: ATR1.5 with RR2 - 75.4% win rate, PF 3.07
-  'XAU_OPTIMAL': {
-    name: 'Gold Optimal',
-    description: 'ATR1.5|RR2|NoConf|BE1R - Optimized for XAUUSD (75.4% WR, 3.07 PF)',
-    riskTier: 'aggressive',
-    strategy: 'ORDER_BLOCK',
-    minOBScore: 70,
-    useKillZones: false,
-    killZones: [],
-    maxDailyDrawdown: 8,
-    confirmationType: 'none',
-    riskReward: 2,
-    riskPercent: 2,
-    atrMultiplier: 1.5,
-    maxConcurrentTrades: 3,
-    recommendedSymbols: ['XAUUSD.s'],
-    breakeven: { enabled: true, triggerR: 1.0, bufferPips: 5 },
-  },
-
-  // XAGUSD Optimal: OB65 with RR2 - 66.1% win rate, PF 1.94
-  'XAG_OPTIMAL': {
-    name: 'Silver Optimal',
-    description: 'OB65|RR2|NoConf|BE1R - Optimized for XAGUSD (66.1% WR, 1.94 PF)',
-    riskTier: 'aggressive',
-    strategy: 'ORDER_BLOCK',
-    minOBScore: 65,
-    useKillZones: false,
-    killZones: [],
-    maxDailyDrawdown: 8,
-    confirmationType: 'none',
-    riskReward: 2,
-    riskPercent: 2,
-    atrMultiplier: 1.0,
-    maxConcurrentTrades: 3,
-    recommendedSymbols: ['XAGUSD.s'],
     breakeven: { enabled: true, triggerR: 1.0, bufferPips: 5 },
   },
 
@@ -292,12 +340,14 @@ export const STRATEGY_PROFILES: Record<string, StrategyProfile> = {
 };
 
 /**
- * Symbol-specific recommended profiles based on backtest performance (Jan 2026)
+ * Symbol-specific recommended profiles based on backtest performance (Jan 27, 2026)
+ * Updated with new M1-TREND strategies that significantly outperform Order Block on metals
  */
 export const SYMBOL_RECOMMENDED_PROFILES: Record<string, string[]> = {
-  'BTCUSD': ['BTC_OPTIMAL', 'UNIVERSAL_RR15', 'UNIVERSAL_NOCONF'],
+  'BTCUSD': ['BTC_OPTIMAL', 'BTC_LEGACY', 'UNIVERSAL_RR15'],
   'XAUUSD.s': ['XAU_OPTIMAL', 'UNIVERSAL_NOCONF', 'SAFE_KZ'],
   'XAGUSD.s': ['XAG_OPTIMAL', 'UNIVERSAL_NOCONF', 'SAFE_KZ'],
+  'ETHUSD': ['ETH_OPTIMAL', 'SAFE_KZ'],
 };
 
 /**
@@ -351,45 +401,45 @@ export const SYMBOL_TRADING_LIMITS: Record<string, { minSlPips: number; typicalS
 };
 
 /**
- * Default configurations per symbol based on backtest insights (Jan 18, 2026)
- * Updated with most profitable strategies from 20-day backtest (Dec 29 - Jan 18)
+ * Default configurations per symbol based on backtest insights (Jan 27, 2026)
+ * Updated with new optimal strategies from 21-day backtest (Jan 5-26, 2026)
  */
 export const SYMBOL_DEFAULTS: Record<string, SymbolOverrides> = {
   'BTCUSD': {
-    // BTCUSD: ATR1.5|RR2 - Most profitable (64.3% WR, PF 2.62, +$386 in 20 days)
-    confirmationType: 'none',
-    minOBScore: 70,
-    maxDailyDrawdown: 8,
-    useKillZones: false,
-    riskReward: 2,
-    atrMultiplier: 1.5,
-  },
-  'XAUUSD.s': {
-    // XAUUSD: BE strategy - RR2 with breakeven (71.4% WR, PF 2.28, +$51 in 20 days)
-    confirmationType: 'none',
-    minOBScore: 70,
-    maxDailyDrawdown: 8,
-    useKillZones: false,
-    riskReward: 2,
-    atrMultiplier: 1.0,
-  },
-  'XAGUSD.s': {
-    // XAGUSD: OB75|RR2 - Low activity, high quality only (+$78 on 1 trade)
-    confirmationType: 'none',
-    minOBScore: 75,
-    maxDailyDrawdown: 8,
-    useKillZones: false,
-    riskReward: 2,
-    atrMultiplier: 1.0,
-  },
-  'ETHUSD': {
-    // ETHUSD: Disabled - poor performance in current market conditions
+    // BTCUSD: CRYPTO-OPT ATR1.3|RR1.5 - 82.4% WR, PF 6.79, +$435
     confirmationType: 'none',
     minOBScore: 70,
     maxDailyDrawdown: 8,
     useKillZones: false,
     riskReward: 1.5,
-    atrMultiplier: 1.5,
+    atrMultiplier: 1.3,
+  },
+  'XAUUSD.s': {
+    // XAUUSD: M1-TREND RR2|DD6% - 51.9% WR, PF 2.56, +$478
+    confirmationType: 'none',
+    minOBScore: 50, // Not used for M1_TREND
+    maxDailyDrawdown: 6,
+    useKillZones: false,
+    riskReward: 2.0,
+    atrMultiplier: 1.0,
+  },
+  'XAGUSD.s': {
+    // XAGUSD: M1-TREND-TIERED 30@1R|30@2R|40@4R - 29.5% WR, PF 1.56, +$869
+    confirmationType: 'none',
+    minOBScore: 50,
+    maxDailyDrawdown: 8,
+    useKillZones: false,
+    riskReward: 4.0, // Final TP at 4R for tiered
+    atrMultiplier: 1.0,
+  },
+  'ETHUSD': {
+    // ETHUSD: M1-TREND-KZ RR2.5|DD6% - 41.7% WR, PF 1.76, +$226
+    confirmationType: 'none',
+    minOBScore: 50,
+    maxDailyDrawdown: 6,
+    useKillZones: true,
+    riskReward: 2.5,
+    atrMultiplier: 1.0,
   },
 };
 

@@ -5,6 +5,7 @@ import { BOSStrategy, bosStrategy } from './bos';
 import { FBOClassicStrategy, fboClassicStrategy } from './fbo-classic';
 import { FBOSweepStrategy, fboSweepStrategy } from './fbo-sweep';
 import { FBOStructureStrategy, fboStructureStrategy } from './fbo-structure';
+import { M1TrendStrategy, m1TrendStrategy } from './m1-trend';
 import { StrategyType, Signal } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { buildSignal } from './base';
@@ -17,6 +18,7 @@ export { BOSStrategy, bosStrategy } from './bos';
 export { FBOClassicStrategy, fboClassicStrategy } from './fbo-classic';
 export { FBOSweepStrategy, fboSweepStrategy } from './fbo-sweep';
 export { FBOStructureStrategy, fboStructureStrategy } from './fbo-structure';
+export { M1TrendStrategy, m1TrendStrategy } from './m1-trend';
 
 // Strategy profiles - backtest-optimized configurations (Jan 2026 optimization)
 export {
@@ -49,6 +51,7 @@ export const strategies = new Map<StrategyType, BaseStrategy>([
   ['FBO_CLASSIC', fboClassicStrategy],
   ['FBO_SWEEP', fboSweepStrategy],
   ['FBO_STRUCTURE', fboStructureStrategy],
+  ['M1_TREND', m1TrendStrategy],
 ]);
 
 /**

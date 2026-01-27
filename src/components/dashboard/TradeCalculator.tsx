@@ -114,7 +114,9 @@ export default function TradeCalculator() {
   const [symbol, setSymbol] = useState('XAUUSD.s');
   const [direction, setDirection] = useState<'BUY' | 'SELL'>('BUY');
   const [lotSize, setLotSize] = useState('0.01');
+  const [riskMode, setRiskMode] = useState<'percent' | 'amount'>('percent');
   const [riskPercent, setRiskPercent] = useState(1); // Risk percentage slider value
+  const [riskAmount, setRiskAmount] = useState(''); // Risk amount in dollars
   const [entryPrice, setEntryPrice] = useState('');
   const [stopLoss, setStopLoss] = useState('');
   const [takeProfit, setTakeProfit] = useState('');
@@ -362,7 +364,7 @@ export default function TradeCalculator() {
   ]);
 
   // Auto-calculate lot size based on risk percentage
-  const handleCalculateByRisk = useCallback((riskPercent: number) => {
+  const handleCalculateByRiskPercent = useCallback((riskPct: number) => {
     if (!symbolInfo || !entryPrice || !stopLoss) return;
 
     const entry = parseFloat(entryPrice);
@@ -373,7 +375,7 @@ export default function TradeCalculator() {
 
     const result = calculatePositionSize(
       balance,
-      riskPercent,
+      riskPct,
       entry,
       sl,
       symbolInfo
@@ -382,12 +384,51 @@ export default function TradeCalculator() {
     setLotSize(result.lotSize.toFixed(2));
   }, [symbolInfo, accountInfo, customBalance, entryPrice, stopLoss]);
 
-  // Auto-update lot size when risk slider changes
+  // Auto-calculate lot size based on risk amount in dollars
+  const handleCalculateByRiskAmount = useCallback((riskAmt: number) => {
+    if (!symbolInfo || !entryPrice || !stopLoss) return;
+
+    const entry = parseFloat(entryPrice);
+    const sl = parseFloat(stopLoss);
+
+    if (entry <= 0 || sl <= 0 || riskAmt <= 0) return;
+
+    // Calculate the stop loss distance in price
+    const slDistance = Math.abs(entry - sl);
+
+    // Calculate pip value per standard lot
+    // pipValue = contractSize * pipSize (for most pairs)
+    const pipValuePerLot = symbolInfo.contractSize * symbolInfo.pipSize;
+
+    // Calculate how many pips the SL is
+    const slPips = slDistance / symbolInfo.pipSize;
+
+    // Risk per lot = slPips * pipValuePerLot
+    const riskPerLot = slPips * pipValuePerLot;
+
+    // Calculate lot size: riskAmount / riskPerLot
+    let calculatedLots = riskAmt / riskPerLot;
+
+    // Round to volume step
+    calculatedLots = Math.round(calculatedLots / symbolInfo.volumeStep) * symbolInfo.volumeStep;
+
+    // Clamp to min/max volume
+    calculatedLots = Math.max(symbolInfo.minVolume, Math.min(symbolInfo.maxVolume, calculatedLots));
+
+    setLotSize(calculatedLots.toFixed(2));
+  }, [symbolInfo, entryPrice, stopLoss]);
+
+  // Auto-update lot size when risk changes
   useEffect(() => {
-    if (riskPercent > 0) {
-      handleCalculateByRisk(riskPercent);
+    if (riskMode === 'percent' && riskPercent > 0) {
+      handleCalculateByRiskPercent(riskPercent);
+    } else if (riskMode === 'amount' && riskAmount) {
+      const amount = parseFloat(riskAmount);
+      if (amount > 0) {
+        handleCalculateByRiskAmount(amount);
+      }
     }
-  }, [riskPercent, handleCalculateByRisk]);
+  }, [riskMode, riskPercent, riskAmount, handleCalculateByRiskPercent, handleCalculateByRiskAmount]);
 
   // Handle price changes from the interactive chart
   const handleChartPriceChange = (type: 'entry' | 'sl' | 'tp', price: number) => {
@@ -524,27 +565,83 @@ export default function TradeCalculator() {
               </Select>
             </div>
 
-            {/* Risk Percentage Slider */}
+            {/* Risk Mode Toggle */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label htmlFor="riskPercent">Risk Percentage</Label>
-                <Badge variant="outline" className="text-sm font-semibold">
-                  {riskPercent.toFixed(1)}%
-                </Badge>
+                <Label>Risk Mode</Label>
+                <div className="flex gap-1">
+                  <Button
+                    size="sm"
+                    variant={riskMode === 'percent' ? 'default' : 'outline'}
+                    onClick={() => setRiskMode('percent')}
+                    className="h-7 text-xs px-3"
+                  >
+                    % of Balance
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={riskMode === 'amount' ? 'default' : 'outline'}
+                    onClick={() => setRiskMode('amount')}
+                    className="h-7 text-xs px-3"
+                  >
+                    $ Amount
+                  </Button>
+                </div>
               </div>
-              <Slider
-                id="riskPercent"
-                min={0.1}
-                max={50}
-                step={0.1}
-                value={[riskPercent]}
-                onValueChange={(values) => setRiskPercent(values[0])}
-                className="w-full"
-              />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Conservative (0.1%)</span>
-                <span>Aggressive (50%)</span>
-              </div>
+
+              {riskMode === 'percent' ? (
+                <>
+                  {/* Risk Percentage Slider */}
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="riskPercent">Risk Percentage</Label>
+                    <Badge variant="outline" className="text-sm font-semibold">
+                      {riskPercent.toFixed(1)}%
+                    </Badge>
+                  </div>
+                  <Slider
+                    id="riskPercent"
+                    min={0.1}
+                    max={50}
+                    step={0.1}
+                    value={[riskPercent]}
+                    onValueChange={(values) => setRiskPercent(values[0])}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Conservative (0.1%)</span>
+                    <span>Aggressive (50%)</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Risk Amount Input */}
+                  <div className="space-y-2">
+                    <Label htmlFor="riskAmount">Risk Amount ($)</Label>
+                    <Input
+                      id="riskAmount"
+                      type="number"
+                      step="10"
+                      min="1"
+                      value={riskAmount}
+                      onChange={(e) => setRiskAmount(e.target.value)}
+                      placeholder="e.g., 100"
+                    />
+                    <div className="flex gap-1 flex-wrap">
+                      {[25, 50, 100, 200, 500].map((amt) => (
+                        <Button
+                          key={amt}
+                          size="sm"
+                          variant={riskAmount === String(amt) ? 'default' : 'outline'}
+                          onClick={() => setRiskAmount(String(amt))}
+                          className="h-6 text-xs px-2"
+                        >
+                          ${amt}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Calculated Lot Size (Read-only) */}
@@ -566,7 +663,9 @@ export default function TradeCalculator() {
                 placeholder="Auto-calculated"
               />
               <p className="text-xs text-muted-foreground">
-                Based on {riskPercent.toFixed(1)}% account risk
+                {riskMode === 'percent'
+                  ? `Based on ${riskPercent.toFixed(1)}% account risk`
+                  : `Based on $${riskAmount || '0'} risk amount`}
               </p>
             </div>
 

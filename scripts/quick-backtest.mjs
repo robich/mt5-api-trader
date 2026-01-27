@@ -335,6 +335,44 @@ const VARIATIONS = [
 
   // Asymmetric tiered (heavy on first TP for consistency)
   { name: 'TIERED: 70@1R|20@2R|10@4R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 4, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 70, tp2RR: 2.0, tp2Percent: 20, tp3RR: 4.0, tp3Percent: 10, moveSlOnTP1: true, beBufferPips: 3 },
+
+  // === NEW OPTIMIZED STRATEGIES (Jan 2026 Backtest Analysis) ===
+
+  // M1-TREND optimized for metals (high RR with tighter DD)
+  { name: 'M1-TREND-OPT: RR2.5|DD5%', strategy: 'M1_TREND', requireOTE: false, fixedRR: 2.5, minOBScore: 50, useKillZones: false, maxDailyDD: 5, atrMult: 1.0, requireConfirmation: false },
+  { name: 'M1-TREND-OPT: RR3|DD5%', strategy: 'M1_TREND', requireOTE: false, fixedRR: 3, minOBScore: 50, useKillZones: false, maxDailyDD: 5, atrMult: 1.0, requireConfirmation: false },
+  { name: 'M1-TREND-OPT: RR3.5|DD6%', strategy: 'M1_TREND', requireOTE: false, fixedRR: 3.5, minOBScore: 50, useKillZones: false, maxDailyDD: 6, atrMult: 1.0, requireConfirmation: false },
+  { name: 'M1-TREND-OPT: RR4|DD8%', strategy: 'M1_TREND', requireOTE: false, fixedRR: 4, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: false },
+
+  // M1-TREND with breakeven (protect profits)
+  { name: 'M1-TREND-BE: RR2.5|BE1R', strategy: 'M1_TREND', requireOTE: false, fixedRR: 2.5, minOBScore: 50, useKillZones: false, maxDailyDD: 6, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 1.0, beBufferPips: 3 },
+  { name: 'M1-TREND-BE: RR3|BE1R', strategy: 'M1_TREND', requireOTE: false, fixedRR: 3, minOBScore: 50, useKillZones: false, maxDailyDD: 6, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 1.0, beBufferPips: 3 },
+  { name: 'M1-TREND-BE: RR3|BE0.75R', strategy: 'M1_TREND', requireOTE: false, fixedRR: 3, minOBScore: 50, useKillZones: false, maxDailyDD: 6, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 2 },
+
+  // M1-TREND with tiered TP (combine trend following with partial profits)
+  { name: 'M1-TREND-TIERED: 40@1R|30@2R|30@3R', strategy: 'M1_TREND', requireOTE: false, fixedRR: 3, minOBScore: 50, useKillZones: false, maxDailyDD: 6, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 40, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 30, moveSlOnTP1: true, beBufferPips: 3 },
+  { name: 'M1-TREND-TIERED: 30@1R|30@2R|40@4R', strategy: 'M1_TREND', requireOTE: false, fixedRR: 4, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 30, tp2RR: 2.0, tp2Percent: 30, tp3RR: 4.0, tp3Percent: 40, moveSlOnTP1: true, beBufferPips: 3 },
+
+  // Crypto-optimized: ATR1.5 with different RR
+  { name: 'CRYPTO-OPT: ATR1.5|RR1.25', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 1.25, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.5, requireConfirmation: false },
+  { name: 'CRYPTO-OPT: ATR1.5|RR1.75', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 1.75, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.5, requireConfirmation: false },
+  { name: 'CRYPTO-OPT: ATR1.3|RR1.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 1.5, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.3, requireConfirmation: false },
+
+  // Crypto with tiered TP + OTE (high quality entries with runners)
+  { name: 'CRYPTO-TIERED: OTE|30@1R|30@2R|40@5R', strategy: 'ORDER_BLOCK', requireOTE: true, fixedRR: 5, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 30, tp2RR: 2.0, tp2Percent: 30, tp3RR: 5.0, tp3Percent: 40, moveSlOnTP1: true, beBufferPips: 5 },
+  { name: 'CRYPTO-TIERED: OTE|25@1R|25@2R|50@6R', strategy: 'ORDER_BLOCK', requireOTE: true, fixedRR: 6, minOBScore: 70, useKillZones: false, maxDailyDD: 10, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 25, tp2RR: 2.0, tp2Percent: 25, tp3RR: 6.0, tp3Percent: 50, moveSlOnTP1: true, beBufferPips: 5 },
+
+  // Kill Zone focused (ETHUSD winner)
+  { name: 'KZ-TIERED: 40@1R|30@2R|30@4R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 4, minOBScore: 70, useKillZones: true, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 40, tp2RR: 2.0, tp2Percent: 30, tp3RR: 4.0, tp3Percent: 30, moveSlOnTP1: true, beBufferPips: 3 },
+  { name: 'KZ-TIERED: 60@1R|25@2R|15@3R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 65, useKillZones: true, maxDailyDD: 6, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 60, tp2RR: 2.0, tp2Percent: 25, tp3RR: 3.0, tp3Percent: 15, moveSlOnTP1: true, beBufferPips: 3 },
+
+  // Combined: M1-TREND with Kill Zones (filter noisy periods)
+  { name: 'M1-TREND-KZ: RR2.5|DD6%', strategy: 'M1_TREND', requireOTE: false, fixedRR: 2.5, minOBScore: 50, useKillZones: true, maxDailyDD: 6, atrMult: 1.0, requireConfirmation: false },
+  { name: 'M1-TREND-KZ: RR3|DD6%', strategy: 'M1_TREND', requireOTE: false, fixedRR: 3, minOBScore: 50, useKillZones: true, maxDailyDD: 6, atrMult: 1.0, requireConfirmation: false },
+
+  // Ultra-conservative: High OB score with tight DD
+  { name: 'SAFE-OPT: OB80|RR2|DD4%', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 80, useKillZones: true, maxDailyDD: 4, atrMult: 1.0, requireConfirmation: false },
+  { name: 'SAFE-OPT: OB75|RR2.5|DD5%', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 75, useKillZones: true, maxDailyDD: 5, atrMult: 1.0, requireConfirmation: false },
 ];
 
 // Symbol info for backtesting (including typical spreads)
