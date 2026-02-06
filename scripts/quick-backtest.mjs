@@ -373,6 +373,39 @@ const VARIATIONS = [
   // Ultra-conservative: High OB score with tight DD
   { name: 'SAFE-OPT: OB80|RR2|DD4%', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 80, useKillZones: true, maxDailyDD: 4, atrMult: 1.0, requireConfirmation: false },
   { name: 'SAFE-OPT: OB75|RR2.5|DD5%', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 75, useKillZones: true, maxDailyDD: 5, atrMult: 1.0, requireConfirmation: false },
+
+  // === EVERY OB IN TREND (Trade all Order Blocks aligned with trend) ===
+  // No OB score filtering - trade every OB that matches trend direction
+  { name: 'EVERY-OB: NoFilter|RR1.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 1.5, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, requireConfirmation: false },
+  { name: 'EVERY-OB: NoFilter|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, requireConfirmation: false },
+  { name: 'EVERY-OB: NoFilter|RR2.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, requireConfirmation: false },
+  { name: 'EVERY-OB: NoFilter|RR3', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, requireConfirmation: false },
+
+  // Every OB with different DD limits
+  { name: 'EVERY-OB: NoFilter|RR2|DD8%', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: false },
+  { name: 'EVERY-OB: NoFilter|RR2|DD10%', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 10, atrMult: 1.0, requireConfirmation: false },
+
+  // Every OB with Kill Zones only (trade during high volatility)
+  { name: 'EVERY-OB: NoFilter|KZ|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: true, maxDailyDD: 20, atrMult: 1.0, requireConfirmation: false },
+  { name: 'EVERY-OB: NoFilter|KZ|RR2.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: true, maxDailyDD: 20, atrMult: 1.0, requireConfirmation: false },
+
+  // Every OB with ATR multipliers (wider/tighter OB detection)
+  { name: 'EVERY-OB: ATR1.5|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.5, requireConfirmation: false },
+  { name: 'EVERY-OB: ATR2.0|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 2.0, requireConfirmation: false },
+  { name: 'EVERY-OB: ATR0.8|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 0.8, requireConfirmation: false },
+
+  // Every OB with tiered TP
+  { name: 'EVERY-OB-TIERED: 50@1R|30@2R|20@3R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 3 },
+  { name: 'EVERY-OB-TIERED: 30@1R|30@2R|40@4R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 4, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 30, tp2RR: 2.0, tp2Percent: 30, tp3RR: 4.0, tp3Percent: 40, moveSlOnTP1: true, beBufferPips: 3 },
+
+  // Every OB with low score threshold (some quality filtering)
+  { name: 'EVERY-OB: OB30|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 30, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, requireConfirmation: false },
+  { name: 'EVERY-OB: OB40|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 40, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, requireConfirmation: false },
+  { name: 'EVERY-OB: OB50|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, requireConfirmation: false },
+
+  // Every OB with breakeven (protect profits while trading aggressively)
+  { name: 'EVERY-OB-BE: NoFilter|RR2|BE1R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 1.0, beBufferPips: 3 },
+  { name: 'EVERY-OB-BE: NoFilter|RR3|BE1R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 1.0, beBufferPips: 3 },
 ];
 
 // Symbol info for backtesting (including typical spreads)

@@ -13,6 +13,7 @@ import { TradingViewChart } from '@/components/dashboard/TradingViewChart';
 import { BotControls } from '@/components/dashboard/BotControls';
 import { AnalysisPanel } from '@/components/dashboard/AnalysisPanel';
 import { MarketAnalysisPanel } from '@/components/dashboard/MarketAnalysisPanel';
+import { TelegramSignalsPanel } from '@/components/dashboard/TelegramSignalsPanel';
 import { EquityCurveChart } from '@/components/dashboard/EquityCurveChart';
 
 interface AccountData {
@@ -175,9 +176,17 @@ export default function Dashboard() {
             <h1 className="text-3xl font-bold">SMC Trading Bot</h1>
             <p className="text-muted-foreground">Smart Money Concept Automated Trading</p>
           </div>
-          <div className="text-sm text-muted-foreground text-right">
-            <div>v{process.env.NEXT_PUBLIC_VERSION || '0.0.0'}</div>
-            <div className="text-xs">Built: {process.env.NEXT_PUBLIC_BUILD_TIME || 'dev'}</div>
+          <div className="flex items-center gap-4">
+            <Link href="/calculator">
+              <Button variant="outline">
+                <Calculator className="h-4 w-4 mr-2" />
+                Trade Calculator
+              </Button>
+            </Link>
+            <div className="text-sm text-muted-foreground text-right">
+              <div>v{process.env.NEXT_PUBLIC_VERSION || '0.0.0'}</div>
+              <div className="text-xs">Built: {process.env.NEXT_PUBLIC_BUILD_TIME || 'dev'}</div>
+            </div>
           </div>
         </div>
 
@@ -274,22 +283,14 @@ export default function Dashboard() {
                 <CardHeader className="pb-0">
                   <div className="flex items-center justify-between">
                     <CardTitle>Trades</CardTitle>
-                    <div className="flex items-center gap-2">
-                      <TabsList>
-                        <TabsTrigger value="open">
-                          Open ({openTrades?.trades.length || 0})
-                        </TabsTrigger>
-                        <TabsTrigger value="closed">
-                          History ({(closedTrades?.trades || []).filter((t: any) => t.pnl != null).length})
-                        </TabsTrigger>
-                      </TabsList>
-                      <Link href="/calculator">
-                        <Button size="sm" variant="outline">
-                          <Calculator className="h-4 w-4 mr-2" />
-                          Trade Calculator
-                        </Button>
-                      </Link>
-                    </div>
+                    <TabsList>
+                      <TabsTrigger value="open">
+                        Open ({openTrades?.trades.length || 0})
+                      </TabsTrigger>
+                      <TabsTrigger value="closed">
+                        History ({(closedTrades?.trades || []).filter((t: any) => t.pnl != null).length})
+                      </TabsTrigger>
+                    </TabsList>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -343,6 +344,9 @@ export default function Dashboard() {
 
           {/* Signals & Analysis Panel */}
           <div className="space-y-6">
+            {/* Telegram Channel Signals */}
+            <TelegramSignalsPanel />
+
             {/* Daily Market News Analysis */}
             <MarketAnalysisPanel />
 

@@ -474,7 +474,7 @@ export default function TradeCalculator() {
                 step="100"
                 value={customBalance}
                 onChange={(e) => setCustomBalance(e.target.value)}
-                placeholder={accountInfo ? `${accountInfo.balance.toFixed(2)}` : '10000'}
+                placeholder={accountInfo?.balance != null ? accountInfo.balance.toFixed(2) : '10000'}
                 className="mt-1 font-semibold"
               />
             </div>

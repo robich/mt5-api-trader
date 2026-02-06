@@ -241,6 +241,62 @@ model StrategyConfig {
   @@index([activatedAt])
 }
 
+// Raw Telegram channel messages
+model TelegramChannelMessage {
+  id              String   @id @default(uuid())
+  telegramMsgId   Int
+  channelId       String
+  text            String?  @db.Text
+  senderName      String?
+  hasMedia        Boolean  @default(false)
+  rawJson         String?  @db.Text
+  receivedAt      DateTime @default(now())
+  analysis        TelegramSignalAnalysis?
+
+  @@unique([channelId, telegramMsgId])
+  @@index([channelId])
+  @@index([receivedAt])
+}
+
+// Claude AI analysis of Telegram messages
+model TelegramSignalAnalysis {
+  id              String   @id @default(uuid())
+  messageId       String   @unique
+  message         TelegramChannelMessage @relation(fields: [messageId], references: [id])
+  category        String   // SIGNAL, TP_UPDATE, SL_UPDATE, CLOSE_SIGNAL, OTHER
+  symbol          String?
+  direction       String?  // BUY or SELL
+  entryPrice      Float?
+  stopLoss        Float?
+  takeProfit      Float?
+  confidence      Float?
+  reasoning       String?  @db.Text
+  executionStatus String   @default("PENDING") // PENDING, EXECUTED, SKIPPED, FAILED
+  executionError  String?  @db.Text
+  tradeId         String?  // Link to Trade if executed
+  linkedSignalId  String?  // Link to original signal for TP/SL updates
+  createdAt       DateTime @default(now())
+
+  @@index([category])
+  @@index([executionStatus])
+  @@index([createdAt])
+}
+
+// Telegram listener state (singleton)
+model TelegramListenerState {
+  id              String   @id @default("singleton")
+  isListening     Boolean  @default(false)
+  sessionString   String?  @db.Text
+  channelId       String?
+  startedAt       DateTime?
+  lastMessageAt   DateTime?
+  totalMessages   Int      @default(0)
+  totalSignals    Int      @default(0)
+  totalExecuted   Int      @default(0)
+  errorMessage    String?
+  updatedAt       DateTime @updatedAt
+}
+
 // Daily market analysis using Claude AI
 model MarketAnalysis {
   id                 String   @id @default(uuid())

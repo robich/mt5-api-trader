@@ -18,7 +18,8 @@
     "backtest:optimize": "node scripts/quick-backtest.mjs --optimize",
     "backtest:compare": "node scripts/quick-backtest.mjs --compare-all",
     "backtest:ts": "npx ts-node --transpile-only scripts/cli-backtest.ts",
-    "backtest:ts:optimize": "npx ts-node --transpile-only scripts/cli-backtest.ts --optimize"
+    "backtest:ts:optimize": "npx ts-node --transpile-only scripts/cli-backtest.ts --optimize",
+    "telegram:auth": "node scripts/telegram-auth.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
@@ -47,6 +48,7 @@
     "recharts": "^3.6.0",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
+    "telegram": "^2.26.22",
     "uuid": "^13.0.0",
     "zustand": "^5.0.9"
   },

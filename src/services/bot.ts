@@ -23,6 +23,9 @@ import { TieredTPManager } from '../lib/risk/tiered-tp-manager';
 import { analysisStore } from './analysis-store';
 import { telegramNotifier } from './telegram';
 import { analysisScheduler } from './analysis-scheduler';
+import { telegramListener } from './telegram-listener';
+import { telegramSignalAnalyzer } from './telegram-signal-analyzer';
+import { telegramTradeExecutor } from './telegram-trade-executor';
 import { v4 as uuidv4 } from 'uuid';
 import {
   TradingBotSyncListener,
@@ -89,6 +92,23 @@ export class TradingBot {
 
     // Start market analysis scheduler
     analysisScheduler.start();
+
+    // Initialize Telegram channel listener (non-blocking)
+    try {
+      const listenerEnabled = telegramListener.initialize();
+      if (listenerEnabled) {
+        telegramSignalAnalyzer.initialize();
+        telegramTradeExecutor.initialize();
+        await telegramListener.start({
+          onMessage: async (msg) => {
+            await telegramTradeExecutor.processMessage(msg);
+          },
+        });
+        console.log('[Bot] Telegram channel listener started');
+      }
+    } catch (listenerError) {
+      console.warn('[Bot] Telegram listener failed to start (non-blocking):', listenerError);
+    }
 
     try {
       // Connect to MetaAPI
@@ -452,6 +472,13 @@ export class TradingBot {
     // Stop market analysis scheduler
     analysisScheduler.stop();
 
+    // Stop Telegram channel listener
+    try {
+      await telegramListener.stop();
+    } catch (listenerError) {
+      console.warn('[Bot] Error stopping Telegram listener:', listenerError);
+    }
+
     // Stop heartbeat
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
@@ -766,11 +793,16 @@ export class TradingBot {
     isRunning: boolean;
     config: BotConfig;
     symbols: string[];
+    telegramListener: { enabled: boolean; listening: boolean };
   } {
     return {
       isRunning: this.isRunning,
       config: this.config,
       symbols: this.config.symbols,
+      telegramListener: {
+        enabled: telegramListener.isEnabled(),
+        listening: telegramListener.isListening(),
+      },
     };
   }
 
