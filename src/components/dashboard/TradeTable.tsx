@@ -295,6 +295,9 @@ export function TradeTable({ trades, type, currency = 'USD' }: TradeTableProps) 
             <TableHead className="text-right">SL</TableHead>
             <TableHead className="text-right">TP</TableHead>
             <TableHead className="text-right">Size</TableHead>
+            {type === 'open' && (
+              <TableHead className="text-right">Current</TableHead>
+            )}
             <TableHead>{type === 'open' ? 'Opened' : 'Closed'}</TableHead>
             <TableHead>Duration</TableHead>
             {type === 'closed' && (
@@ -334,6 +337,13 @@ export function TradeTable({ trades, type, currency = 'USD' }: TradeTableProps) 
                 {formatPrice(trade.takeProfit, trade.symbol)}
               </TableCell>
               <TableCell className="text-right">{trade.lotSize ?? '-'}</TableCell>
+              {type === 'open' && (
+                <TableCell className="text-right font-mono">
+                  {trade.currentPrice != null
+                    ? formatPrice(trade.currentPrice, trade.symbol)
+                    : '-'}
+                </TableCell>
+              )}
               <TableCell>
                 {formatDate(type === 'open' ? trade.openTime : trade.closeTime || trade.openTime)}
               </TableCell>
@@ -363,6 +373,39 @@ export function TradeTable({ trades, type, currency = 'USD' }: TradeTableProps) 
               </TableCell>
             </TableRow>
           ))}
+          {/* Total unrealized P&L row for open trades */}
+          {type === 'open' && trades.some((t) => t.currentPnl != null) && (
+            <TableRow className="border-t-2">
+              <TableCell colSpan={7} className="text-right font-semibold text-sm">
+                Total Unrealized P&L
+              </TableCell>
+              {/* Current column */}
+              <TableCell />
+              {/* Opened column */}
+              <TableCell />
+              {/* Duration column */}
+              <TableCell />
+              {/* Pips column */}
+              <TableCell className="text-right font-mono font-semibold">
+                {(() => {
+                  const totalPips = trades.reduce((sum, t) => {
+                    const pips = calculatePips(t, true);
+                    return sum + (pips || 0);
+                  }, 0);
+                  return formatPips(totalPips);
+                })()}
+              </TableCell>
+              <TableCell
+                className={`text-right font-bold ${
+                  trades.reduce((sum, t) => sum + (t.currentPnl || 0), 0) >= 0
+                    ? 'text-green-600'
+                    : 'text-red-600'
+                }`}
+              >
+                {formatPnl(trades.reduce((sum, t) => sum + (t.currentPnl || 0), 0))}
+              </TableCell>
+            </TableRow>
+          )}
         </TableBody>
       </Table>
       </div>

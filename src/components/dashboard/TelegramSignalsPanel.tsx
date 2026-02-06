@@ -83,7 +83,6 @@ export function TelegramSignalsPanel() {
   const [listener, setListener] = useState<ListenerStatus | null>(null);
   const [messages, setMessages] = useState<TelegramMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isToggling, setIsToggling] = useState(false);
   const [testText, setTestText] = useState('');
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
@@ -107,23 +106,6 @@ export function TelegramSignalsPanel() {
     const interval = setInterval(fetchData, 15000);
     return () => clearInterval(interval);
   }, []);
-
-  const toggleListener = async () => {
-    setIsToggling(true);
-    try {
-      const action = listener?.isListening ? 'stop' : 'start';
-      await fetch('/api/telegram-listener', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
-      });
-      await fetchData();
-    } catch {
-      // Error handled by fetchData
-    } finally {
-      setIsToggling(false);
-    }
-  };
 
   const testMessage = async () => {
     if (!testText.trim()) return;
@@ -168,23 +150,13 @@ export function TelegramSignalsPanel() {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CardTitle className="text-lg">Telegram Signals</CardTitle>
-            <div
-              className={`h-2 w-2 rounded-full ${
-                listener?.isListening ? 'bg-green-500' : 'bg-red-500'
-              }`}
-            />
-          </div>
-          <Button
-            size="sm"
-            variant={listener?.isListening ? 'destructive' : 'default'}
-            onClick={toggleListener}
-            disabled={isToggling}
-          >
-            {isToggling ? '...' : listener?.isListening ? 'Stop' : 'Start'}
-          </Button>
+        <div className="flex items-center gap-2">
+          <CardTitle className="text-lg">Telegram Signals</CardTitle>
+          <div
+            className={`h-2 w-2 rounded-full ${
+              listener?.isListening ? 'bg-green-500' : 'bg-red-500'
+            }`}
+          />
         </div>
         {/* Stats */}
         <div className="flex gap-3 text-xs text-muted-foreground mt-1">
