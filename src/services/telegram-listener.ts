@@ -89,17 +89,19 @@ class TelegramListenerService {
       await this.client.connect();
       console.log('[TelegramListener] Connected to Telegram');
 
-      // Resolve the channel entity
+      // Resolve the channel entity to get its numeric ID
       const channelEntity = await this.client.getEntity(this.channelId);
-      console.log('[TelegramListener] Resolved channel:', (channelEntity as any).title || this.channelId);
+      const channelPeerId = (channelEntity as any).id;
+      console.log('[TelegramListener] Resolved channel:', (channelEntity as any).title || this.channelId, `(id: ${channelPeerId})`);
 
       // Register new message handler filtered to channel
+      // gramjs NewMessage chats filter needs numeric IDs, not entity objects
       this.client.addEventHandler(
         async (event: NewMessageEvent) => {
           await this.handleNewMessage(event, callbacks);
         },
         new NewMessage({
-          chats: [channelEntity],
+          chats: [channelPeerId],
         })
       );
 

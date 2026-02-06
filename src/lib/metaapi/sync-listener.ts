@@ -329,6 +329,34 @@ export class TradingBotSyncListener {
   }
 
   /**
+   * Called when symbol specifications are updated
+   */
+  async onSymbolSpecificationsUpdated(
+    instanceIndex: string,
+    specifications: any[],
+    removedSymbols: string[]
+  ): Promise<void> {
+    // No-op: we don't need symbol specification data
+  }
+
+  /**
+   * Called when a single symbol specification is updated
+   */
+  async onSymbolSpecificationUpdated(
+    instanceIndex: string,
+    specification: any
+  ): Promise<void> {
+    // No-op: we don't need symbol specification data
+  }
+
+  /**
+   * Called when server health status is received
+   */
+  async onHealthStatus(instanceIndex: string, status: any): Promise<void> {
+    // No-op: we don't need health status events
+  }
+
+  /**
    * Called when stream is closed
    */
   async onStreamClosed(instanceIndex: string): Promise<void> {

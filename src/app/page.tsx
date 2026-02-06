@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Calculator } from 'lucide-react';
+import { Calculator, Bot, Radio } from 'lucide-react';
 import { KPICards } from '@/components/dashboard/KPICards';
 import { TradeTable } from '@/components/dashboard/TradeTable';
 import { SignalsList } from '@/components/dashboard/SignalsList';
@@ -68,6 +68,57 @@ interface AnalysisData {
   analysis: any[];
 }
 
+interface TelegramListenerStatus {
+  isListening: boolean;
+  startedAt: string | null;
+}
+
+function formatUptime(startedAt: string | null): string {
+  if (!startedAt) return '';
+  const start = new Date(startedAt).getTime();
+  const now = Date.now();
+  const diffMs = now - start;
+  if (diffMs < 0) return '';
+  const seconds = Math.floor(diffMs / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  if (days > 0) return `${days}d ${hours % 24}h ${minutes % 60}m`;
+  if (hours > 0) return `${hours}h ${minutes % 60}m`;
+  if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+  return `${seconds}s`;
+}
+
+function ServiceStatus({ label, icon: Icon, isRunning, startedAt }: {
+  label: string;
+  icon: React.ElementType;
+  isRunning: boolean;
+  startedAt: string | null;
+}) {
+  const [uptime, setUptime] = useState(formatUptime(startedAt));
+
+  useEffect(() => {
+    if (!isRunning || !startedAt) { setUptime(''); return; }
+    setUptime(formatUptime(startedAt));
+    const interval = setInterval(() => setUptime(formatUptime(startedAt)), 1000);
+    return () => clearInterval(interval);
+  }, [isRunning, startedAt]);
+
+  return (
+    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/50 border text-sm">
+      <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+      <span className="text-muted-foreground">{label}</span>
+      <div className={`h-2 w-2 rounded-full ${isRunning ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+      <span className={`font-medium ${isRunning ? 'text-green-500' : 'text-red-500'}`}>
+        {isRunning ? 'Running' : 'Stopped'}
+      </span>
+      {isRunning && uptime && (
+        <span className="text-xs text-muted-foreground">{uptime}</span>
+      )}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const [accountData, setAccountData] = useState<AccountData | null>(null);
   const [openTrades, setOpenTrades] = useState<TradesData | null>(null);
@@ -75,30 +126,33 @@ export default function Dashboard() {
   const [signals, setSignals] = useState<SignalsData | null>(null);
   const [stats, setStats] = useState<StatsData | null>(null);
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
+  const [telegramStatus, setTelegramStatus] = useState<TelegramListenerStatus | null>(null);
   const [selectedSymbol, setSelectedSymbol] = useState('XAUUSD.s');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
-      const [accountRes, openRes, closedRes, signalsRes, statsRes, analysisRes] = await Promise.all([
+      const [accountRes, openRes, closedRes, signalsRes, statsRes, analysisRes, telegramRes] = await Promise.all([
         fetch('/api/account'),
         fetch('/api/trades?status=OPEN'),
         fetch('/api/trades?status=CLOSED&limit=20'),
         fetch('/api/signals?limit=20'),
         fetch('/api/stats?days=30'),
         fetch('/api/analysis'),
+        fetch('/api/telegram-listener?limit=0'),
       ]);
 
       if (!accountRes.ok) throw new Error('Failed to fetch account data');
 
-      const [account, open, closed, sigs, statistics, analysis] = await Promise.all([
+      const [account, open, closed, sigs, statistics, analysis, telegram] = await Promise.all([
         accountRes.json(),
         openRes.json(),
         closedRes.json(),
         signalsRes.json(),
         statsRes.json(),
         analysisRes.json(),
+        telegramRes.ok ? telegramRes.json() : null,
       ]);
 
       setAccountData(account);
@@ -107,6 +161,9 @@ export default function Dashboard() {
       setSignals(sigs);
       setStats(statistics);
       setAnalysisData(analysis);
+      if (telegram?.listener) {
+        setTelegramStatus(telegram.listener);
+      }
       setError(null);
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -177,6 +234,18 @@ export default function Dashboard() {
             <p className="text-muted-foreground">Smart Money Concept Automated Trading</p>
           </div>
           <div className="flex items-center gap-4">
+            <ServiceStatus
+              label="Bot"
+              icon={Bot}
+              isRunning={accountData?.botStatus.isRunning || false}
+              startedAt={accountData?.botStatus.startedAt || null}
+            />
+            <ServiceStatus
+              label="Signals"
+              icon={Radio}
+              isRunning={telegramStatus?.isListening || false}
+              startedAt={telegramStatus?.startedAt || null}
+            />
             <Link href="/calculator">
               <Button variant="outline">
                 <Calculator className="h-4 w-4 mr-2" />
