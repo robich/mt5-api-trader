@@ -206,10 +206,10 @@ class TelegramTradeExecutor {
         console.log(`[TradeExecutor] Using default SL distance for ${analysis.symbol}: ${defaultDist}`);
       }
 
-      // Calculate position size with 5% risk
+      // Calculate position size with 10% risk
       const positionInfo = calculatePositionSize(
         accountInfo.balance,
-        5, // 5% risk
+        10, // 10% risk
         entryPrice,
         stopLoss,
         symbolInfo
@@ -281,7 +281,7 @@ class TelegramTradeExecutor {
           `SL: ${stopLoss}\n` +
           `TP: ${analysis.takeProfit || 'None'}\n` +
           `Size: ${positionInfo.lotSize} lots\n` +
-          `Risk: $${positionInfo.riskAmount.toFixed(2)} (5%)`
+          `Risk: $${positionInfo.riskAmount.toFixed(2)} (10%)`
         );
       }
 
