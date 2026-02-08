@@ -55,7 +55,13 @@ class TelegramListenerService {
       return true;
     }
 
-    console.log('[TelegramListener] Service disabled (missing env vars)');
+    const missing = [
+      !apiId && 'TELEGRAM_API_ID',
+      !apiHash && 'TELEGRAM_API_HASH',
+      !sessionString && 'TELEGRAM_SESSION_STRING',
+      !channelId && 'TELEGRAM_CHANNEL_ID',
+    ].filter(Boolean);
+    console.log(`[TelegramListener] Service disabled (missing: ${missing.join(', ')})`);
     return false;
   }
 
