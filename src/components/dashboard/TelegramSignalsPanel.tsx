@@ -86,6 +86,7 @@ export function TelegramSignalsPanel() {
   const [testText, setTestText] = useState('');
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
+  const [isFetching, setIsFetching] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -129,6 +130,23 @@ export function TelegramSignalsPanel() {
       setTestResult(null);
     } finally {
       setIsTesting(false);
+    }
+  };
+
+  const fetchLatest = async (process: boolean) => {
+    setIsFetching(true);
+    try {
+      const res = await fetch('/api/telegram-listener', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'fetch-latest', count: 10, process }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      await fetchData();
+    } catch {
+      // Error handled silently
+    } finally {
+      setIsFetching(false);
     }
   };
 
@@ -187,6 +205,28 @@ export function TelegramSignalsPanel() {
               className="h-8 px-3"
             >
               {isTesting ? '...' : 'Analyze'}
+            </Button>
+          </div>
+
+          {/* Fetch latest from channel */}
+          <div className="flex gap-2 mt-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => fetchLatest(false)}
+              disabled={isFetching}
+              className="h-8 px-3 text-xs"
+            >
+              {isFetching ? '...' : 'Fetch Latest'}
+            </Button>
+            <Button
+              size="sm"
+              variant="default"
+              onClick={() => fetchLatest(true)}
+              disabled={isFetching}
+              className="h-8 px-3 text-xs"
+            >
+              {isFetching ? '...' : 'Fetch & Process'}
             </Button>
           </div>
 
