@@ -67,6 +67,56 @@ class TelegramListenerService {
     return this.listening;
   }
 
+  /**
+   * Fetch the latest messages from the channel on demand.
+   * Creates a temporary client connection if not already listening.
+   */
+  async fetchLatest(count: number = 10): Promise<Array<{
+    id: number;
+    text: string;
+    senderName: string | null;
+    hasMedia: boolean;
+    date: Date;
+  }>> {
+    if (!this.enabled) {
+      throw new Error('Telegram listener not enabled (missing env vars)');
+    }
+
+    // Use existing client if listening, otherwise create a temporary one
+    let client = this.client;
+    let tempClient = false;
+
+    if (!client || !this.listening) {
+      const session = new StringSession(this.sessionString);
+      client = new TelegramClient(session, this.apiId, this.apiHash, {
+        connectionRetries: 3,
+      });
+      await client.connect();
+      tempClient = true;
+    }
+
+    try {
+      const entity = await client.getEntity(this.channelId);
+      const messages = await client.getMessages(entity, { limit: count });
+
+      return messages
+        .filter((msg) => msg.text)
+        .map((msg) => ({
+          id: msg.id,
+          text: msg.text || '',
+          senderName: msg.sender
+            ? ((msg.sender as any).firstName || '') + ' ' + ((msg.sender as any).lastName || '')
+            : null,
+          hasMedia: !!msg.media,
+          date: msg.date ? new Date(msg.date * 1000) : new Date(),
+        }));
+    } finally {
+      if (tempClient && client) {
+        await client.disconnect();
+      }
+    }
+  }
+
   async start(callbacks: TelegramMessageCallback): Promise<void> {
     if (!this.enabled) {
       console.log('[TelegramListener] Cannot start - not enabled');

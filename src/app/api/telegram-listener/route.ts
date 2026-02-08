@@ -104,9 +104,40 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      case 'fetch-latest': {
+        const count = body.count || 10;
+        const process = body.process ?? false;
+
+        telegramListener.initialize();
+
+        const messages = await telegramListener.fetchLatest(count);
+
+        // Optionally process through the signal pipeline
+        if (process) {
+          telegramSignalAnalyzer.initialize();
+          telegramTradeExecutor.initialize();
+
+          const results = [];
+          for (const msg of messages) {
+            const result = await telegramTradeExecutor.processMessage(msg);
+            results.push({ message: msg, analysis: result });
+          }
+
+          return NextResponse.json({
+            message: `Fetched and processed ${messages.length} messages`,
+            results,
+          });
+        }
+
+        return NextResponse.json({
+          message: `Fetched ${messages.length} messages`,
+          messages,
+        });
+      }
+
       default:
         return NextResponse.json(
-          { error: 'Invalid action. Use "start" or "stop".' },
+          { error: 'Invalid action. Use "start", "stop", or "fetch-latest".' },
           { status: 400 }
         );
     }
