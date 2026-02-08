@@ -182,12 +182,6 @@ class TelegramTradeExecutor {
    * Execute a SIGNAL: calculate position size with 2% risk, place market order
    */
   private async executeSignal(analysisId: string, analysis: SignalAnalysis): Promise<void> {
-    // Confidence gate
-    if (analysis.confidence < 0.7) {
-      await this.markSkipped(analysisId, `Confidence too low: ${analysis.confidence}`);
-      return;
-    }
-
     if (!analysis.symbol || !analysis.direction) {
       await this.markSkipped(analysisId, 'Missing symbol or direction');
       return;
@@ -212,10 +206,10 @@ class TelegramTradeExecutor {
         console.log(`[TradeExecutor] Using default SL distance for ${analysis.symbol}: ${defaultDist}`);
       }
 
-      // Calculate position size with 2% risk
+      // Calculate position size with 5% risk
       const positionInfo = calculatePositionSize(
         accountInfo.balance,
-        2, // 2% risk
+        5, // 5% risk
         entryPrice,
         stopLoss,
         symbolInfo
@@ -287,7 +281,7 @@ class TelegramTradeExecutor {
           `SL: ${stopLoss}\n` +
           `TP: ${analysis.takeProfit || 'None'}\n` +
           `Size: ${positionInfo.lotSize} lots\n` +
-          `Risk: $${positionInfo.riskAmount.toFixed(2)} (2%)`
+          `Risk: $${positionInfo.riskAmount.toFixed(2)} (5%)`
         );
       }
 

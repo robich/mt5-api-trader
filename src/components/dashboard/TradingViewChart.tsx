@@ -661,45 +661,11 @@ async function fetchCandleData(symbol: string, tf: Timeframe = 'M15'): Promise<C
     }
   }
 
-  // Generate demo data if API not available
-  console.log('[Chart] Falling back to demo data for', apiSymbol, tf);
-  return generateDemoData(apiSymbol);
+  // No fallback to fake data - return empty array
+  console.log('[Chart] No candle data available for', apiSymbol, tf);
+  return [];
 }
 
-function generateDemoData(symbol: string): CandlestickData[] {
-  const data: CandlestickData[] = [];
-  const now = Math.floor(Date.now() / 1000);
-  const interval = 15 * 60; // 15 minutes
-
-  // Base prices for different symbols (including broker-specific variants)
-  const basePrices: Record<string, number> = {
-    XAUUSD: 2650,
-    'XAUUSD.s': 2650,
-    XAGUSD: 30,
-    'XAGUSD.s': 90, // Broker-specific pricing
-    BTCUSD: 95000,
-    EURUSD: 1.05,
-    GBPUSD: 1.27,
-  };
-
-  // Normalize symbol for lookup (try exact match first, then without suffix)
-  let price = basePrices[symbol] || basePrices[symbol.replace(/\.s$/i, '')] || 100;
-  const volatility = price * 0.001; // 0.1% volatility per candle
-
-  for (let i = 500; i >= 0; i--) {
-    const time = (now - i * interval) as Time;
-    const change = (Math.random() - 0.5) * volatility * 2;
-    const open = price;
-    const close = price + change;
-    const high = Math.max(open, close) + Math.random() * volatility;
-    const low = Math.min(open, close) - Math.random() * volatility;
-
-    data.push({ time, open, high, low, close });
-    price = close;
-  }
-
-  return data;
-}
 
 export const TradingViewChart = memo(TradingViewChartComponent);
 export type { Timeframe };
