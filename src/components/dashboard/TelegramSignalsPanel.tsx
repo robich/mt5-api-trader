@@ -87,6 +87,8 @@ export function TelegramSignalsPanel() {
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [isFetching, setIsFetching] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [fetchResult, setFetchResult] = useState<string | null>(null);
 
   const fetchData = async () => {
     try {
@@ -135,16 +137,23 @@ export function TelegramSignalsPanel() {
 
   const fetchLatest = async (process: boolean) => {
     setIsFetching(true);
+    setFetchError(null);
+    setFetchResult(null);
     try {
       const res = await fetch('/api/telegram-listener', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'fetch-latest', count: 10, process }),
       });
-      if (!res.ok) throw new Error('Failed');
+      const data = await res.json();
+      if (!res.ok) {
+        setFetchError(data.error || `HTTP ${res.status}`);
+        return;
+      }
+      setFetchResult(data.message || 'Done');
       await fetchData();
-    } catch {
-      // Error handled silently
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : 'Failed to fetch');
     } finally {
       setIsFetching(false);
     }
@@ -229,6 +238,14 @@ export function TelegramSignalsPanel() {
               {isFetching ? '...' : 'Fetch & Process'}
             </Button>
           </div>
+
+          {/* Fetch result/error */}
+          {fetchError && (
+            <p className="mt-2 text-red-500 text-xs">Fetch error: {fetchError}</p>
+          )}
+          {fetchResult && !fetchError && (
+            <p className="mt-2 text-green-500 text-xs">{fetchResult}</p>
+          )}
 
           {/* Test result */}
           {testResult && (

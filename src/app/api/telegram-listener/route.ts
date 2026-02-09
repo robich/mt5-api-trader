@@ -110,7 +110,9 @@ export async function POST(request: NextRequest) {
 
         telegramListener.initialize();
 
+        console.log(`[API] Fetching latest ${count} messages from channel...`);
         const messages = await telegramListener.fetchLatest(count);
+        console.log(`[API] Fetched ${messages.length} messages`, messages.map(m => ({ id: m.id, text: m.text?.substring(0, 50) })));
 
         // Optionally process through the signal pipeline
         if (process) {

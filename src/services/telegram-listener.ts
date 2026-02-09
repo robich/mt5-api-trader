@@ -30,7 +30,8 @@ class TelegramListenerService {
   private sessionString: string = '';
   private reconnectTimeout: NodeJS.Timeout | null = null;
   private reconnectAttempts = 0;
-  private readonly MAX_RECONNECT_ATTEMPTS = 10;
+  private healthCheckInterval: NodeJS.Timeout | null = null;
+  private lastCallbacks: TelegramMessageCallback | null = null;
 
   initialize(): boolean {
     const apiId = process.env.TELEGRAM_API_ID?.trim();
@@ -163,6 +164,20 @@ class TelegramListenerService {
 
       this.listening = true;
       this.reconnectAttempts = 0;
+      this.lastCallbacks = callbacks;
+
+      // Handle disconnects automatically
+      this.client.addEventHandler(async () => {
+        console.warn('[TelegramListener] Disconnected from Telegram');
+        this.listening = false;
+        await this.updateState({ isListening: false, errorMessage: 'Disconnected' });
+        this.scheduleReconnect(callbacks);
+      }, new (await import('telegram/events/index.js')).Raw({
+        types: [Api.UpdatesTooLong],
+      }));
+
+      // Periodic health check - reconnect if connection is lost
+      this.startHealthCheck(callbacks);
 
       // Update DB state
       await this.updateState({
@@ -171,7 +186,7 @@ class TelegramListenerService {
         errorMessage: null,
       });
 
-      console.log('[TelegramListener] Listening for messages');
+      console.log('[TelegramListener] Listening for messages (persistent mode)');
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       console.error('[TelegramListener] Failed to start:', errMsg);
@@ -247,24 +262,56 @@ class TelegramListenerService {
   }
 
   private scheduleReconnect(callbacks: TelegramMessageCallback): void {
-    if (this.reconnectAttempts >= this.MAX_RECONNECT_ATTEMPTS) {
-      console.error('[TelegramListener] Max reconnect attempts reached');
-      return;
-    }
-
-    const delay = Math.min(5000 * Math.pow(2, this.reconnectAttempts), 300000); // Max 5 minutes
+    // Never give up - cap backoff at 5 minutes, reset after 10 consecutive failures
+    const delay = Math.min(5000 * Math.pow(2, Math.min(this.reconnectAttempts, 6)), 300000);
     this.reconnectAttempts++;
 
-    console.log(`[TelegramListener] Reconnecting in ${delay / 1000}s (attempt ${this.reconnectAttempts}/${this.MAX_RECONNECT_ATTEMPTS})`);
+    console.log(`[TelegramListener] Reconnecting in ${delay / 1000}s (attempt ${this.reconnectAttempts})`);
 
     this.reconnectTimeout = setTimeout(async () => {
+      this.stopHealthCheck();
       this.listening = false;
-      this.client = null;
+      if (this.client) {
+        try { await this.client.disconnect(); } catch { /* ignore */ }
+        this.client = null;
+      }
       await this.start(callbacks);
     }, delay);
   }
 
+  private startHealthCheck(callbacks: TelegramMessageCallback): void {
+    this.stopHealthCheck();
+
+    // Check every 60 seconds if still connected
+    this.healthCheckInterval = setInterval(async () => {
+      if (!this.client || !this.listening) return;
+
+      try {
+        const connected = this.client.connected;
+        if (!connected) {
+          console.warn('[TelegramListener] Health check: connection lost, reconnecting...');
+          this.listening = false;
+          await this.updateState({ isListening: false, errorMessage: 'Connection lost (health check)' });
+          this.scheduleReconnect(callbacks);
+        }
+      } catch (error) {
+        console.error('[TelegramListener] Health check error:', error);
+        this.listening = false;
+        this.scheduleReconnect(callbacks);
+      }
+    }, 60_000);
+  }
+
+  private stopHealthCheck(): void {
+    if (this.healthCheckInterval) {
+      clearInterval(this.healthCheckInterval);
+      this.healthCheckInterval = null;
+    }
+  }
+
   async stop(): Promise<void> {
+    this.stopHealthCheck();
+
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
