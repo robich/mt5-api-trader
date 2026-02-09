@@ -106,16 +106,39 @@ export async function POST(request: NextRequest) {
 
       case 'fetch-latest': {
         const count = body.count || 10;
-        const process = body.process ?? false;
+        const shouldProcess = body.process ?? false;
+        const channelId = globalThis.process.env.TELEGRAM_CHANNEL_ID?.trim() || 'FETCH';
 
         telegramListener.initialize();
 
         console.log(`[API] Fetching latest ${count} messages from channel...`);
         const messages = await telegramListener.fetchLatest(count);
-        console.log(`[API] Fetched ${messages.length} messages`, messages.map(m => ({ id: m.id, text: m.text?.substring(0, 50) })));
+        console.log(`[API] Fetched ${messages.length} messages`);
+
+        // Persist messages to DB (dedup via unique constraint)
+        let stored = 0;
+        for (const msg of messages) {
+          try {
+            await prisma.telegramChannelMessage.create({
+              data: {
+                telegramMsgId: msg.id,
+                channelId,
+                text: msg.text,
+                senderName: msg.senderName?.trim() || null,
+                hasMedia: msg.hasMedia,
+                receivedAt: msg.date,
+              },
+            });
+            stored++;
+          } catch (e: any) {
+            if (e.code === 'P2002') continue; // duplicate, skip
+            console.error(`[API] Error storing message #${msg.id}:`, e);
+          }
+        }
+        console.log(`[API] Stored ${stored} new messages (${messages.length - stored} duplicates skipped)`);
 
         // Optionally process through the signal pipeline
-        if (process) {
+        if (shouldProcess) {
           telegramSignalAnalyzer.initialize();
           telegramTradeExecutor.initialize();
 
@@ -126,13 +149,13 @@ export async function POST(request: NextRequest) {
           }
 
           return NextResponse.json({
-            message: `Fetched and processed ${messages.length} messages`,
+            message: `Fetched ${messages.length} messages (${stored} new), processed all`,
             results,
           });
         }
 
         return NextResponse.json({
-          message: `Fetched ${messages.length} messages`,
+          message: `Fetched ${messages.length} messages (${stored} new)`,
           messages,
         });
       }
