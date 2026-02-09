@@ -76,7 +76,8 @@ class TelegramListenerService {
 
   /**
    * Fetch the latest messages from the channel on demand.
-   * Creates a temporary client connection if not already listening.
+   * Reuses the existing client if connected, otherwise creates a temporary one.
+   * Never creates a second client while one is already connected (AUTH_KEY_DUPLICATED).
    */
   async fetchLatest(count: number = 10): Promise<Array<{
     id: number;
@@ -89,39 +90,55 @@ class TelegramListenerService {
       throw new Error('Telegram listener not enabled (missing env vars)');
     }
 
-    // Use existing client if listening, otherwise create a temporary one
-    let client = this.client;
-    let tempClient = false;
-
-    if (!client || !this.listening) {
-      const session = new StringSession(this.sessionString);
-      client = new TelegramClient(session, this.apiId, this.apiHash, {
-        connectionRetries: 3,
-      });
-      await client.connect();
-      tempClient = true;
+    // Reuse existing client if it's connected (regardless of listening state)
+    if (this.client?.connected) {
+      console.log('[TelegramListener] fetchLatest: reusing existing connected client');
+      return this._fetchMessages(this.client, count);
     }
+
+    // No connected client — disconnect any stale one first to avoid AUTH_KEY_DUPLICATED
+    if (this.client) {
+      console.log('[TelegramListener] fetchLatest: disconnecting stale client before creating temp');
+      try { await this.client.disconnect(); } catch { /* ignore */ }
+      this.client = null;
+      this.listening = false;
+    }
+
+    console.log('[TelegramListener] fetchLatest: creating temporary client');
+    const session = new StringSession(this.sessionString);
+    const tempClient = new TelegramClient(session, this.apiId, this.apiHash, {
+      connectionRetries: 3,
+    });
+    await tempClient.connect();
 
     try {
-      const entity = await client.getEntity(this.channelId);
-      const messages = await client.getMessages(entity, { limit: count });
-
-      return messages
-        .filter((msg) => msg.text)
-        .map((msg) => ({
-          id: msg.id,
-          text: msg.text || '',
-          senderName: msg.sender
-            ? ((msg.sender as any).firstName || '') + ' ' + ((msg.sender as any).lastName || '')
-            : null,
-          hasMedia: !!msg.media,
-          date: msg.date ? new Date(msg.date * 1000) : new Date(),
-        }));
+      return await this._fetchMessages(tempClient, count);
     } finally {
-      if (tempClient && client) {
-        await client.disconnect();
-      }
+      try { await tempClient.disconnect(); } catch { /* ignore */ }
     }
+  }
+
+  private async _fetchMessages(client: TelegramClient, count: number): Promise<Array<{
+    id: number;
+    text: string;
+    senderName: string | null;
+    hasMedia: boolean;
+    date: Date;
+  }>> {
+    const entity = await client.getEntity(this.channelId);
+    const messages = await client.getMessages(entity, { limit: count });
+
+    return messages
+      .filter((msg) => msg.text)
+      .map((msg) => ({
+        id: msg.id,
+        text: msg.text || '',
+        senderName: msg.sender
+          ? ((msg.sender as any).firstName || '') + ' ' + ((msg.sender as any).lastName || '')
+          : null,
+        hasMedia: !!msg.media,
+        date: msg.date ? new Date(msg.date * 1000) : new Date(),
+      }));
   }
 
   async start(callbacks: TelegramMessageCallback): Promise<void> {
