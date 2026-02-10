@@ -95,19 +95,22 @@ export class TradingBot {
 
     // Initialize Telegram channel listener (non-blocking)
     try {
+      console.log('[Bot] Initializing Telegram listener...');
       const listenerEnabled = telegramListener.initialize();
+      console.log('[Bot] Telegram listener initialize() returned:', listenerEnabled);
       if (listenerEnabled) {
         telegramSignalAnalyzer.initialize();
         telegramTradeExecutor.initialize();
+        console.log('[Bot] Calling telegramListener.start()...');
         await telegramListener.start({
           onMessage: async (msg) => {
             await telegramTradeExecutor.processMessage(msg);
           },
         });
-        console.log('[Bot] Telegram channel listener started');
+        console.log('[Bot] Telegram channel listener started successfully');
       }
     } catch (listenerError) {
-      console.warn('[Bot] Telegram listener failed to start (non-blocking):', listenerError);
+      console.error('[Bot] Telegram listener failed to start (non-blocking):', listenerError);
     }
 
     try {

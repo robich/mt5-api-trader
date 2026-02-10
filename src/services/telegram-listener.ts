@@ -85,10 +85,13 @@ class TelegramListenerService {
    */
   private getOrCreateClient(): TelegramClient {
     if (!this.client) {
+      console.log('[TelegramListener] Creating new TelegramClient instance (session length:', this.sessionString.length, ')');
       const session = new StringSession(this.sessionString);
       this.client = new TelegramClient(session, this.apiId, this.apiHash, {
         connectionRetries: 5,
       });
+    } else {
+      console.log('[TelegramListener] Reusing existing TelegramClient (connected:', this.client.connected, ')');
     }
     return this.client;
   }
@@ -105,19 +108,24 @@ class TelegramListenerService {
       return client;
     }
 
+    console.log('[TelegramListener] Calling client.connect()...');
     try {
       await client.connect();
+      console.log('[TelegramListener] client.connect() succeeded');
       return client;
     } catch (error: any) {
       const msg = error?.message || String(error);
+      const code = error?.code || error?.errorMessage || 'unknown';
+      console.error('[TelegramListener] client.connect() failed:', { message: msg, code, errorType: error?.constructor?.name });
       if (msg.includes('AUTH_KEY_DUPLICATED')) {
-        console.warn('[TelegramListener] AUTH_KEY_DUPLICATED — previous connection still alive on Telegram servers, retrying in 10s...');
-        // Destroy the client so a fresh one is created on retry
+        console.warn('[TelegramListener] AUTH_KEY_DUPLICATED — previous connection still alive, destroying client and retrying in 10s...');
         try { await client.disconnect(); } catch { /* ignore */ }
         this.client = null;
         await new Promise((r) => setTimeout(r, 10_000));
+        console.log('[TelegramListener] Retrying with fresh client...');
         const freshClient = this.getOrCreateClient();
         await freshClient.connect();
+        console.log('[TelegramListener] Retry succeeded');
         return freshClient;
       }
       throw error;
@@ -214,9 +222,15 @@ class TelegramListenerService {
       });
 
       console.log('[TelegramListener] Listening for messages (persistent mode)');
-    } catch (error) {
+    } catch (error: any) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      console.error('[TelegramListener] Failed to start:', errMsg);
+      const errStack = error instanceof Error ? error.stack : undefined;
+      console.error('[TelegramListener] Failed to start:', {
+        message: errMsg,
+        code: error?.code || error?.errorMessage,
+        type: error?.constructor?.name,
+        stack: errStack,
+      });
 
       await this.updateState({
         isListening: false,
