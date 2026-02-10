@@ -153,6 +153,13 @@ class TelegramListenerService {
     }
 
     try {
+      // Tear down any existing client before creating a new one to avoid AUTH_KEY_DUPLICATED
+      if (this.client) {
+        console.log('[TelegramListener] Cleaning up previous client before reconnect');
+        try { await this.client.disconnect(); } catch { /* ignore */ }
+        this.client = null;
+      }
+
       console.log('[TelegramListener] Connecting...');
 
       const session = new StringSession(this.sessionString);
@@ -279,19 +286,23 @@ class TelegramListenerService {
   }
 
   private scheduleReconnect(callbacks: TelegramMessageCallback): void {
-    // Never give up - cap backoff at 5 minutes, reset after 10 consecutive failures
+    // Cancel any already-pending reconnect to avoid parallel reconnection attempts
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+
+    // Never give up - cap backoff at 5 minutes
     const delay = Math.min(5000 * Math.pow(2, Math.min(this.reconnectAttempts, 6)), 300000);
     this.reconnectAttempts++;
 
     console.log(`[TelegramListener] Reconnecting in ${delay / 1000}s (attempt ${this.reconnectAttempts})`);
 
     this.reconnectTimeout = setTimeout(async () => {
+      this.reconnectTimeout = null;
       this.stopHealthCheck();
       this.listening = false;
-      if (this.client) {
-        try { await this.client.disconnect(); } catch { /* ignore */ }
-        this.client = null;
-      }
+      // start() handles disconnecting the stale client itself
       await this.start(callbacks);
     }, delay);
   }
@@ -302,6 +313,9 @@ class TelegramListenerService {
     // Check every 60 seconds if still connected
     this.healthCheckInterval = setInterval(async () => {
       if (!this.client || !this.listening) return;
+
+      // Skip if a reconnect is already scheduled
+      if (this.reconnectTimeout) return;
 
       try {
         const connected = this.client.connected;

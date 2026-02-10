@@ -406,6 +406,42 @@ const VARIATIONS = [
   // Every OB with breakeven (protect profits while trading aggressively)
   { name: 'EVERY-OB-BE: NoFilter|RR2|BE1R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 1.0, beBufferPips: 3 },
   { name: 'EVERY-OB-BE: NoFilter|RR3|BE1R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 1.0, beBufferPips: 3 },
+
+  // === OB IN TREND (EMA trend filter: only trade OBs when MTF EMA confirms trend direction) ===
+
+  // --- RELAXED mode: price above/below EMA is enough (most trades) ---
+  { name: 'OB-TREND-R: EMA20|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireTrend: true, emaTrendPeriod: 20, trendStrictness: 'relaxed' },
+  { name: 'OB-TREND-R: EMA30|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireTrend: true, emaTrendPeriod: 30, trendStrictness: 'relaxed' },
+  { name: 'OB-TREND-R: EMA50|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireTrend: true, emaTrendPeriod: 50, trendStrictness: 'relaxed' },
+  { name: 'OB-TREND-R: EMA50|RR1.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 1.5, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireTrend: true, emaTrendPeriod: 50, trendStrictness: 'relaxed' },
+  { name: 'OB-TREND-R: EMA50|RR2.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireTrend: true, emaTrendPeriod: 50, trendStrictness: 'relaxed' },
+  { name: 'OB-TREND-R: EMA100|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireTrend: true, emaTrendPeriod: 100, trendStrictness: 'relaxed' },
+
+  // --- STRICT mode: price + EMA slope must agree (fewer trades, higher quality) ---
+  { name: 'OB-TREND-S: EMA20|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireTrend: true, emaTrendPeriod: 20, trendStrictness: 'strict' },
+  { name: 'OB-TREND-S: EMA30|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireTrend: true, emaTrendPeriod: 30, trendStrictness: 'strict' },
+  { name: 'OB-TREND-S: EMA50|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireTrend: true, emaTrendPeriod: 50, trendStrictness: 'strict' },
+
+  // --- DISTANCE mode: price must be 0.1-0.3% from EMA (strong trend only) ---
+  { name: 'OB-TREND-D: EMA50|0.1%|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireTrend: true, emaTrendPeriod: 50, trendStrictness: 'distance', trendMinDistance: 0.001 },
+  { name: 'OB-TREND-D: EMA50|0.2%|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireTrend: true, emaTrendPeriod: 50, trendStrictness: 'distance', trendMinDistance: 0.002 },
+  { name: 'OB-TREND-D: EMA30|0.1%|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireTrend: true, emaTrendPeriod: 30, trendStrictness: 'distance', trendMinDistance: 0.001 },
+
+  // --- Best combos: Relaxed trend + additional filters ---
+  { name: 'OB-TREND-R: EMA50|BE1R|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireTrend: true, emaTrendPeriod: 50, trendStrictness: 'relaxed', enableBreakeven: true, breakevenTriggerR: 1.0, beBufferPips: 5 },
+  { name: 'OB-TREND-R: EMA50|KZ|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: true, maxDailyDD: 8, atrMult: 1.0, requireTrend: true, emaTrendPeriod: 50, trendStrictness: 'relaxed' },
+  { name: 'OB-TREND-R: EMA50|OTE|RR2', strategy: 'ORDER_BLOCK', requireOTE: true, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireTrend: true, emaTrendPeriod: 50, trendStrictness: 'relaxed' },
+
+  // --- Relaxed trend + tiered TP ---
+  { name: 'OB-TREND-R-TIER: EMA50|50@1R|30@2R|20@3R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireTrend: true, emaTrendPeriod: 50, trendStrictness: 'relaxed', enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 3 },
+
+  // --- Lower OB score with trend filter (trend does the filtering) ---
+  { name: 'OB-TREND-R: OB50|EMA50|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireTrend: true, emaTrendPeriod: 50, trendStrictness: 'relaxed' },
+  { name: 'OB-TREND-R: OB0|EMA50|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, requireTrend: true, emaTrendPeriod: 50, trendStrictness: 'relaxed' },
+
+  // --- Symbol-specific ---
+  { name: 'BTC-TREND-R: EMA50|ATR0.8|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 0.8, requireTrend: true, emaTrendPeriod: 50, trendStrictness: 'relaxed' },
+  { name: 'XAU-TREND-R: EMA50|ATR1.5|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.5, requireTrend: true, emaTrendPeriod: 50, trendStrictness: 'relaxed' },
 ];
 
 // Symbol info for backtesting (including typical spreads)
@@ -458,6 +494,12 @@ class SMCBacktestEngine {
     this.swingPoints = [];    // Tracked swing highs/lows for liquidity
     this.lastBOS = null;      // Last Break of Structure
     this.pendingSignal = null; // Store signal waiting for confirmation
+
+    // EMA Trend filter (require EMA alignment on MTF before taking OB trades)
+    this.requireTrend = config.requireTrend || false;
+    this.emaTrendPeriod = config.emaTrendPeriod || 50; // EMA period for trend filter
+    this.trendStrictness = config.trendStrictness || 'relaxed'; // 'strict' = price+slope, 'relaxed' = price only, 'distance' = price + min distance
+    this.trendMinDistance = config.trendMinDistance || 0.001; // 0.1% min distance from EMA for 'distance' mode
 
     // Breakeven settings
     this.enableBreakeven = config.enableBreakeven || false;
@@ -546,7 +588,8 @@ class SMCBacktestEngine {
       // Get recent candles for analysis (60 candles for M1_TREND EMA50 + buffer)
       const ltfLookback = this.strategy === 'M1_TREND' ? 60 : 50;
       const recentLTF = ltfCandles.slice(Math.max(0, i - ltfLookback), i + 1);
-      const recentMTF = this.getRecentMTF(mtfCandles, currentTime, 30);
+      const mtfLookback = this.requireTrend ? Math.max(30, this.emaTrendPeriod + 10) : 30;
+      const recentMTF = this.getRecentMTF(mtfCandles, currentTime, mtfLookback);
       const recentHTF = this.getRecentHTF(htfCandles, currentTime, 20);
 
       // Determine HTF bias (not required for M1_TREND strategy)
@@ -558,6 +601,12 @@ class SMCBacktestEngine {
       }
       // Skip HTF bias check for M1_TREND (it determines trend internally from M1 EMAs)
       if (htfBias === 'NEUTRAL' && this.strategy !== 'M1_TREND') continue;
+
+      // EMA trend filter: require MTF EMA trend to agree with HTF bias
+      if (this.requireTrend && htfBias !== 'NEUTRAL') {
+        const emaTrend = this.calculateEMATrend(recentMTF);
+        if (emaTrend !== htfBias) continue; // Skip if EMA trend disagrees with structure bias
+      }
 
       // Calculate ATR for dynamic levels
       const atr = this.calculateATR(recentMTF);
@@ -987,6 +1036,55 @@ class SMCBacktestEngine {
     if (change > 0.005) return 'BULLISH';
     if (change < -0.005) return 'BEARISH';
     return 'NEUTRAL';
+  }
+
+  /**
+   * EMA-based trend filter on MTF candles.
+   * Modes:
+   *   'relaxed'  - BULLISH if price > EMA, BEARISH if price < EMA
+   *   'strict'   - Also requires EMA to be rising/falling
+   *   'distance' - Requires price to be at least trendMinDistance% away from EMA
+   */
+  calculateEMATrend(candles) {
+    const period = this.emaTrendPeriod;
+    if (candles.length < period + 5) return 'NEUTRAL';
+
+    // Calculate EMA
+    const multiplier = 2 / (period + 1);
+    let ema = candles.slice(0, period).reduce((sum, c) => sum + c.close, 0) / period;
+    let prevEma = ema;
+
+    for (let i = period; i < candles.length; i++) {
+      prevEma = ema;
+      ema = (candles[i].close - ema) * multiplier + ema;
+    }
+
+    const lastClose = candles[candles.length - 1].close;
+    const distancePercent = Math.abs(lastClose - ema) / ema;
+
+    switch (this.trendStrictness) {
+      case 'strict': {
+        // Require both price position AND EMA direction
+        const emaRising = ema > prevEma;
+        const emaFalling = ema < prevEma;
+        if (lastClose > ema && emaRising) return 'BULLISH';
+        if (lastClose < ema && emaFalling) return 'BEARISH';
+        return 'NEUTRAL';
+      }
+      case 'distance': {
+        // Require price to be meaningfully away from EMA
+        if (lastClose > ema && distancePercent >= this.trendMinDistance) return 'BULLISH';
+        if (lastClose < ema && distancePercent >= this.trendMinDistance) return 'BEARISH';
+        return 'NEUTRAL';
+      }
+      case 'relaxed':
+      default: {
+        // Simple: price above EMA = bullish, below = bearish
+        if (lastClose > ema) return 'BULLISH';
+        if (lastClose < ema) return 'BEARISH';
+        return 'NEUTRAL';
+      }
+    }
   }
 
   /**
@@ -2655,6 +2753,17 @@ async function main() {
             // Opposing signal exit settings
             enableOpposingExit: v.enableOpposingExit || false,
             minOpposingScore: v.minOpposingScore || 75,
+            // EMA Trend filter
+            requireTrend: v.requireTrend || false,
+            emaTrendPeriod: v.emaTrendPeriod || 50,
+            trendStrictness: v.trendStrictness || 'relaxed',
+            trendMinDistance: v.trendMinDistance || 0.001,
+            // Tiered TP settings
+            enableTieredTP: v.enableTieredTP || false,
+            tp1RR: v.tp1RR, tp1Percent: v.tp1Percent,
+            tp2RR: v.tp2RR, tp2Percent: v.tp2Percent,
+            tp3RR: v.tp3RR, tp3Percent: v.tp3Percent,
+            moveSlOnTP1: v.moveSlOnTP1, moveSlOnTP2: v.moveSlOnTP2,
           };
 
           const engine = new SMCBacktestEngine(config);

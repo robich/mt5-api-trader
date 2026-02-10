@@ -81,7 +81,9 @@
       "Bash(taskkill:*)",
       "Bash(tee:*)",
       "Bash(npx next lint:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(git -C C:/Users/genoletr/Documents/git/per/mt5-api-trader add -A)",
+      "Bash(git -C C:/Users/genoletr/Documents/git/per/mt5-api-trader commit -m \"$\\(cat <<''EOF''\nfix: eliminate AUTH_KEY_DUPLICATED race conditions in telegram reconnect\n\nDisconnect stale client in start\\(\\) before creating new one, cancel\npending reconnects in scheduleReconnect\\(\\), and skip health check when\nreconnect is already queued. Also adds EMA trend filter backtest\nvariations.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }
