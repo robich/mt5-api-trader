@@ -2,12 +2,16 @@
  * Telegram Channel Listener Service
  * Connects to a private Telegram channel via gramjs (User API)
  * and forwards new messages for analysis.
+ *
+ * IMPORTANT: Uses a single TelegramClient instance for the entire lifetime
+ * to avoid AUTH_KEY_DUPLICATED (406) errors. gramjs triggers InvokeWithLayer
+ * on every new TelegramClient.connect(), and Telegram rejects duplicate auth
+ * keys if the previous TCP connection hasn't fully closed server-side.
  */
 
 import { TelegramClient } from 'telegram';
 import { StringSession } from 'telegram/sessions/index.js';
 import { NewMessage, NewMessageEvent } from 'telegram/events/index.js';
-import { Api } from 'telegram/tl/index.js';
 import { prisma } from '@/lib/db';
 
 export interface TelegramMessageCallback {
@@ -75,9 +79,35 @@ class TelegramListenerService {
   }
 
   /**
+   * Get or create the singleton TelegramClient.
+   * The client is created once and reused for the entire service lifetime.
+   * This avoids AUTH_KEY_DUPLICATED errors caused by multiple InvokeWithLayer calls.
+   */
+  private getOrCreateClient(): TelegramClient {
+    if (!this.client) {
+      const session = new StringSession(this.sessionString);
+      this.client = new TelegramClient(session, this.apiId, this.apiHash, {
+        connectionRetries: 5,
+      });
+    }
+    return this.client;
+  }
+
+  /**
+   * Ensure the singleton client is connected.
+   * If already connected, returns immediately.
+   */
+  private async ensureConnected(): Promise<TelegramClient> {
+    const client = this.getOrCreateClient();
+    if (!client.connected) {
+      await client.connect();
+    }
+    return client;
+  }
+
+  /**
    * Fetch the latest messages from the channel on demand.
-   * Reuses the existing client if connected, otherwise creates a temporary one.
-   * Never creates a second client while one is already connected (AUTH_KEY_DUPLICATED).
+   * Reuses the singleton client — never creates a second connection.
    */
   async fetchLatest(count: number = 10): Promise<Array<{
     id: number;
@@ -90,32 +120,8 @@ class TelegramListenerService {
       throw new Error('Telegram listener not enabled (missing env vars)');
     }
 
-    // Reuse existing client if it's connected (regardless of listening state)
-    if (this.client?.connected) {
-      console.log('[TelegramListener] fetchLatest: reusing existing connected client');
-      return this._fetchMessages(this.client, count);
-    }
-
-    // No connected client — disconnect any stale one first to avoid AUTH_KEY_DUPLICATED
-    if (this.client) {
-      console.log('[TelegramListener] fetchLatest: disconnecting stale client before creating temp');
-      try { await this.client.disconnect(); } catch { /* ignore */ }
-      this.client = null;
-      this.listening = false;
-    }
-
-    console.log('[TelegramListener] fetchLatest: creating temporary client');
-    const session = new StringSession(this.sessionString);
-    const tempClient = new TelegramClient(session, this.apiId, this.apiHash, {
-      connectionRetries: 3,
-    });
-    await tempClient.connect();
-
-    try {
-      return await this._fetchMessages(tempClient, count);
-    } finally {
-      try { await tempClient.disconnect(); } catch { /* ignore */ }
-    }
+    const client = await this.ensureConnected();
+    return this._fetchMessages(client, count);
   }
 
   private async _fetchMessages(client: TelegramClient, count: number): Promise<Array<{
@@ -153,31 +159,19 @@ class TelegramListenerService {
     }
 
     try {
-      // Tear down any existing client before creating a new one to avoid AUTH_KEY_DUPLICATED
-      if (this.client) {
-        console.log('[TelegramListener] Cleaning up previous client before reconnect');
-        try { await this.client.disconnect(); } catch { /* ignore */ }
-        this.client = null;
-      }
-
       console.log('[TelegramListener] Connecting...');
 
-      const session = new StringSession(this.sessionString);
-      this.client = new TelegramClient(session, this.apiId, this.apiHash, {
-        connectionRetries: 5,
-      });
-
-      await this.client.connect();
+      const client = await this.ensureConnected();
       console.log('[TelegramListener] Connected to Telegram');
 
       // Resolve the channel entity to get its numeric ID
-      const channelEntity = await this.client.getEntity(this.channelId);
+      const channelEntity = await client.getEntity(this.channelId);
       const channelPeerId = (channelEntity as any).id;
       console.log('[TelegramListener] Resolved channel:', (channelEntity as any).title || this.channelId, `(id: ${channelPeerId})`);
 
       // Register new message handler filtered to channel
       // gramjs NewMessage chats filter needs numeric IDs, not entity objects
-      this.client.addEventHandler(
+      client.addEventHandler(
         async (event: NewMessageEvent) => {
           await this.handleNewMessage(event, callbacks);
         },
@@ -189,16 +183,6 @@ class TelegramListenerService {
       this.listening = true;
       this.reconnectAttempts = 0;
       this.lastCallbacks = callbacks;
-
-      // Handle disconnects automatically
-      this.client.addEventHandler(async () => {
-        console.warn('[TelegramListener] Disconnected from Telegram');
-        this.listening = false;
-        await this.updateState({ isListening: false, errorMessage: 'Disconnected' });
-        this.scheduleReconnect(callbacks);
-      }, new (await import('telegram/events/index.js')).Raw({
-        types: [Api.UpdatesTooLong],
-      }));
 
       // Periodic health check - reconnect if connection is lost
       this.startHealthCheck(callbacks);
@@ -285,6 +269,10 @@ class TelegramListenerService {
     }
   }
 
+  /**
+   * Reconnect by re-calling connect() on the existing client.
+   * Does NOT create a new TelegramClient — avoids AUTH_KEY_DUPLICATED.
+   */
   private scheduleReconnect(callbacks: TelegramMessageCallback): void {
     // Cancel any already-pending reconnect to avoid parallel reconnection attempts
     if (this.reconnectTimeout) {
@@ -302,7 +290,6 @@ class TelegramListenerService {
       this.reconnectTimeout = null;
       this.stopHealthCheck();
       this.listening = false;
-      // start() handles disconnecting the stale client itself
       await this.start(callbacks);
     }, delay);
   }
