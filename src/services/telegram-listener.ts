@@ -96,13 +96,32 @@ class TelegramListenerService {
   /**
    * Ensure the singleton client is connected.
    * If already connected, returns immediately.
+   * On AUTH_KEY_DUPLICATED, destroys the client and retries after a delay
+   * (the old connection from a previous deploy needs time to expire).
    */
   private async ensureConnected(): Promise<TelegramClient> {
     const client = this.getOrCreateClient();
-    if (!client.connected) {
-      await client.connect();
+    if (client.connected) {
+      return client;
     }
-    return client;
+
+    try {
+      await client.connect();
+      return client;
+    } catch (error: any) {
+      const msg = error?.message || String(error);
+      if (msg.includes('AUTH_KEY_DUPLICATED')) {
+        console.warn('[TelegramListener] AUTH_KEY_DUPLICATED — previous connection still alive on Telegram servers, retrying in 10s...');
+        // Destroy the client so a fresh one is created on retry
+        try { await client.disconnect(); } catch { /* ignore */ }
+        this.client = null;
+        await new Promise((r) => setTimeout(r, 10_000));
+        const freshClient = this.getOrCreateClient();
+        await freshClient.connect();
+        return freshClient;
+      }
+      throw error;
+    }
   }
 
   /**
