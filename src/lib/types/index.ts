@@ -464,18 +464,18 @@ export const DEFAULT_BOT_CONFIG: BotConfig = {
   htfTimeframe: 'H4',
   mtfTimeframe: 'H1',
   ltfTimeframe: 'M15',
-  strategies: ['ORDER_BLOCK', 'LIQUIDITY_SWEEP', 'BOS', 'FBO_CLASSIC', 'FBO_SWEEP', 'FBO_STRUCTURE'],
+  strategies: ['ORDER_BLOCK', 'LIQUIDITY_SWEEP', 'BOS', 'FBO_CLASSIC', 'FBO_SWEEP', 'FBO_STRUCTURE', 'M1_TREND'],
   maxOpenTrades: 5,
   maxTradesPerSymbol: 1,
-  // Default to balanced profile settings
-  strategyProfile: 'BALANCED_STRONG',
+  // Updated Feb 2026: align with backtest-optimal profiles
+  strategyProfile: 'BTC_OPTIMAL',
   liveTrading: false, // Paper mode by default
-  useKillZones: true,
+  useKillZones: false, // All-session outperforms KZ in backtests
   killZones: ['LONDON_OPEN', 'NY_OPEN', 'LONDON_NY_OVERLAP'],
   riskReward: 2,
   minOBScore: 70,
-  confirmationType: 'strong',
-  maxDailyDrawdown: 6,
+  confirmationType: 'none', // NoConf dominates across all symbols
+  maxDailyDrawdown: 8,
   // Breakeven: Move SL to entry + 5 pips when position reaches 1R profit
   breakeven: {
     enabled: false, // Disabled when using tiered TP (tiered TP handles BE)
