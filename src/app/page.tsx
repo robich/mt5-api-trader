@@ -239,48 +239,44 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background space-y-4 md:space-y-6 py-4 md:py-6">
-      {/* Header */}
+      {/* Bot Status Bar — always at the very top */}
       <div className="px-4 md:px-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold">SMC Trading Bot</h1>
-            <p className="text-muted-foreground text-sm md:text-base">Smart Money Concept Automated Trading</p>
+        <div className="flex flex-wrap items-center gap-2 md:gap-4">
+          <div className="flex items-center gap-1">
+            <ServiceStatus
+              label="Bot"
+              icon={Bot}
+              isRunning={accountData?.botStatus.isRunning || false}
+              startedAt={accountData?.botStatus.startedAt || null}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleToggleBot}
+              disabled={isBotToggling}
+              className="h-7 px-2 text-xs"
+            >
+              {isBotToggling ? '...' : accountData?.botStatus.isRunning ? 'Stop' : 'Start'}
+            </Button>
           </div>
-          <div className="flex flex-wrap items-center gap-2 md:gap-4">
-            <div className="flex items-center gap-1">
-              <ServiceStatus
-                label="Bot"
-                icon={Bot}
-                isRunning={accountData?.botStatus.isRunning || false}
-                startedAt={accountData?.botStatus.startedAt || null}
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleToggleBot}
-                disabled={isBotToggling}
-                className="h-7 px-2 text-xs"
-              >
-                {isBotToggling ? '...' : accountData?.botStatus.isRunning ? 'Stop' : 'Start'}
-              </Button>
-            </div>
-            <div className="flex items-center gap-1">
-              <ServiceStatus
-                label="Signals"
-                icon={Radio}
-                isRunning={telegramStatus?.isConnected || false}
-                startedAt={telegramStatus?.startedAt || null}
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleToggleTelegram}
-                disabled={isTelegramToggling}
-                className="h-7 px-2 text-xs"
-              >
-                {isTelegramToggling ? '...' : telegramStatus?.isConnected ? 'Stop' : 'Start'}
-              </Button>
-            </div>
+          <div className="flex items-center gap-1">
+            <ServiceStatus
+              label="Signals"
+              icon={Radio}
+              isRunning={telegramStatus?.isConnected || false}
+              startedAt={telegramStatus?.startedAt || null}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleToggleTelegram}
+              disabled={isTelegramToggling}
+              className="h-7 px-2 text-xs"
+            >
+              {isTelegramToggling ? '...' : telegramStatus?.isConnected ? 'Stop' : 'Start'}
+            </Button>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
             <Link href="/calculator" className="hidden md:inline-flex">
               <Button variant="outline" size="sm">
                 <Calculator className="h-4 w-4 mr-2" />
@@ -293,6 +289,12 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Header */}
+      <div className="px-4 md:px-6">
+        <h1 className="text-2xl md:text-3xl font-bold">SMC Trading Bot</h1>
+        <p className="text-muted-foreground text-sm md:text-base">Smart Money Concept Automated Trading</p>
       </div>
 
       {error && (
