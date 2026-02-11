@@ -357,6 +357,20 @@ export class TradingBotSyncListener {
   }
 
   /**
+   * Called when a history order is added
+   */
+  async onHistoryOrderAdded(instanceIndex: string, historyOrder: any): Promise<void> {
+    // No-op: history orders are synced on startup via bot.ts
+  }
+
+  /**
+   * Called when a deal is added
+   */
+  async onDealAdded(instanceIndex: string, deal: any): Promise<void> {
+    // No-op: deals are synced on startup via bot.ts
+  }
+
+  /**
    * Called when stream is closed
    */
   async onStreamClosed(instanceIndex: string): Promise<void> {
