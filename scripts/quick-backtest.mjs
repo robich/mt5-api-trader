@@ -442,6 +442,37 @@ const VARIATIONS = [
   // --- Symbol-specific ---
   { name: 'BTC-TREND-R: EMA50|ATR0.8|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 0.8, requireTrend: true, emaTrendPeriod: 50, trendStrictness: 'relaxed' },
   { name: 'XAU-TREND-R: EMA50|ATR1.5|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.5, requireTrend: true, emaTrendPeriod: 50, trendStrictness: 'relaxed' },
+
+  // === FEB 2026 ITERATION: Hybrid strategies from 20-day backtest analysis ===
+
+  // BE at 0.75R with higher RR targets (BE:0.75R|RR2.5 was #1 on Silver, top-5 on Gold)
+  { name: 'BE: 0.75R|RR3|3pips', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'BE: 0.75R|RR3.5|3pips', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3.5, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'BE: 0.75R|RR2|3pips', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+
+  // NoFilter OB + Breakeven combo (top Gold strategies combined)
+  { name: 'EVERY-OB-BE: NoFilter|RR2.5|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'EVERY-OB-BE: NoFilter|RR3|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'EVERY-OB-BE: NoFilter|RR2.5|BE1R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 1.0, beBufferPips: 3 },
+  { name: 'EVERY-OB-BE: NoFilter|RR3.5|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3.5, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+
+  // ATR2.0 quality filtering + BE (ATR2.0 had 87.5% WR on Gold with only 24 trades)
+  { name: 'ATR2.0-BE: RR2.5|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 2.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'ATR2.0-BE: RR3|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 2.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'ATR2.0: NoFilter|RR2.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 2.0, requireConfirmation: false },
+  { name: 'ATR2.0: NoFilter|RR3', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 2.0, requireConfirmation: false },
+
+  // Tiered TP + Breakeven hybrid (lock profits early, let runners run)
+  { name: 'TIERED+BE: 50@1R|30@2R|20@3R|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 3, enableBreakeven: true, breakevenTriggerR: 0.75 },
+  { name: 'TIERED+BE: 30@1R|30@2R|40@4R|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 4, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 30, tp2RR: 2.0, tp2Percent: 30, tp3RR: 4.0, tp3Percent: 40, moveSlOnTP1: true, beBufferPips: 3, enableBreakeven: true, breakevenTriggerR: 0.75 },
+
+  // NoFilter Tiered + Breakeven (best of everything)
+  { name: 'EVERY-TIERED-BE: 50@1R|30@2R|20@3R|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 3, enableBreakeven: true, breakevenTriggerR: 0.75 },
+  { name: 'EVERY-TIERED-BE: 30@1R|30@2R|40@4R|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 4, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 30, tp2RR: 2.0, tp2Percent: 30, tp3RR: 4.0, tp3Percent: 40, moveSlOnTP1: true, beBufferPips: 3, enableBreakeven: true, breakevenTriggerR: 0.75 },
+
+  // EMA50 trend + BE (solid on Gold and Silver)
+  { name: 'OB-TREND-R: EMA50|BE0.75R|RR2.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireTrend: true, emaTrendPeriod: 50, trendStrictness: 'relaxed', enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'OB-TREND-R: EMA50|BE0.75R|RR3', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireTrend: true, emaTrendPeriod: 50, trendStrictness: 'relaxed', enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
 ];
 
 // Symbol info for backtesting (including typical spreads)

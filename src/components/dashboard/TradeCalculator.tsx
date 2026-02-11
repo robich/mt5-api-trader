@@ -231,8 +231,10 @@ export default function TradeCalculator() {
 
     if (lots <= 0 || entry <= 0) return null;
 
-    // Calculate pip values
-    const pipValuePerLot = (symbolInfo.contractSize * symbolInfo.pipSize) / entry;
+    // Calculate pip value per lot in USD
+    const pipValuePerLot = symbol.includes('JPY')
+      ? (symbolInfo.contractSize * symbolInfo.pipSize) / entry
+      : symbolInfo.contractSize * symbolInfo.pipSize;
 
     // Calculate position value
     const positionValue = lots * symbolInfo.contractSize * entry;
@@ -390,33 +392,16 @@ export default function TradeCalculator() {
 
     const entry = parseFloat(entryPrice);
     const sl = parseFloat(stopLoss);
+    const balance = parseFloat(customBalance) || accountInfo?.balance || 10000;
 
     if (entry <= 0 || sl <= 0 || riskAmt <= 0) return;
 
-    // Calculate the stop loss distance in price
-    const slDistance = Math.abs(entry - sl);
+    // Convert dollar amount to percentage and reuse calculatePositionSize
+    const riskPct = (riskAmt / balance) * 100;
+    const result = calculatePositionSize(balance, riskPct, entry, sl, symbolInfo);
 
-    // Calculate pip value per standard lot
-    // pipValue = contractSize * pipSize (for most pairs)
-    const pipValuePerLot = symbolInfo.contractSize * symbolInfo.pipSize;
-
-    // Calculate how many pips the SL is
-    const slPips = slDistance / symbolInfo.pipSize;
-
-    // Risk per lot = slPips * pipValuePerLot
-    const riskPerLot = slPips * pipValuePerLot;
-
-    // Calculate lot size: riskAmount / riskPerLot
-    let calculatedLots = riskAmt / riskPerLot;
-
-    // Round to volume step
-    calculatedLots = Math.round(calculatedLots / symbolInfo.volumeStep) * symbolInfo.volumeStep;
-
-    // Clamp to min/max volume
-    calculatedLots = Math.max(symbolInfo.minVolume, Math.min(symbolInfo.maxVolume, calculatedLots));
-
-    setLotSize(calculatedLots.toFixed(2));
-  }, [symbolInfo, entryPrice, stopLoss]);
+    setLotSize(result.lotSize.toFixed(2));
+  }, [symbolInfo, entryPrice, stopLoss, customBalance, accountInfo]);
 
   // Auto-update lot size when risk changes
   useEffect(() => {

@@ -319,7 +319,15 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* TradingView Chart - Full Width */}
+      </div>
+
+      {/* Telegram Signals */}
+      <div id="signals" className="px-4 md:px-6 scroll-mt-4">
+        <TelegramSignalsPanel />
+      </div>
+
+      {/* TradingView Chart - Full Width */}
+      <div className="px-4 md:px-6">
         <Card id="chart" className="overflow-visible scroll-mt-4">
           <CardContent className="p-0 h-[400px] md:h-[600px] overflow-visible">
             <TradingViewChart
@@ -404,8 +412,7 @@ export default function Dashboard() {
           </div>
 
           {/* Signals & Analysis Panel */}
-          <div id="signals" className="space-y-4 md:space-y-6 scroll-mt-4">
-            <TelegramSignalsPanel />
+          <div className="space-y-4 md:space-y-6">
             <MarketAnalysisPanel />
             <AnalysisPanel analysisResults={analysisData?.analysis || []} />
 

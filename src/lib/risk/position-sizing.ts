@@ -31,21 +31,17 @@ export function calculatePositionSize(
   // Convert to pips
   const pipRisk = stopDistance / symbolInfo.pipSize;
 
-  // Calculate pip value for 1 standard lot
-  // For most forex pairs: pip value = pip size * contract size
-  // For commodities like gold: pip value varies
-  let pipValuePerLot = symbolInfo.tickValue;
+  // Calculate pip value for 1 standard lot in account currency (USD)
+  // pipValue = pipSize * contractSize for USD-quoted pairs
+  // pipValue = (pipSize * contractSize) / entryPrice for non-USD-quoted pairs (e.g. USDJPY)
+  let pipValuePerLot: number;
 
-  // Adjust for contract size
-  if (symbolInfo.symbol.includes('XAU') || symbolInfo.symbol.includes('GOLD')) {
-    // Gold: pip value = tick size * contract size (usually 100 oz)
-    pipValuePerLot = symbolInfo.tickSize * symbolInfo.contractSize;
-  } else if (symbolInfo.symbol.includes('XAG') || symbolInfo.symbol.includes('SILVER')) {
-    // Silver: similar calculation
-    pipValuePerLot = symbolInfo.tickSize * symbolInfo.contractSize;
-  } else if (symbolInfo.symbol.includes('BTC') || symbolInfo.symbol.includes('ETH')) {
-    // Bitcoin/Ethereum: usually 1 contract = 1 coin
-    pipValuePerLot = symbolInfo.tickSize * symbolInfo.contractSize;
+  if (symbolInfo.symbol.includes('JPY')) {
+    // JPY-quoted pairs: convert from JPY to USD by dividing by entry price
+    pipValuePerLot = (symbolInfo.pipSize * symbolInfo.contractSize) / entryPrice;
+  } else {
+    // USD-quoted pairs (XAUUSD, XAGUSD, BTCUSD, EURUSD, GBPUSD, etc.)
+    pipValuePerLot = symbolInfo.pipSize * symbolInfo.contractSize;
   }
 
   // Calculate lot size
@@ -157,16 +153,12 @@ export function calculatePotentialPnL(
 
   const pips = priceDiff / symbolInfo.pipSize;
 
-  // Calculate P&L
-  let pnl: number;
-  if (symbolInfo.symbol.includes('XAU') || symbolInfo.symbol.includes('GOLD')) {
-    pnl = priceDiff * lotSize * symbolInfo.contractSize;
-  } else if (symbolInfo.symbol.includes('XAG') || symbolInfo.symbol.includes('SILVER')) {
-    pnl = priceDiff * lotSize * symbolInfo.contractSize;
-  } else if (symbolInfo.symbol.includes('BTC')) {
-    pnl = priceDiff * lotSize * symbolInfo.contractSize;
-  } else {
-    pnl = priceDiff * lotSize * symbolInfo.contractSize;
+  // Calculate P&L in account currency (USD)
+  let pnl = priceDiff * lotSize * symbolInfo.contractSize;
+
+  // For non-USD-quoted pairs, convert to USD
+  if (symbolInfo.symbol.includes('JPY')) {
+    pnl = pnl / entryPrice;
   }
 
   // Calculate percentage (based on entry value)
