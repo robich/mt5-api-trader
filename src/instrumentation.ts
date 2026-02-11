@@ -6,10 +6,13 @@ export async function register() {
       return;
     }
 
+    console.log('[Auto-Start] Scheduling bot startup in 5s...');
+
     // Delay to let the Next.js server fully initialize before connecting to MetaAPI/Telegram
     setTimeout(async () => {
       try {
-        const { tradingBot } = await import('@/services/bot');
+        // Use relative path - @/ alias may not resolve in instrumentation context
+        const { tradingBot } = await import('./services/bot');
         console.log('[Auto-Start] Starting trading bot...');
         await tradingBot.start();
         console.log('[Auto-Start] Trading bot started successfully');
