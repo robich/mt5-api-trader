@@ -6,9 +6,11 @@ export async function register() {
       return;
     }
 
-    console.log('[Auto-Start] Scheduling bot startup in 5s...');
+    console.log('[Auto-Start] Scheduling bot startup in 90s (waiting for old deploy to shut down)...');
 
-    // Delay to let the Next.js server fully initialize before connecting to MetaAPI/Telegram
+    // 90s delay: DigitalOcean keeps the old container alive ~30-60s after the new one
+    // is healthy. Starting too early causes AUTH_KEY_DUPLICATED because the old process
+    // still holds the Telegram session. 90s gives ample time for the old process to die.
     setTimeout(async () => {
       try {
         // Use relative path - @/ alias may not resolve in instrumentation context
@@ -19,6 +21,6 @@ export async function register() {
       } catch (error) {
         console.error('[Auto-Start] Failed to start trading bot:', error);
       }
-    }, 5000);
+    }, 90_000);
   }
 }
