@@ -5,12 +5,11 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Calculator, Bot, Radio } from 'lucide-react';
+import { Calculator, Bot, Radio, RefreshCw } from 'lucide-react';
 import { KPICards } from '@/components/dashboard/KPICards';
 import { TradeTable } from '@/components/dashboard/TradeTable';
 import { SignalsList } from '@/components/dashboard/SignalsList';
 import { TradingViewChart } from '@/components/dashboard/TradingViewChart';
-import { BotControls } from '@/components/dashboard/BotControls';
 import { AnalysisPanel } from '@/components/dashboard/AnalysisPanel';
 import { MarketAnalysisPanel } from '@/components/dashboard/MarketAnalysisPanel';
 import { TelegramSignalsPanel } from '@/components/dashboard/TelegramSignalsPanel';
@@ -239,9 +238,9 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background space-y-4 md:space-y-6 py-4 md:py-6">
-      {/* Bot Status Bar — always at the very top */}
+      {/* Top Bar: Services + Actions */}
       <div className="px-4 md:px-6">
-        <div className="flex flex-wrap items-center gap-2 md:gap-4">
+        <div className="flex flex-wrap items-center gap-2 md:gap-3">
           <div className="flex items-center gap-1">
             <ServiceStatus
               label="Bot"
@@ -277,6 +276,9 @@ export default function Dashboard() {
             </Button>
           </div>
           <div className="ml-auto flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={fetchData} className="h-7 px-2">
+              <RefreshCw className="h-3.5 w-3.5" />
+            </Button>
             <Link href="/calculator" className="hidden md:inline-flex">
               <Button variant="outline" size="sm">
                 <Calculator className="h-4 w-4 mr-2" />
@@ -289,12 +291,6 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Header */}
-      <div className="px-4 md:px-6">
-        <h1 className="text-2xl md:text-3xl font-bold">SMC Trading Bot</h1>
-        <p className="text-muted-foreground text-sm md:text-base">Smart Money Concept Automated Trading</p>
       </div>
 
       {error && (
@@ -325,43 +321,21 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Symbol Selector + Bot Controls */}
-      <div className="px-4 md:px-6 space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
-          <div className="flex gap-2 overflow-x-auto">
-            {['XAUUSD.s', 'XAGUSD.s', 'BTCUSD', 'ETHUSD'].map((symbol) => (
-              <Button
-                key={symbol}
-                variant={selectedSymbol === symbol ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSelectedSymbol(symbol)}
-                className="shrink-0"
-              >
-                {symbol}
-              </Button>
-            ))}
-          </div>
-          <div className="sm:ml-auto">
-            <BotControls
-              isRunning={accountData?.botStatus.isRunning || false}
-              symbols={accountData?.botStatus.symbols || ['XAUUSD.s', 'XAGUSD.s', 'BTCUSD', 'ETHUSD']}
-              startedAt={accountData?.botStatus.startedAt || null}
-              onStart={handleToggleBot}
-              onStop={handleToggleBot}
-              onRefresh={fetchData}
-            />
-          </div>
+      {/* Symbol Selector + Chart */}
+      <div className="px-4 md:px-6 space-y-2">
+        <div className="flex gap-2 overflow-x-auto">
+          {['XAUUSD.s', 'XAGUSD.s', 'BTCUSD', 'ETHUSD'].map((symbol) => (
+            <Button
+              key={symbol}
+              variant={selectedSymbol === symbol ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedSymbol(symbol)}
+              className="shrink-0"
+            >
+              {symbol}
+            </Button>
+          ))}
         </div>
-
-      </div>
-
-      {/* Telegram Signals */}
-      <div id="signals" className="px-4 md:px-6 scroll-mt-4">
-        <TelegramSignalsPanel />
-      </div>
-
-      {/* TradingView Chart - Full Width */}
-      <div className="px-4 md:px-6">
         <Card id="chart" className="overflow-visible scroll-mt-4">
           <CardContent className="p-0 h-[400px] md:h-[600px] overflow-visible">
             <TradingViewChart
@@ -378,6 +352,11 @@ export default function Dashboard() {
             />
           </CardContent>
         </Card>
+      </div>
+
+      {/* Telegram Signals */}
+      <div id="signals" className="px-4 md:px-6 scroll-mt-4">
+        <TelegramSignalsPanel />
       </div>
 
       {/* Main Content Grid */}
