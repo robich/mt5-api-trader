@@ -75,7 +75,7 @@ export function AnalysisPanel({ analysisResults }: AnalysisPanelProps) {
         <CardTitle className="text-lg">Market Analysis</CardTitle>
       </CardHeader>
       <CardContent className="p-0">
-        <ScrollArea className="h-[400px]">
+        <ScrollArea className="h-[300px] md:h-[400px]">
           <div className="p-4 space-y-4">
             {analysisResults.map((result) => (
               <div key={result.symbol} className="space-y-3">

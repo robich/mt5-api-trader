@@ -85,6 +85,33 @@ services:
     profiles:
       - with-admin
 
+  # Strategy Analyst - daily AI-powered strategy optimization
+  strategy-analyst:
+    build:
+      context: ./strategy-analyst
+      dockerfile: Dockerfile
+    container_name: mt5-strategy-analyst
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - TZ=UTC
+      - GIT_REPO_URL=${GIT_REPO_URL}
+      - GIT_TOKEN=${GIT_TOKEN}
+      - ANALYST_SCHEDULE=0 3 * * *
+      - BACKTEST_DAYS=14
+      - DEPLOY_METHOD=docker-compose
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    profiles:
+      - with-analyst
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   # Optional: Watchtower for auto-updates
   watchtower:
     image: containrrr/watchtower

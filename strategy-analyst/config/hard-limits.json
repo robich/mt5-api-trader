@@ -1,0 +1,14 @@
+{
+  "maxRiskPercentPerTrade": 3.0,
+  "maxDailyDrawdown": 15.0,
+  "maxConcurrentTrades": 5,
+  "minRiskReward": 1.0,
+  "maxRiskReward": 6.0,
+  "maxDiffLines": 500,
+  "backtestGates": {
+    "maxPnlDecreasePercent": 20,
+    "maxWinRateDecrease": 10,
+    "maxDrawdownIncrease": 5,
+    "minProfitFactor": 1.0
+  }
+}

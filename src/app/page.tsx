@@ -219,6 +219,24 @@ export default function Dashboard() {
     }
   };
 
+  const handleToggleTelegram = async () => {
+    const isRunning = telegramStatus?.isConnected || false;
+    try {
+      const res = await fetch('/api/telegram-listener', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: isRunning ? 'stop' : 'start' }),
+      });
+
+      if (!res.ok) throw new Error(`Failed to ${isRunning ? 'stop' : 'start'} telegram listener`);
+
+      await fetchData();
+    } catch (err) {
+      console.error('Error toggling telegram listener:', err);
+      setError('Failed to toggle Telegram listener. Please try again.');
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -243,12 +261,22 @@ export default function Dashboard() {
               isRunning={accountData?.botStatus.isRunning || false}
               startedAt={accountData?.botStatus.startedAt || null}
             />
-            <ServiceStatus
-              label="Signals"
-              icon={Radio}
-              isRunning={telegramStatus?.isConnected || false}
-              startedAt={telegramStatus?.startedAt || null}
-            />
+            <div className="flex items-center gap-1">
+              <ServiceStatus
+                label="Signals"
+                icon={Radio}
+                isRunning={telegramStatus?.isConnected || false}
+                startedAt={telegramStatus?.startedAt || null}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleToggleTelegram}
+                className="h-7 px-2 text-xs"
+              >
+                {telegramStatus?.isConnected ? 'Stop' : 'Start'}
+              </Button>
+            </div>
             <Link href="/calculator" className="hidden md:inline-flex">
               <Button variant="outline" size="sm">
                 <Calculator className="h-4 w-4 mr-2" />
@@ -354,7 +382,7 @@ export default function Dashboard() {
             <Card>
               <Tabs defaultValue="open">
                 <CardHeader className="pb-0">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <CardTitle>Trades</CardTitle>
                     <TabsList>
                       <TabsTrigger value="open">

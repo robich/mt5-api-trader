@@ -1,0 +1,11 @@
+[
+  "src/lib/strategies/strategy-profiles.ts",
+  "src/lib/strategies/order-block.ts",
+  "src/lib/strategies/m1-trend.ts",
+  "src/lib/strategies/liquidity-sweep.ts",
+  "src/lib/strategies/bos.ts",
+  "src/lib/strategies/fbo-classic.ts",
+  "src/lib/strategies/fbo-sweep.ts",
+  "src/lib/strategies/fbo-structure.ts",
+  "src/lib/strategies/index.ts"
+]

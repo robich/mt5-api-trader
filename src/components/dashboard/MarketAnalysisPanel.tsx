@@ -121,7 +121,7 @@ export function MarketAnalysisPanel() {
             </p>
           </div>
         ) : (
-          <ScrollArea className="h-[350px]">
+          <ScrollArea className="h-[250px] md:h-[350px]">
             <div className="p-4 space-y-4">
               {analyses.map((analysis, index) => (
                 <div key={analysis.id} className="space-y-3">

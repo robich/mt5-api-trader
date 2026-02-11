@@ -50,7 +50,7 @@ export function KPICards({
           <DollarSign className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{formatCurrency(balance)}</div>
+          <div className="text-xl md:text-2xl font-bold">{formatCurrency(balance)}</div>
           <p className="text-xs text-muted-foreground">Account balance</p>
         </CardContent>
       </Card>
@@ -61,7 +61,7 @@ export function KPICards({
           <Activity className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{formatCurrency(equity)}</div>
+          <div className="text-xl md:text-2xl font-bold">{formatCurrency(equity)}</div>
           <p className="text-xs text-muted-foreground">
             Including open positions
           </p>
@@ -81,7 +81,7 @@ export function KPICards({
         </CardHeader>
         <CardContent>
           <div
-            className={`text-2xl font-bold ${
+            className={`text-xl md:text-2xl font-bold ${
               todayPnl > 0 ? 'text-green-600' : todayPnl < 0 ? 'text-red-600' : 'text-muted-foreground'
             }`}
           >
@@ -103,7 +103,7 @@ export function KPICards({
           <Target className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{openTrades}</div>
+          <div className="text-xl md:text-2xl font-bold">{openTrades}</div>
           <p className="text-xs text-muted-foreground">
             {totalTrades > 0 && `${winRate.toFixed(1)}% win rate`}
           </p>

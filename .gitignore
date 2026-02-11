@@ -48,3 +48,6 @@ next-env.d.ts
 # build-time generated
 .commit-hash
 .build-time
+
+# strategy analyst
+/strategy-analyst/node_modules

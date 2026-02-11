@@ -197,7 +197,7 @@ export function EquityCurveChart({
               />
               <XAxis
                 dataKey="date"
-                tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
                 tickLine={false}
                 axisLine={false}
                 interval="preserveStartEnd"
@@ -213,7 +213,7 @@ export function EquityCurveChart({
                     compactDisplay: 'short',
                   }).format(value)
                 }
-                width={50}
+                width={40}
               />
               <Tooltip
                 contentStyle={{

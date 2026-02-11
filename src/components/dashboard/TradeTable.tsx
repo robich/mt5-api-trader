@@ -283,132 +283,238 @@ export function TradeTable({ trades, type, currency = 'USD' }: TradeTableProps) 
   }
 
   return (
-    <ScrollArea className="h-[400px]">
-      <div className="min-w-max">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Symbol</TableHead>
-            <TableHead>Direction</TableHead>
-            <TableHead>Strategy</TableHead>
-            <TableHead className="text-right">Entry</TableHead>
-            <TableHead className="text-right">SL</TableHead>
-            <TableHead className="text-right">TP</TableHead>
-            <TableHead className="text-right">Size</TableHead>
-            {type === 'open' && (
-              <TableHead className="text-right">Current</TableHead>
-            )}
-            <TableHead>{type === 'open' ? 'Opened' : 'Closed'}</TableHead>
-            <TableHead>Duration</TableHead>
-            {type === 'closed' && (
-              <TableHead className="text-right">Exit</TableHead>
-            )}
-            <TableHead className="text-right">Pips</TableHead>
-            <TableHead className="text-right">P&L</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {trades.map((trade) => (
-            <TableRow key={trade.id}>
-              <TableCell className="font-medium">{trade.symbol}</TableCell>
-              <TableCell>
-                <Badge
-                  variant={trade.direction === 'BUY' ? 'default' : 'destructive'}
-                >
-                  {trade.direction}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <Badge
-                  variant="outline"
-                  className="text-xs cursor-pointer hover:bg-accent"
-                  onClick={() => setSelectedStrategy(trade.strategy)}
-                >
-                  {trade.strategy.replace(/_/g, ' ')}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-right font-mono">
-                {formatPrice(trade.entryPrice, trade.symbol)}
-              </TableCell>
-              <TableCell className="text-right font-mono text-red-600">
-                {formatPrice(trade.stopLoss, trade.symbol)}
-              </TableCell>
-              <TableCell className="text-right font-mono text-green-600">
-                {formatPrice(trade.takeProfit, trade.symbol)}
-              </TableCell>
-              <TableCell className="text-right">{trade.lotSize ?? '-'}</TableCell>
-              {type === 'open' && (
-                <TableCell className="text-right font-mono">
-                  {trade.currentPrice != null
-                    ? formatPrice(trade.currentPrice, trade.symbol)
-                    : '-'}
-                </TableCell>
-              )}
-              <TableCell>
-                {formatDate(type === 'open' ? trade.openTime : trade.closeTime || trade.openTime)}
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                {formatDuration(trade.openTime, type === 'closed' ? trade.closeTime : null)}
-              </TableCell>
-              {type === 'closed' && (
-                <TableCell className="text-right font-mono">
-                  {trade.closePrice ? formatPrice(trade.closePrice, trade.symbol) : '-'}
-                </TableCell>
-              )}
-              <TableCell
-                className={`text-right font-mono ${
-                  (calculatePips(trade, type === 'open') || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                }`}
-              >
-                {formatPips(calculatePips(trade, type === 'open'))}
-              </TableCell>
-              <TableCell
-                className={`text-right font-bold ${
-                  ((type === 'open' ? trade.currentPnl : trade.pnl) || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                }`}
-              >
-                {type === 'open'
-                  ? formatPnl(trade.currentPnl)
-                  : formatPnl(trade.pnl)}
-              </TableCell>
-            </TableRow>
-          ))}
-          {/* Total unrealized P&L row for open trades */}
+    <>
+      {/* Mobile card layout */}
+      <div className="md:hidden">
+        <ScrollArea className="h-[400px]">
+          <div className="space-y-3 p-1">
+            {trades.map((trade) => {
+              const pnlValue = type === 'open' ? trade.currentPnl : trade.pnl;
+              const pips = calculatePips(trade, type === 'open');
+              const exitPrice = type === 'open' ? trade.currentPrice : trade.closePrice;
+
+              return (
+                <div key={trade.id} className="border rounded-lg p-3 space-y-2">
+                  {/* Row 1: Symbol + Direction + P&L */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm">{trade.symbol}</span>
+                      <Badge
+                        variant={trade.direction === 'BUY' ? 'default' : 'destructive'}
+                        className="text-xs"
+                      >
+                        {trade.direction}
+                      </Badge>
+                    </div>
+                    <span
+                      className={`font-bold text-sm ${
+                        (pnlValue || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}
+                    >
+                      {formatPnl(pnlValue)}
+                    </span>
+                  </div>
+
+                  {/* Row 2: Entry → Exit/Current, Pips */}
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span className="font-mono">
+                      {formatPrice(trade.entryPrice, trade.symbol)}
+                      {' → '}
+                      {exitPrice != null ? formatPrice(exitPrice, trade.symbol) : '-'}
+                    </span>
+                    <span
+                      className={`font-mono ${
+                        (pips || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}
+                    >
+                      {formatPips(pips)} pips
+                    </span>
+                  </div>
+
+                  {/* Row 3: Strategy, Lot, Duration */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Badge
+                        variant="outline"
+                        className="text-xs cursor-pointer hover:bg-accent"
+                        onClick={() => setSelectedStrategy(trade.strategy)}
+                      >
+                        {trade.strategy.replace(/_/g, ' ')}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {trade.lotSize ?? '-'} lot
+                      </span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {formatDuration(trade.openTime, type === 'closed' ? trade.closeTime : null)}
+                    </span>
+                  </div>
+
+                  {/* Expandable SL/TP */}
+                  <details className="text-xs text-muted-foreground">
+                    <summary className="cursor-pointer hover:text-foreground">SL / TP</summary>
+                    <div className="flex gap-4 mt-1 pl-1">
+                      <span>SL: <span className="font-mono text-red-600">{formatPrice(trade.stopLoss, trade.symbol)}</span></span>
+                      <span>TP: <span className="font-mono text-green-600">{formatPrice(trade.takeProfit, trade.symbol)}</span></span>
+                    </div>
+                  </details>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Total unrealized P&L card for open trades (mobile) */}
           {type === 'open' && trades.some((t) => t.currentPnl != null) && (
-            <TableRow className="border-t-2">
-              <TableCell colSpan={7} className="text-right font-semibold text-sm">
-                Total Unrealized P&L
-              </TableCell>
-              {/* Current column */}
-              <TableCell />
-              {/* Opened column */}
-              <TableCell />
-              {/* Duration column */}
-              <TableCell />
-              {/* Pips column */}
-              <TableCell className="text-right font-mono font-semibold">
-                {(() => {
-                  const totalPips = trades.reduce((sum, t) => {
-                    const pips = calculatePips(t, true);
-                    return sum + (pips || 0);
-                  }, 0);
-                  return formatPips(totalPips);
-                })()}
-              </TableCell>
-              <TableCell
-                className={`text-right font-bold ${
-                  trades.reduce((sum, t) => sum + (t.currentPnl || 0), 0) >= 0
-                    ? 'text-green-600'
-                    : 'text-red-600'
-                }`}
-              >
-                {formatPnl(trades.reduce((sum, t) => sum + (t.currentPnl || 0), 0))}
-              </TableCell>
-            </TableRow>
+            <div className="border-t-2 mt-3 pt-3 px-1 flex items-center justify-between">
+              <span className="text-sm font-semibold">Total Unrealized P&L</span>
+              <div className="text-right">
+                <span className="text-xs text-muted-foreground mr-2 font-mono">
+                  {formatPips(trades.reduce((sum, t) => sum + (calculatePips(t, true) || 0), 0))} pips
+                </span>
+                <span
+                  className={`font-bold text-sm ${
+                    trades.reduce((sum, t) => sum + (t.currentPnl || 0), 0) >= 0
+                      ? 'text-green-600'
+                      : 'text-red-600'
+                  }`}
+                >
+                  {formatPnl(trades.reduce((sum, t) => sum + (t.currentPnl || 0), 0))}
+                </span>
+              </div>
+            </div>
           )}
-        </TableBody>
-      </Table>
+        </ScrollArea>
       </div>
+
+      {/* Desktop table layout */}
+      <ScrollArea className="h-[400px] hidden md:block">
+        <div className="min-w-max">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Symbol</TableHead>
+              <TableHead>Direction</TableHead>
+              <TableHead>Strategy</TableHead>
+              <TableHead className="text-right">Entry</TableHead>
+              <TableHead className="text-right">SL</TableHead>
+              <TableHead className="text-right">TP</TableHead>
+              <TableHead className="text-right">Size</TableHead>
+              {type === 'open' && (
+                <TableHead className="text-right">Current</TableHead>
+              )}
+              <TableHead>{type === 'open' ? 'Opened' : 'Closed'}</TableHead>
+              <TableHead>Duration</TableHead>
+              {type === 'closed' && (
+                <TableHead className="text-right">Exit</TableHead>
+              )}
+              <TableHead className="text-right">Pips</TableHead>
+              <TableHead className="text-right">P&L</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {trades.map((trade) => (
+              <TableRow key={trade.id}>
+                <TableCell className="font-medium">{trade.symbol}</TableCell>
+                <TableCell>
+                  <Badge
+                    variant={trade.direction === 'BUY' ? 'default' : 'destructive'}
+                  >
+                    {trade.direction}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    variant="outline"
+                    className="text-xs cursor-pointer hover:bg-accent"
+                    onClick={() => setSelectedStrategy(trade.strategy)}
+                  >
+                    {trade.strategy.replace(/_/g, ' ')}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {formatPrice(trade.entryPrice, trade.symbol)}
+                </TableCell>
+                <TableCell className="text-right font-mono text-red-600">
+                  {formatPrice(trade.stopLoss, trade.symbol)}
+                </TableCell>
+                <TableCell className="text-right font-mono text-green-600">
+                  {formatPrice(trade.takeProfit, trade.symbol)}
+                </TableCell>
+                <TableCell className="text-right">{trade.lotSize ?? '-'}</TableCell>
+                {type === 'open' && (
+                  <TableCell className="text-right font-mono">
+                    {trade.currentPrice != null
+                      ? formatPrice(trade.currentPrice, trade.symbol)
+                      : '-'}
+                  </TableCell>
+                )}
+                <TableCell>
+                  {formatDate(type === 'open' ? trade.openTime : trade.closeTime || trade.openTime)}
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {formatDuration(trade.openTime, type === 'closed' ? trade.closeTime : null)}
+                </TableCell>
+                {type === 'closed' && (
+                  <TableCell className="text-right font-mono">
+                    {trade.closePrice ? formatPrice(trade.closePrice, trade.symbol) : '-'}
+                  </TableCell>
+                )}
+                <TableCell
+                  className={`text-right font-mono ${
+                    (calculatePips(trade, type === 'open') || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}
+                >
+                  {formatPips(calculatePips(trade, type === 'open'))}
+                </TableCell>
+                <TableCell
+                  className={`text-right font-bold ${
+                    ((type === 'open' ? trade.currentPnl : trade.pnl) || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}
+                >
+                  {type === 'open'
+                    ? formatPnl(trade.currentPnl)
+                    : formatPnl(trade.pnl)}
+                </TableCell>
+              </TableRow>
+            ))}
+            {/* Total unrealized P&L row for open trades */}
+            {type === 'open' && trades.some((t) => t.currentPnl != null) && (
+              <TableRow className="border-t-2">
+                <TableCell colSpan={7} className="text-right font-semibold text-sm">
+                  Total Unrealized P&L
+                </TableCell>
+                {/* Current column */}
+                <TableCell />
+                {/* Opened column */}
+                <TableCell />
+                {/* Duration column */}
+                <TableCell />
+                {/* Pips column */}
+                <TableCell className="text-right font-mono font-semibold">
+                  {(() => {
+                    const totalPips = trades.reduce((sum, t) => {
+                      const pips = calculatePips(t, true);
+                      return sum + (pips || 0);
+                    }, 0);
+                    return formatPips(totalPips);
+                  })()}
+                </TableCell>
+                <TableCell
+                  className={`text-right font-bold ${
+                    trades.reduce((sum, t) => sum + (t.currentPnl || 0), 0) >= 0
+                      ? 'text-green-600'
+                      : 'text-red-600'
+                  }`}
+                >
+                  {formatPnl(trades.reduce((sum, t) => sum + (t.currentPnl || 0), 0))}
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+        </div>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
 
       {/* Strategy Info Dialog */}
       <Dialog open={selectedStrategy !== null} onOpenChange={(open) => !open && setSelectedStrategy(null)}>
@@ -453,7 +559,6 @@ export function TradeTable({ trades, type, currency = 'USD' }: TradeTableProps) 
           )}
         </DialogContent>
       </Dialog>
-      <ScrollBar orientation="horizontal" />
-    </ScrollArea>
+    </>
   );
 }

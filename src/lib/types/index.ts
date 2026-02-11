@@ -399,6 +399,16 @@ export const TIERED_TP_PROFILES: Record<string, TieredTPConfig> = {
     beBufferPips: 5,
     moveSlOnTP2: false,
   },
+  /** Scalp quick: fast partials at low R (best for XAGUSD.s Feb 2026) */
+  'SCALP_QUICK': {
+    enabled: true,
+    tp1: { rr: 0.5, percent: 50 },
+    tp2: { rr: 1.0, percent: 30 },
+    tp3: { rr: 1.5, percent: 20 },
+    moveSlOnTP1: true,
+    beBufferPips: 3,
+    moveSlOnTP2: false,
+  },
   /** Simple 2-tier: 50/50 */
   'SIMPLE_2TIER': {
     enabled: true,
@@ -461,9 +471,9 @@ export interface BotConfig {
 export const DEFAULT_BOT_CONFIG: BotConfig = {
   symbols: ['XAUUSD.s', 'XAGUSD.s', 'BTCUSD', 'ETHUSD'],
   riskPercent: 2,
-  htfTimeframe: 'H4',
-  mtfTimeframe: 'H1',
-  ltfTimeframe: 'M15',
+  htfTimeframe: 'H1',
+  mtfTimeframe: 'M15',
+  ltfTimeframe: 'M1',
   strategies: ['ORDER_BLOCK', 'LIQUIDITY_SWEEP', 'BOS', 'FBO_CLASSIC', 'FBO_SWEEP', 'FBO_STRUCTURE', 'M1_TREND'],
   maxOpenTrades: 5,
   maxTradesPerSymbol: 1,

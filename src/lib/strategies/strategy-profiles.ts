@@ -1,20 +1,20 @@
 /**
  * Strategy Profiles - Production-ready configurations from backtest optimization
  *
- * Based on comprehensive backtesting from Jan 5-26, 2026 (21 days)
- * Updated Jan 27, 2026 with new optimal strategies:
+ * Updated Feb 11, 2026 from 20-day backtest (Jan 22 - Feb 11, 2026)
+ * 2 rounds of iteration testing 141 strategy variations per symbol
  *
- * KEY FINDINGS:
- * 1. BTCUSD: ATR-based OB with lower RR (1.3-1.5) dominates - 82.4% WR!
- * 2. XAUUSD/XAGUSD: M1-TREND EMA strategy significantly outperforms OB
- * 3. ETHUSD: Kill Zone filtering is essential for profitability
- * 4. Tiered TP (30@1R|30@2R|40@4R) produces highest profits on metals
+ * KEY FINDINGS (Feb 2026):
+ * 1. BTCUSD: Scalp (H1/M15/M1) is 10x better than M5 - ATR1.5|RR2 = 70.9% WR, PF 3.35
+ * 2. XAUUSD.s: NoFilter OB + RR2.5 = 83.1% WR, PF 6.44 (massive)
+ * 3. XAGUSD.s: Tiered 50@0.5R|30@1R|20@1.5R = 80.5% WR, PF 2.95
+ * 4. Breakeven at 0.75R consistently improves risk-adjusted returns
+ * 5. ATR2.0 filtering gives highest win rates (83-89%) but fewer trades
  *
- * NEW OPTIMAL STRATEGIES (Jan 2026):
- * - BTCUSD: CRYPTO-OPT ATR1.3|RR1.5 -> $435, 82.4% WR, PF 6.79
- * - XAUUSD.s: M1-TREND RR2|DD6% -> $478, 51.9% WR, PF 2.56
- * - XAGUSD.s: M1-TREND-TIERED 30@1R|30@2R|40@4R -> $869, 29.5% WR, PF 1.56
- * - ETHUSD: M1-TREND-KZ RR2.5|DD6% -> $226, 41.7% WR, PF 1.76
+ * OPTIMAL STRATEGIES (Feb 2026):
+ * - BTCUSD: EVERY-OB ATR1.5|RR2 (scalp) -> $2,071, 70.9% WR, PF 3.35
+ * - XAUUSD.s: EVERY-OB NoFilter|RR2.5 -> $2,311, 83.1% WR, PF 6.44
+ * - XAGUSD.s: TIERED 50@0.5R|30@1R|20@1.5R -> $3,066, 80.5% WR, PF 2.95
  */
 
 import { StrategyType, Timeframe, KillZoneType, BreakevenConfig, TieredTPConfig, TIERED_TP_PROFILES } from '../types';
@@ -118,40 +118,58 @@ export interface LiveStrategyConfig {
  * Pre-defined strategy profiles based on backtest results (Jan 2026 optimization)
  */
 export const STRATEGY_PROFILES: Record<string, StrategyProfile> = {
-  // === NEW OPTIMAL STRATEGIES (Jan 27, 2026 Backtests) ===
+  // === OPTIMAL STRATEGIES (Feb 11, 2026 - 20-day backtest Jan 22 - Feb 11) ===
 
-  // BTCUSD Optimal: CRYPTO-OPT ATR1.3|RR1.5 - 82.4% win rate, PF 6.79, $435 profit
+  // BTCUSD Optimal: EVERY-OB ATR1.5|RR2 on Scalp (H1/M15/M1) - 70.9% WR, PF 3.35, $2,071
   'BTC_OPTIMAL': {
-    name: 'BTC Optimal (Jan 2026)',
-    description: 'ATR1.3|RR1.5 - BEST for BTCUSD (82.4% WR, PF 6.79)',
+    name: 'BTC Optimal (Feb 2026)',
+    description: 'ATR1.5|RR2|NoFilter|Scalp - 70.9% WR, PF 3.35, $2,071',
     riskTier: 'aggressive',
     strategy: 'ORDER_BLOCK',
-    minOBScore: 70,
+    minOBScore: 0, // NoFilter - take every OB with ATR1.5 quality filtering
     useKillZones: false,
     killZones: [],
     maxDailyDrawdown: 8,
     confirmationType: 'none',
-    riskReward: 1.5,
+    riskReward: 2.0,
     riskPercent: 2,
-    atrMultiplier: 1.3,
+    atrMultiplier: 1.5,
     maxConcurrentTrades: 3,
     recommendedSymbols: ['BTCUSD'],
-    breakeven: { enabled: false, triggerR: 1.0, bufferPips: 5 }, // Disabled - tiered TP handles this
-    tieredTP: TIERED_TP_PROFILES['RUNNER'], // 30@1R|30@2R|40@4R
+    breakeven: { enabled: false, triggerR: 1.0, bufferPips: 5 },
   },
 
-  // XAUUSD Optimal: M1-TREND RR2|DD6% - 51.9% win rate, PF 2.56, $478 profit
-  'XAU_OPTIMAL': {
-    name: 'Gold Optimal (M1 Trend)',
-    description: 'M1-TREND|RR2|DD6% - BEST for Gold (51.9% WR, PF 2.56)',
-    riskTier: 'aggressive',
-    strategy: 'M1_TREND',
-    minOBScore: 50, // Not used for M1_TREND
+  // BTCUSD High Win Rate: ATR2.0-BE RR3|BE0.75R - 83.8% WR, PF 5.25, $1,650
+  'BTC_HIGH_WR': {
+    name: 'BTC High Win Rate (Feb 2026)',
+    description: 'ATR2.0|RR3|BE0.75R|Scalp - 83.8% WR, PF 5.25, $1,650',
+    riskTier: 'balanced',
+    strategy: 'ORDER_BLOCK',
+    minOBScore: 0,
     useKillZones: false,
     killZones: [],
-    maxDailyDrawdown: 6,
+    maxDailyDrawdown: 8,
     confirmationType: 'none',
-    riskReward: 2.0,
+    riskReward: 3.0,
+    riskPercent: 2,
+    atrMultiplier: 2.0,
+    maxConcurrentTrades: 3,
+    recommendedSymbols: ['BTCUSD'],
+    breakeven: { enabled: true, triggerR: 0.75, bufferPips: 5 },
+  },
+
+  // XAUUSD Optimal: EVERY-OB NoFilter|RR2.5 - 83.1% WR, PF 6.44, $2,311
+  'XAU_OPTIMAL': {
+    name: 'Gold Optimal (Feb 2026)',
+    description: 'NoFilter|RR2.5|Scalp - 83.1% WR, PF 6.44, $2,311',
+    riskTier: 'aggressive',
+    strategy: 'ORDER_BLOCK',
+    minOBScore: 0, // NoFilter - take every OB
+    useKillZones: false,
+    killZones: [],
+    maxDailyDrawdown: 20,
+    confirmationType: 'none',
+    riskReward: 2.5,
     riskPercent: 2,
     atrMultiplier: 1.0,
     maxConcurrentTrades: 3,
@@ -159,38 +177,49 @@ export const STRATEGY_PROFILES: Record<string, StrategyProfile> = {
     breakeven: { enabled: false, triggerR: 1.0, bufferPips: 3 },
   },
 
-  // XAGUSD Optimal: M1-TREND-TIERED 30@1R|30@2R|40@4R - 29.5% win rate, PF 1.56, $869 profit
-  'XAG_OPTIMAL': {
-    name: 'Silver Optimal (M1 Trend Tiered)',
-    description: 'M1-TREND-TIERED|30@1R|30@2R|40@4R - BEST for Silver ($869 profit!)',
-    riskTier: 'aggressive',
-    strategy: 'M1_TREND',
-    minOBScore: 50,
+  // XAUUSD Safe: BE 0.75R|RR3 - 84.9% WR, PF 7.72, $2,215, 3.9% MaxDD
+  'XAU_SAFE': {
+    name: 'Gold Safe (Feb 2026)',
+    description: 'OB70|RR3|BE0.75R|Scalp - 84.9% WR, PF 7.72, 3.9% MaxDD',
+    riskTier: 'balanced',
+    strategy: 'ORDER_BLOCK',
+    minOBScore: 70,
     useKillZones: false,
     killZones: [],
     maxDailyDrawdown: 8,
     confirmationType: 'none',
-    riskReward: 4.0, // Final TP at 4R
+    riskReward: 3.0,
+    riskPercent: 2,
+    atrMultiplier: 1.0,
+    maxConcurrentTrades: 3,
+    recommendedSymbols: ['XAUUSD.s'],
+    breakeven: { enabled: true, triggerR: 0.75, bufferPips: 3 },
+  },
+
+  // XAGUSD Optimal: TIERED 50@0.5R|30@1R|20@1.5R - 80.5% WR, PF 2.95, $3,066
+  'XAG_OPTIMAL': {
+    name: 'Silver Optimal (Feb 2026)',
+    description: 'TIERED 50@0.5R|30@1R|20@1.5R|Scalp - 80.5% WR, PF 2.95, $3,066',
+    riskTier: 'aggressive',
+    strategy: 'ORDER_BLOCK',
+    minOBScore: 70,
+    useKillZones: false,
+    killZones: [],
+    maxDailyDrawdown: 8,
+    confirmationType: 'none',
+    riskReward: 1.5, // Final TP at 1.5R
     riskPercent: 2,
     atrMultiplier: 1.0,
     maxConcurrentTrades: 3,
     recommendedSymbols: ['XAGUSD.s'],
     breakeven: { enabled: false, triggerR: 1.0, bufferPips: 3 },
-    tieredTP: {
-      enabled: true,
-      tp1: { rr: 1.0, percent: 30 },
-      tp2: { rr: 2.0, percent: 30 },
-      tp3: { rr: 4.0, percent: 40 },
-      moveSlOnTP1: true,
-      beBufferPips: 3,
-      moveSlOnTP2: true,
-    },
+    tieredTP: TIERED_TP_PROFILES['SCALP_QUICK'], // 50@0.5R|30@1R|20@1.5R
   },
 
-  // ETHUSD Optimal: M1-TREND-KZ RR2.5|DD6% - 41.7% win rate, PF 1.76, $226 profit
+  // ETHUSD: kept from Jan 2026 (not re-tested in Feb round)
   'ETH_OPTIMAL': {
-    name: 'ETH Optimal (M1 Trend KZ)',
-    description: 'M1-TREND|KZ|RR2.5|DD6% - BEST for ETH (41.7% WR, PF 1.76)',
+    name: 'ETH Optimal (Jan 2026)',
+    description: 'M1-TREND|KZ|RR2.5|DD6% - 41.7% WR, PF 1.76',
     riskTier: 'balanced',
     strategy: 'M1_TREND',
     minOBScore: 50,
@@ -206,12 +235,12 @@ export const STRATEGY_PROFILES: Record<string, StrategyProfile> = {
     breakeven: { enabled: false, triggerR: 1.0, bufferPips: 3 },
   },
 
-  // === LEGACY SYMBOL-SPECIFIC STRATEGIES (keep for backwards compatibility) ===
+  // === LEGACY SYMBOL-SPECIFIC STRATEGIES (Jan 2026 - kept for reference) ===
 
-  // Legacy BTC: ATR0.8 with RR1.5
+  // Legacy BTC: ATR1.3 with RR1.5 (Jan 2026 optimal)
   'BTC_LEGACY': {
-    name: 'BTC Legacy (ATR0.8)',
-    description: 'ATR0.8|RR1.5|NoConf|BE1R - Previous optimal',
+    name: 'BTC Legacy (Jan 2026)',
+    description: 'ATR1.3|RR1.5|OB70 - Jan 2026 optimal (now use BTC_OPTIMAL)',
     riskTier: 'aggressive',
     strategy: 'ORDER_BLOCK',
     minOBScore: 70,
@@ -221,10 +250,10 @@ export const STRATEGY_PROFILES: Record<string, StrategyProfile> = {
     confirmationType: 'none',
     riskReward: 1.5,
     riskPercent: 2,
-    atrMultiplier: 0.8,
+    atrMultiplier: 1.3,
     maxConcurrentTrades: 3,
     recommendedSymbols: ['BTCUSD'],
-    breakeven: { enabled: true, triggerR: 1.0, bufferPips: 5 },
+    breakeven: { enabled: false, triggerR: 1.0, bufferPips: 5 },
   },
 
   // === UNIVERSAL STRATEGIES (work across all symbols) ===
@@ -340,19 +369,19 @@ export const STRATEGY_PROFILES: Record<string, StrategyProfile> = {
 };
 
 /**
- * Symbol-specific recommended profiles based on backtest performance (Jan 27, 2026)
- * Updated with new M1-TREND strategies that significantly outperform Order Block on metals
+ * Symbol-specific recommended profiles based on backtest performance (Feb 11, 2026)
+ * All symbols now use ORDER_BLOCK on Scalp (H1/M15/M1) timeframe
  */
 export const SYMBOL_RECOMMENDED_PROFILES: Record<string, string[]> = {
-  'BTCUSD': ['BTC_OPTIMAL', 'BTC_LEGACY', 'UNIVERSAL_RR15'],
-  'XAUUSD.s': ['XAU_OPTIMAL', 'UNIVERSAL_NOCONF', 'SAFE_KZ'],
+  'BTCUSD': ['BTC_OPTIMAL', 'BTC_HIGH_WR', 'UNIVERSAL_NOCONF'],
+  'XAUUSD.s': ['XAU_OPTIMAL', 'XAU_SAFE', 'UNIVERSAL_NOCONF'],
   'XAGUSD.s': ['XAG_OPTIMAL', 'UNIVERSAL_NOCONF', 'SAFE_KZ'],
   'ETHUSD': ['ETH_OPTIMAL', 'SAFE_KZ'],
 };
 
 /**
- * Symbol-specific optimal timeframe configurations (Jan 2026)
- * Based on backtesting different timeframe combinations
+ * Symbol-specific optimal timeframe configurations (Feb 2026)
+ * KEY: BTCUSD switched from M5 to Scalp - 10x improvement ($215 -> $2,071)
  */
 export interface SymbolTimeframeConfig {
   htf: Timeframe;
@@ -363,10 +392,10 @@ export interface SymbolTimeframeConfig {
 
 export const SYMBOL_TIMEFRAMES: Record<string, SymbolTimeframeConfig> = {
   'BTCUSD': {
-    htf: 'H4',
-    mtf: 'M30',
-    ltf: 'M5',
-    description: 'M5 entries work best for BTC (H4/M30/M5)',
+    htf: 'H1',
+    mtf: 'M15',
+    ltf: 'M1',
+    description: 'Scalp (H1/M15/M1) - 10x better than M5 for BTC (Feb 2026)',
   },
   'XAUUSD.s': {
     htf: 'H1',
@@ -401,39 +430,39 @@ export const SYMBOL_TRADING_LIMITS: Record<string, { minSlPips: number; typicalS
 };
 
 /**
- * Default configurations per symbol based on backtest insights (Jan 27, 2026)
- * Updated with new optimal strategies from 21-day backtest (Jan 5-26, 2026)
+ * Default configurations per symbol based on backtest insights (Feb 11, 2026)
+ * Updated with optimal strategies from 20-day backtest (Jan 22 - Feb 11, 2026)
  */
 export const SYMBOL_DEFAULTS: Record<string, SymbolOverrides> = {
   'BTCUSD': {
-    // BTCUSD: CRYPTO-OPT ATR1.3|RR1.5 - 82.4% WR, PF 6.79, +$435
+    // BTCUSD: EVERY-OB ATR1.5|RR2 (Scalp) - 70.9% WR, PF 3.35, +$2,071
+    confirmationType: 'none',
+    minOBScore: 0, // NoFilter - ATR1.5 handles quality
+    maxDailyDrawdown: 8,
+    useKillZones: false,
+    riskReward: 2.0,
+    atrMultiplier: 1.5,
+  },
+  'XAUUSD.s': {
+    // XAUUSD: EVERY-OB NoFilter|RR2.5 - 83.1% WR, PF 6.44, +$2,311
+    confirmationType: 'none',
+    minOBScore: 0, // NoFilter OB
+    maxDailyDrawdown: 20,
+    useKillZones: false,
+    riskReward: 2.5,
+    atrMultiplier: 1.0,
+  },
+  'XAGUSD.s': {
+    // XAGUSD: TIERED 50@0.5R|30@1R|20@1.5R - 80.5% WR, PF 2.95, +$3,066
     confirmationType: 'none',
     minOBScore: 70,
     maxDailyDrawdown: 8,
     useKillZones: false,
-    riskReward: 1.5,
-    atrMultiplier: 1.3,
-  },
-  'XAUUSD.s': {
-    // XAUUSD: M1-TREND RR2|DD6% - 51.9% WR, PF 2.56, +$478
-    confirmationType: 'none',
-    minOBScore: 50, // Not used for M1_TREND
-    maxDailyDrawdown: 6,
-    useKillZones: false,
-    riskReward: 2.0,
-    atrMultiplier: 1.0,
-  },
-  'XAGUSD.s': {
-    // XAGUSD: M1-TREND-TIERED 30@1R|30@2R|40@4R - 29.5% WR, PF 1.56, +$869
-    confirmationType: 'none',
-    minOBScore: 50,
-    maxDailyDrawdown: 8,
-    useKillZones: false,
-    riskReward: 4.0, // Final TP at 4R for tiered
+    riskReward: 1.5, // Final TP at 1.5R for tiered
     atrMultiplier: 1.0,
   },
   'ETHUSD': {
-    // ETHUSD: M1-TREND-KZ RR2.5|DD6% - 41.7% WR, PF 1.76, +$226
+    // ETHUSD: M1-TREND-KZ RR2.5|DD6% - 41.7% WR, PF 1.76 (Jan 2026)
     confirmationType: 'none',
     minOBScore: 50,
     maxDailyDrawdown: 6,
@@ -447,22 +476,22 @@ export const SYMBOL_DEFAULTS: Record<string, SymbolOverrides> = {
  * Default live strategy configuration
  *
  * IMPORTANT: liveTrading is FALSE by default - must be explicitly enabled
- * Updated Jan 2026: Uses UNIVERSAL_NOCONF as default (best overall performance)
- * Note: For optimal performance, use symbol-specific timeframes from SYMBOL_TIMEFRAMES
+ * Updated Feb 2026: All symbols now use Scalp (H1/M15/M1) timeframe
+ * Use symbol-specific profiles via getSymbolTimeframes() for best performance
  */
 export const DEFAULT_LIVE_CONFIG: LiveStrategyConfig = {
   profile: STRATEGY_PROFILES['UNIVERSAL_NOCONF'],
   symbols: [
-    { symbol: 'BTCUSD', enabled: true, overrides: SYMBOL_DEFAULTS['BTCUSD'] },    // KZ enabled, DD6%, RR2
-    { symbol: 'XAUUSD.s', enabled: true, overrides: SYMBOL_DEFAULTS['XAUUSD.s'] }, // No KZ, RR2, BE at 1R
-    { symbol: 'XAGUSD.s', enabled: true, overrides: SYMBOL_DEFAULTS['XAGUSD.s'] }, // Low activity expected
-    { symbol: 'ETHUSD', enabled: false, overrides: SYMBOL_DEFAULTS['ETHUSD'] },    // DISABLED - poor performance
+    { symbol: 'BTCUSD', enabled: true, overrides: SYMBOL_DEFAULTS['BTCUSD'] },     // ATR1.5|RR2 NoFilter
+    { symbol: 'XAUUSD.s', enabled: true, overrides: SYMBOL_DEFAULTS['XAUUSD.s'] }, // NoFilter|RR2.5
+    { symbol: 'XAGUSD.s', enabled: true, overrides: SYMBOL_DEFAULTS['XAGUSD.s'] }, // Tiered 50@0.5R|30@1R|20@1.5R
+    { symbol: 'ETHUSD', enabled: false, overrides: SYMBOL_DEFAULTS['ETHUSD'] },    // DISABLED - not re-tested
   ],
   liveTrading: false, // Paper mode by default
-  // Default timeframes - for optimal performance, use getSymbolTimeframes() per symbol
-  htfTimeframe: 'H4',
-  mtfTimeframe: 'H1',
-  ltfTimeframe: 'M15',
+  // Default timeframes - all symbols now use scalp
+  htfTimeframe: 'H1',
+  mtfTimeframe: 'M15',
+  ltfTimeframe: 'M1',
 };
 
 /**
@@ -523,11 +552,12 @@ export function getSymbolTimeframes(
  * Get optimal profile for a symbol based on backtest results
  */
 export function getOptimalProfileForSymbol(symbol: string): StrategyProfile {
-  // Symbol-specific optimal profiles from Jan 2026 backtesting
+  // Symbol-specific optimal profiles from Feb 2026 backtesting
   const optimalProfiles: Record<string, string> = {
     'BTCUSD': 'BTC_OPTIMAL',
     'XAUUSD.s': 'XAU_OPTIMAL',
     'XAGUSD.s': 'XAG_OPTIMAL',
+    'ETHUSD': 'ETH_OPTIMAL',
   };
 
   const profileKey = optimalProfiles[symbol];
@@ -544,8 +574,8 @@ export function getOptimalProfileForSymbol(symbol: string): StrategyProfile {
 export function validateProfile(profile: StrategyProfile): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
-  if (profile.minOBScore < 50 || profile.minOBScore > 100) {
-    errors.push('minOBScore must be between 50 and 100');
+  if (profile.minOBScore < 0 || profile.minOBScore > 100) {
+    errors.push('minOBScore must be between 0 and 100');
   }
 
   if (profile.maxDailyDrawdown < 1 || profile.maxDailyDrawdown > 20) {

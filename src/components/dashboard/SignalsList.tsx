@@ -60,7 +60,7 @@ export function SignalsList({ signals }: SignalsListProps) {
   }
 
   return (
-    <ScrollArea className="h-[500px] pr-4">
+    <ScrollArea className="h-[300px] md:h-[500px] pr-4">
       <div className="space-y-4">
         {signals.map((signal, index) => (
           <div key={signal.id}>

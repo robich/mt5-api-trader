@@ -93,6 +93,7 @@ export function TelegramSignalsPanel() {
   const [isFetching, setIsFetching] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [fetchResult, setFetchResult] = useState<string | null>(null);
+  const [isToggling, setIsToggling] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -163,6 +164,24 @@ export function TelegramSignalsPanel() {
     }
   };
 
+  const toggleListener = async () => {
+    const isRunning = listener?.isConnected || false;
+    setIsToggling(true);
+    try {
+      const res = await fetch('/api/telegram-listener', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: isRunning ? 'stop' : 'start' }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      await fetchData();
+    } catch {
+      // Silently fail, status will update on next poll
+    } finally {
+      setIsToggling(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -181,40 +200,51 @@ export function TelegramSignalsPanel() {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <div className="flex items-center gap-2">
-          <CardTitle className="text-lg">Telegram Signals</CardTitle>
-          {listener && (
-            <div className="flex items-center gap-1.5">
-              <div
-                className={`h-2 w-2 rounded-full ${
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-lg">Telegram Signals</CardTitle>
+            {listener && (
+              <div className="flex items-center gap-1.5">
+                <div
+                  className={`h-2 w-2 rounded-full ${
+                    listener.isConnected
+                      ? 'bg-green-500 animate-pulse'
+                      : listener.isReconnecting
+                      ? 'bg-yellow-500 animate-pulse'
+                      : listener.isEnabled
+                      ? 'bg-red-500'
+                      : 'bg-gray-500'
+                  }`}
+                />
+                <span className={`text-xs font-medium ${
                   listener.isConnected
-                    ? 'bg-green-500 animate-pulse'
+                    ? 'text-green-500'
                     : listener.isReconnecting
-                    ? 'bg-yellow-500 animate-pulse'
+                    ? 'text-yellow-500'
                     : listener.isEnabled
-                    ? 'bg-red-500'
-                    : 'bg-gray-500'
-                }`}
-              />
-              <span className={`text-xs font-medium ${
-                listener.isConnected
-                  ? 'text-green-500'
-                  : listener.isReconnecting
-                  ? 'text-yellow-500'
-                  : listener.isEnabled
-                  ? 'text-red-500'
-                  : 'text-gray-500'
-              }`}>
-                {listener.isConnected
-                  ? listener.isListening ? 'Connected' : 'Connected (idle)'
-                  : listener.isReconnecting
-                  ? `Reconnecting (#${listener.reconnectAttempts})`
-                  : listener.isEnabled
-                  ? 'Disconnected'
-                  : 'Disabled'}
-              </span>
-            </div>
-          )}
+                    ? 'text-red-500'
+                    : 'text-gray-500'
+                }`}>
+                  {listener.isConnected
+                    ? listener.isListening ? 'Connected' : 'Connected (idle)'
+                    : listener.isReconnecting
+                    ? `Reconnecting (#${listener.reconnectAttempts})`
+                    : listener.isEnabled
+                    ? 'Disconnected'
+                    : 'Disabled'}
+                </span>
+              </div>
+            )}
+          </div>
+          <Button
+            variant={listener?.isConnected ? 'destructive' : 'default'}
+            size="sm"
+            onClick={toggleListener}
+            disabled={isToggling}
+            className="h-7 px-3 text-xs"
+          >
+            {isToggling ? '...' : listener?.isConnected ? 'Stop' : 'Start'}
+          </Button>
         </div>
         {/* Stats */}
         <div className="flex gap-3 text-xs text-muted-foreground mt-1">
@@ -326,7 +356,7 @@ export function TelegramSignalsPanel() {
             </p>
           </div>
         ) : (
-          <ScrollArea className="h-[350px]">
+          <ScrollArea className="h-[250px] md:h-[350px]">
             <div className="p-4 space-y-3">
               {messages.map((msg, index) => (
                 <div key={msg.id} className="space-y-2">

@@ -1,0 +1,15 @@
+{
+  "name": "mt5-strategy-analyst",
+  "version": "1.0.0",
+  "description": "Daily AI-powered strategy analysis and optimization for MT5 trading bot",
+  "type": "module",
+  "scripts": {
+    "start": "node run-analysis.mjs",
+    "run": "node run-analysis.mjs --once"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "dotenv": "^16.4.7",
+    "node-cron": "^3.0.3"
+  }
+}
