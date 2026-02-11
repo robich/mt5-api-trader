@@ -38,6 +38,10 @@ interface TelegramMessage {
 
 interface ListenerStatus {
   isListening: boolean;
+  isConnected: boolean;
+  isEnabled: boolean;
+  isReconnecting: boolean;
+  reconnectAttempts: number;
   startedAt: string | null;
   lastMessageAt: string | null;
   totalMessages: number;
@@ -179,11 +183,38 @@ export function TelegramSignalsPanel() {
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
           <CardTitle className="text-lg">Telegram Signals</CardTitle>
-          <div
-            className={`h-2 w-2 rounded-full ${
-              listener?.isListening ? 'bg-green-500' : 'bg-red-500'
-            }`}
-          />
+          {listener && (
+            <div className="flex items-center gap-1.5">
+              <div
+                className={`h-2 w-2 rounded-full ${
+                  listener.isConnected
+                    ? 'bg-green-500 animate-pulse'
+                    : listener.isReconnecting
+                    ? 'bg-yellow-500 animate-pulse'
+                    : listener.isEnabled
+                    ? 'bg-red-500'
+                    : 'bg-gray-500'
+                }`}
+              />
+              <span className={`text-xs font-medium ${
+                listener.isConnected
+                  ? 'text-green-500'
+                  : listener.isReconnecting
+                  ? 'text-yellow-500'
+                  : listener.isEnabled
+                  ? 'text-red-500'
+                  : 'text-gray-500'
+              }`}>
+                {listener.isConnected
+                  ? listener.isListening ? 'Connected' : 'Connected (idle)'
+                  : listener.isReconnecting
+                  ? `Reconnecting (#${listener.reconnectAttempts})`
+                  : listener.isEnabled
+                  ? 'Disconnected'
+                  : 'Disabled'}
+              </span>
+            </div>
+          )}
         </div>
         {/* Stats */}
         <div className="flex gap-3 text-xs text-muted-foreground mt-1">

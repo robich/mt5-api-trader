@@ -25,9 +25,18 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    // Get real-time connection status from the service (not just DB state)
+    const connectionInfo = telegramListener.getConnectionInfo();
+
     return NextResponse.json({
       listener: {
-        isListening: state?.isListening ?? false,
+        // Real-time status from the service
+        isListening: connectionInfo.listening,
+        isConnected: connectionInfo.connected,
+        isEnabled: connectionInfo.enabled,
+        isReconnecting: connectionInfo.reconnecting,
+        reconnectAttempts: connectionInfo.reconnectAttempts,
+        // Persisted state from DB
         startedAt: state?.startedAt,
         lastMessageAt: state?.lastMessageAt,
         totalMessages: state?.totalMessages ?? 0,

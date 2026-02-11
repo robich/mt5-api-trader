@@ -70,6 +70,9 @@ interface AnalysisData {
 
 interface TelegramListenerStatus {
   isListening: boolean;
+  isConnected: boolean;
+  isEnabled: boolean;
+  isReconnecting: boolean;
   startedAt: string | null;
 }
 
@@ -243,7 +246,7 @@ export default function Dashboard() {
             <ServiceStatus
               label="Signals"
               icon={Radio}
-              isRunning={telegramStatus?.isListening || false}
+              isRunning={telegramStatus?.isConnected || false}
               startedAt={telegramStatus?.startedAt || null}
             />
             <Link href="/calculator">

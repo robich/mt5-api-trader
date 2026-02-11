@@ -78,6 +78,26 @@ class TelegramListenerService {
     return this.listening;
   }
 
+  isConnected(): boolean {
+    return this.client?.connected ?? false;
+  }
+
+  getConnectionInfo(): {
+    enabled: boolean;
+    listening: boolean;
+    connected: boolean;
+    reconnecting: boolean;
+    reconnectAttempts: number;
+  } {
+    return {
+      enabled: this.enabled,
+      listening: this.listening,
+      connected: this.client?.connected ?? false,
+      reconnecting: this.reconnectTimeout !== null,
+      reconnectAttempts: this.reconnectAttempts,
+    };
+  }
+
   /**
    * Get or create the singleton TelegramClient.
    * The client is created once and reused for the entire service lifetime.
