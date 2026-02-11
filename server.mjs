@@ -12,6 +12,14 @@ const port = parseInt(process.env.PORT || '3001', 10);
 const app = next({ dev: false });
 const handle = app.getRequestHandler();
 
+/** Build Basic Auth header from env vars (used by middleware). */
+function internalAuthHeaders() {
+  const user = process.env.AUTH_USER;
+  const pass = process.env.AUTH_PASS;
+  if (!user || !pass) return {};
+  return { Authorization: `Basic ${Buffer.from(`${user}:${pass}`).toString('base64')}` };
+}
+
 app.prepare().then(() => {
   const server = createServer((req, res) => {
     handle(req, res, parse(req.url, true));
@@ -27,7 +35,7 @@ app.prepare().then(() => {
         try {
           const res = await fetch(`http://127.0.0.1:${port}/api/bot`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...internalAuthHeaders() },
             body: JSON.stringify({ action: 'start' }),
           });
           const data = await res.json();
@@ -47,7 +55,7 @@ app.prepare().then(() => {
     try {
       await fetch(`http://127.0.0.1:${port}/api/bot`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...internalAuthHeaders() },
         body: JSON.stringify({ action: 'stop' }),
         signal: AbortSignal.timeout(10000),
       });
