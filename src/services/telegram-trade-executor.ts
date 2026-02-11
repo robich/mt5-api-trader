@@ -79,6 +79,16 @@ class TelegramTradeExecutor {
       },
     });
 
+    // Skip execution if the message is too old (>30s)
+    const messageAgeMs = Date.now() - msg.date.getTime();
+    const MAX_SIGNAL_AGE_MS = 30_000;
+    if (messageAgeMs > MAX_SIGNAL_AGE_MS && analysis.category !== 'OTHER') {
+      const ageSec = (messageAgeMs / 1000).toFixed(1);
+      await this.markSkipped(dbAnalysis.id, `Signal too old: ${ageSec}s (max ${MAX_SIGNAL_AGE_MS / 1000}s)`);
+      console.log(`[TradeExecutor] Skipped stale signal (${ageSec}s old): ${analysis.category} ${analysis.symbol || ''}`);
+      return analysis;
+    }
+
     // Route by category
     try {
       switch (analysis.category) {

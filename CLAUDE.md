@@ -6,49 +6,47 @@ Automated trading system using MetaAPI for MT5, implementing SMC (Smart Money Co
 ## Key Files
 
 ### Backtesting
-- `scripts/quick-backtest.mjs` - Main CLI backtest tool with strategy variations
+- `scripts/quick-backtest.mjs` - Main CLI backtest tool with 141 strategy variations
 - `scripts/cli-backtest.ts` - TypeScript backtest runner
 - `.claude/backtest-insights.md` - **Detailed backtest results and optimization insights**
 
 ### Strategy Configuration
-The `VARIATIONS` array in `quick-backtest.mjs` contains all tested strategy configurations.
+- `src/lib/strategies/strategy-profiles.ts` - Production strategy profiles (updated Feb 2026)
+- `src/lib/types/index.ts` - Types including `TIERED_TP_PROFILES`
 
-## Backtest Results Summary (Jan 2026)
+## Backtest Results Summary (Feb 2026)
 
-### Best Performing Strategies
+### Best Performing Strategies (20-day test, 141 variations per symbol)
 
-| Symbol | Strategy | Win% | PF | Max DD |
-|--------|----------|------|-----|--------|
-| BTCUSD | OB70\|All\|DD8%\|Engulf | 81.6% | 3.52 | 11.6% |
-| XAUUSD.s | OB70\|All\|DD8%\|Engulf | 73.8% | 2.65 | 21.6% |
-| XAGUSD.s | OB70\|All\|DD8%\|Strong | 76.6% | 2.70 | 16.6% |
+| Symbol | Strategy | Win% | PF | PnL | Max DD |
+|--------|----------|------|-----|-----|--------|
+| BTCUSD | EVERY-OB: ATR1.5\|RR2 (Scalp) | 70.9% | 3.35 | $2,071 | 7.6% |
+| XAUUSD.s | EVERY-OB: NoFilter\|RR2.5 | 83.1% | 6.44 | $2,311 | 4.9% |
+| XAGUSD.s | TIERED: 50@0.5R\|30@1R\|20@1.5R | 80.5% | 2.95 | $3,066 | 7.7% |
 
-### Strategy Parameters Explained
-- **OB70**: Order Block minimum score of 70
-- **All/KZ**: All sessions vs Kill Zones only (London 7-10, NY AM 12-15, NY PM 19-21 UTC)
-- **DD6%/DD8%**: Maximum daily drawdown limit
-- **Engulf/Strong/Close**: Confirmation candle type
+### Key Findings
+- **All symbols use Scalp (H1/M15/M1)** - BTC switched from M5, 10x improvement
+- **NoFilter OB (minOBScore=0)** with ATR filtering outperforms strict OB score
+- **Breakeven at 0.75R** consistently better than 1.0R
+- **ATR2.0** gives 83-89% WR but fewer trades (great for prop firms)
 
-### Recommended Settings by Risk Profile
-- **Aggressive**: `OB70|All|DD8%|Engulf` - Higher profit, ~20-30% DD
-- **Balanced**: `OB65|KZ|DD6%|Close` - Good profit, ~10-15% DD
-- **Conservative**: `OB70|KZ|DD5%|Strong` - Lower profit, ~5-10% DD
+### Strategy Profiles
+- **BTC_OPTIMAL**: ATR1.5|RR2 NoFilter on Scalp
+- **BTC_HIGH_WR**: ATR2.0|RR3|BE0.75R (83.8% WR)
+- **XAU_OPTIMAL**: NoFilter|RR2.5 on Scalp
+- **XAU_SAFE**: OB70|RR3|BE0.75R (84.9% WR, 3.9% MaxDD)
+- **XAG_OPTIMAL**: TIERED 50@0.5R|30@1R|20@1.5R on Scalp
 
 ## Running Backtests
 
 ```bash
-# Compare all strategies
-node scripts/quick-backtest.mjs --compare-all --symbol XAUUSD.s
+# All symbols now use scalp timeframe
+node scripts/quick-backtest.mjs --compare-all --tf scalp -s BTCUSD
+node scripts/quick-backtest.mjs --compare-all --tf scalp -s XAUUSD.s
+node scripts/quick-backtest.mjs --compare-all --tf scalp -s XAGUSD.s
 
 # Custom date range
-node scripts/quick-backtest.mjs --compare-all --symbol BTCUSD --start 2025-11-01 --end 2025-12-31
+node scripts/quick-backtest.mjs --compare-all --tf scalp -s BTCUSD --start 2026-01-22 --end 2026-02-11
 ```
 
-## Important Notes
-- BTCUSD significantly outperforms other symbols (81%+ win rate)
-- Kill Zone filter reduces drawdown but also reduces trade count
-- Engulfing confirmation works best for aggressive strategies
-- November showed best performance; December was more volatile
-- January has limited data due to holidays
-
-See `.claude/backtest-insights.md` for full analysis and monthly breakdowns.
+See `.claude/backtest-insights.md` for full analysis and iteration history.

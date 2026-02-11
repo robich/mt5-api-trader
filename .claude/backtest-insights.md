@@ -1,50 +1,62 @@
 # Backtest Optimization Insights
 
-**Last Updated:** 2026-01-14
-**Test Period:** December 15, 2025 - January 14, 2026 (30 days)
+**Last Updated:** 2026-02-11
+**Test Period:** January 22 - February 11, 2026 (20 days)
+**Variations Tested:** 141 per symbol across 2 iteration rounds
 
 ---
 
 ## Executive Summary
 
-After multiple iterations of optimization testing different timeframes, ATR multipliers, OB scores, and R:R ratios, we discovered that **no confirmation (NoConf)** strategies significantly outperform confirmation-based entries. The optimal parameters vary by symbol.
+After 2 rounds of optimization testing 141 strategy variations per symbol over 20 days, we found:
+- **All symbols perform best on Scalp (H1/M15/M1)** - including BTCUSD which was 10x better than M5
+- **NoFilter OB (minOBScore=0)** dominates for BTC and Gold
+- **Breakeven at 0.75R** consistently improves risk-adjusted returns
+- **ATR2.0** gives highest win rates (83-89%) but fewer trades
+- **Tiered TP with low R** (50@0.5R|30@1R|20@1.5R) is optimal for Silver
 
 ### Key Findings:
-1. **NoConf dominates** - Waiting for confirmation candles hurts performance
-2. **ATR multiplier matters** - Different values optimal per symbol
-3. **R:R 1.5-2 is optimal** - Higher R:R reduces win rate too much
-4. **Timeframe matters** - M5 for BTC, M1 scalp for metals
+1. **BTCUSD on Scalp** - Switched from M5 to H1/M15/M1, went from $215 to $2,071 (10x!)
+2. **NoFilter OB** - minOBScore=0 with ATR filtering outperforms strict OB score filtering
+3. **Breakeven at 0.75R** - Better than 1.0R; locks profits earlier while letting winners run
+4. **R:R 2.0-3.0** - Higher RR works when combined with BE (protects downside)
+5. **Scalp timeframe universal** - H1/M15/M1 is now best for ALL symbols
 
 ---
 
-## OPTIMAL STRATEGIES BY SYMBOL (Jan 2026)
+## OPTIMAL STRATEGIES BY SYMBOL (Feb 2026)
 
-### BTCUSD - Use M5 Timeframe (H4/M30/M5)
-| Strategy | Win% | PF | PnL | Max DD | Trades |
-|----------|------|-----|-----|--------|--------|
-| **BTC-OPTIMAL: ATR0.8\|RR1.5** | 68.8% | 2.62 | $2738 | 6.0% | 125 |
-| BTC-OPTIMAL: ATR0.8\|RR2 | 61.1% | 2.04 | $2011 | 18.5% | 113 |
-| BTC-OPTIMAL: OB75\|RR2 | 59.8% | 2.08 | $1342 | 13.3% | 87 |
+### BTCUSD - Scalp Timeframe (H1/M15/M1) - **NEW!**
+| Strategy | Trades | Win% | PF | PnL | Max DD |
+|----------|--------|------|-----|-----|--------|
+| **EVERY-OB: ATR1.5\|RR2** | 86 | 70.9% | 3.35 | $2,071 | 7.6% |
+| ATR2.0-BE: RR3\|BE0.75R | 80 | 83.8% | 5.25 | $1,650 | 7.5% |
+| ATR2.0: NoFilter\|RR3 | 65 | 73.8% | 4.31 | $1,579 | 9.8% |
+| TIERED: 50@0.5R\|30@1R\|20@1.5R | 138 | 81.2% | 2.72 | $1,537 | 10.9% |
 
-**Recommended:** `--tf m5` with `ATR0.8|RR1.5`
+**Recommended:** `--tf scalp` with `ATR1.5|RR2` (NoFilter)
+**High WR alternative:** `ATR2.0|RR3|BE0.75R` (83.8% WR, PF 5.25)
 
-### XAUUSD.s (Gold) - Use Scalp Timeframe (H1/M15/M1)
-| Strategy | Win% | PF | PnL | Max DD | Trades |
-|----------|------|-----|-----|--------|--------|
-| **XAU-OPTIMAL: ATR1.5\|RR2** | 75.4% | 3.07 | $3481 | 6.8% | 122 |
-| XAU-OPTIMAL: ATR1.5\|RR1.5 | 77.1% | 2.68 | $3309 | 10.5% | 131 |
-| XAU-OPTIMAL: ATR1.2\|RR2 | 68.9% | 2.29 | $2459 | 11.5% | 135 |
+### XAUUSD.s (Gold) - Scalp Timeframe (H1/M15/M1)
+| Strategy | Trades | Win% | PF | PnL | Max DD |
+|----------|--------|------|-----|-----|--------|
+| **EVERY-OB: NoFilter\|RR2.5** | 65 | 83.1% | 6.44 | $2,311 | 4.9% |
+| BE: 0.75R\|RR3\|3pips | 73 | 84.9% | 7.72 | $2,215 | 3.9% |
+| EVERY-OB-BE: NoFilter\|RR2.5\|BE1R | 71 | 84.5% | 7.48 | $2,221 | 4.9% |
+| ATR2.0-BE: RR3\|BE0.75R | 28 | 89.3% | 9.09 | $1,074 | 2.2% |
 
-**Recommended:** `--tf scalp` with `ATR1.5|RR2`
+**Recommended:** `--tf scalp` with `NoFilter|RR2.5`
+**Safe alternative:** `OB70|RR3|BE0.75R` (84.9% WR, 3.9% MaxDD - great for prop firms)
 
-### XAGUSD.s (Silver) - Use Scalp Timeframe (H1/M15/M1)
-| Strategy | Win% | PF | PnL | Max DD | Trades |
-|----------|------|-----|-----|--------|--------|
-| **XAG-OPTIMAL: OB70\|RR2.5** | 61.4% | 1.87 | $669 | 13.6% | 57 |
-| XAG-OPTIMAL: OB65\|RR2 | 66.1% | 1.94 | $653 | 9.0% | 56 |
-| XAG-OPTIMAL: ATR1.2\|RR2 | 65.4% | 1.76 | $524 | 17.0% | 52 |
+### XAGUSD.s (Silver) - Scalp Timeframe (H1/M15/M1)
+| Strategy | Trades | Win% | PF | PnL | Max DD |
+|----------|--------|------|-----|-----|--------|
+| **TIERED: 50@0.5R\|30@1R\|20@1.5R** | 164 | 80.5% | 2.95 | $3,066 | 7.7% |
+| TIERED+BE: 50@1R\|30@2R\|20@3R\|BE0.75R | 135 | 77.8% | 3.06 | $2,810 | 10.2% |
+| EVERY-OB: NoFilter\|RR3 | 127 | 63.8% | 2.38 | $2,803 | 19.4% |
+| BE: 1R\|RR2\|5pips | 150 | 73.3% | 2.56 | $2,800 | 11.1% |
 
-**Recommended:** `--tf scalp` with `OB65|RR2`
+**Recommended:** `--tf scalp` with `TIERED 50@0.5R|30@1R|20@1.5R`
 
 ---
 
@@ -52,9 +64,9 @@ After multiple iterations of optimization testing different timeframes, ATR mult
 
 | Preset | HTF | MTF | LTF | Best For |
 |--------|-----|-----|-----|----------|
+| **`scalp`** | H1 | M15 | M1 | **ALL symbols (Feb 2026 best)** |
 | `standard` | H4 | H1 | M5 | General |
-| `scalp` | H1 | M15 | M1 | Metals (Gold/Silver) |
-| `m5` | H4 | M30 | M5 | **BTCUSD (Best)** |
+| `m5` | H4 | M30 | M5 | Legacy BTC (outdated) |
 | `m1` | H1 | M15 | M1 | Same as scalp |
 | `intraday` | H4 | H1 | M15 | Conservative |
 | `swing` | D1 | H4 | H1 | Position trading |
@@ -64,39 +76,47 @@ After multiple iterations of optimization testing different timeframes, ATR mult
 ## Strategy Parameters Explained
 
 ### ATR Multiplier (atrMult)
-- **0.8**: More sensitive OB detection, more trades
-- **1.0**: Standard (default)
-- **1.2**: Moderate filtering
-- **1.5**: Stricter OB detection, fewer but higher quality trades
+- **1.0**: Standard (default for Gold/Silver)
+- **1.5**: **Best for BTCUSD** - filters to higher quality OBs
+- **2.0**: Highest win rates (83-89%) but fewer trades - great for prop firms
 
 ### OB Score (minOBScore)
-- **60**: More trades, lower quality
-- **65**: Good balance
-- **70**: Standard (recommended)
-- **75-80**: Fewer trades, higher quality
+- **0**: **NoFilter** - take every OB (best when combined with ATR filtering)
+- **70**: Standard quality filter (best for Silver tiered TP)
+- **75-80**: Very strict - too few trades
 
 ### Risk:Reward (fixedRR)
-- **1.5**: Higher win rate, smaller wins
-- **2.0**: Standard (recommended)
-- **2.5**: Lower win rate, bigger wins
-- **3.0**: Much lower win rate
+- **1.5**: Higher win rate, good for tiered TP final target
+- **2.0**: Standard (best for BTC with ATR1.5)
+- **2.5**: Best for Gold NoFilter OB
+- **3.0**: Best with breakeven at 0.75R (protects against losses)
+
+### Breakeven (BE)
+- **0.75R trigger**: Move SL to entry when trade reaches 0.75R profit - **best overall**
+- **1.0R trigger**: Standard - slightly worse than 0.75R
+- **Buffer 3-5 pips**: Lock in small profit above entry
+
+### Tiered TP
+- **50@0.5R|30@1R|20@1.5R**: Scalp quick - best for Silver ($3,066 in 20 days)
+- **50@1R|30@2R|20@3R**: Balanced runner with BE
+- **30@1R|30@2R|40@4R**: Aggressive runner
 
 ---
 
 ## CLI Usage
 
 ```bash
-# Test BTCUSD with optimal M5 timeframe
-node scripts/quick-backtest.mjs --compare-all --tf m5 -s BTCUSD
+# Test BTCUSD with optimal scalp timeframe (NEW - was m5)
+node scripts/quick-backtest.mjs --compare-all --tf scalp -s BTCUSD
 
-# Test Gold with optimal scalp timeframe
+# Test Gold with scalp timeframe
 node scripts/quick-backtest.mjs --compare-all --tf scalp -s XAUUSD.s
 
-# Compare all timeframes for a symbol
-node scripts/quick-backtest.mjs --compare-timeframes -s BTCUSD
+# Test Silver with scalp timeframe
+node scripts/quick-backtest.mjs --compare-all --tf scalp -s XAGUSD.s
 
 # Custom date range
-node scripts/quick-backtest.mjs --compare-all --tf m5 -s BTCUSD --start 2025-12-01 --end 2026-01-14
+node scripts/quick-backtest.mjs --compare-all --tf scalp -s BTCUSD --start 2026-01-22 --end 2026-02-11
 
 # Quick single run
 node scripts/quick-backtest.mjs --tf scalp -s XAUUSD.s
@@ -106,49 +126,32 @@ node scripts/quick-backtest.mjs --tf scalp -s XAUUSD.s
 
 ## Risk Management Guidelines
 
-| Account Type | Max DD | Kill Zones | Strategy |
-|--------------|--------|------------|----------|
-| Prop Firm Challenge | 5-6% | Yes | SAFE: OB70\|KZ\|DD6% |
-| Funded Account | 8% | No | Symbol-specific optimal |
-| Personal Account | 8-10% | No | Aggressive optimal |
-
----
-
-## Performance Comparison: NoConf vs Confirmation
-
-### 30-Day Test Results (Dec 15 - Jan 14, 2026)
-
-| Symbol | NoConf Win% | NoConf PF | Confirm Win% | Confirm PF |
-|--------|-------------|-----------|--------------|------------|
-| BTCUSD | 61-69% | 2.0-2.6 | 44% | 1.27 |
-| XAUUSD.s | 75-77% | 2.7-3.1 | 46% | 1.19 |
-| XAGUSD.s | 61-66% | 1.7-1.9 | 46% | 1.70 |
-
-**Conclusion:** NoConf strategies significantly outperform in all metrics.
-
----
-
-## Code Reference
-
-Strategy configurations in `scripts/quick-backtest.mjs`:
-- Line 183-214: `VARIATIONS` array with all strategies
-- Line 28-44: `TIMEFRAME_PRESETS` for different timeframe combinations
+| Account Type | Max DD | Strategy | Profile |
+|--------------|--------|----------|---------|
+| Prop Firm Challenge | 3-5% | XAU: OB70\|RR3\|BE0.75R | `XAU_SAFE` |
+| Funded Account | 8% | Symbol-specific optimal | `*_OPTIMAL` |
+| Personal Account | 8-20% | NoFilter + high RR | Aggressive |
 
 ---
 
 ## Iteration History
 
-### Iteration 1 (Jan 2026)
+### Jan 2026 - Round 1
 - Tested confirmation types: NoConf, Close, Strong, Engulf
-- Finding: NoConf dominated across all symbols
-
-### Iteration 2 (Jan 2026)
 - Tested R:R variations: 1.5, 2.0, 2.5, 3.0
 - Tested OB scores: 60, 65, 70, 75, 80
 - Tested ATR multipliers: 0.8, 1.0, 1.2, 1.5
-- Finding: Optimal parameters vary by symbol
+- Finding: NoConf dominated, optimal params vary by symbol
 
-### Final (Jan 2026)
-- Created symbol-specific optimal strategies
-- Added timeframe comparison feature
-- Validated across multiple date ranges
+### Feb 2026 - Round 1 (20-day test, 124 variations)
+- Tested all existing strategies on Jan 22 - Feb 11 data
+- Finding: BTC on M5 only produced 1 OB trade (useless)
+- Finding: Gold EVERY-OB NoFilter|RR2.5 = 83.1% WR, PF 6.44
+- Finding: Silver TIERED 50@0.5R|30@1R|20@1.5R = 80.5% WR
+
+### Feb 2026 - Round 2 (20-day test, 141 variations)
+- Added 17 hybrid strategies: BE+higher RR, NoFilter+BE, ATR2.0+BE, Tiered+BE
+- **BREAKTHROUGH**: BTC on Scalp (H1/M15/M1) = $2,071 vs $215 on M5
+- ATR2.0-BE: RR3|BE0.75R = 83.8% WR on BTC
+- Confirmed BE at 0.75R consistently outperforms 1.0R
+- Updated all strategy profiles with new optimal configurations

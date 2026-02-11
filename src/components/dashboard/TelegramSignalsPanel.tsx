@@ -237,11 +237,11 @@ export function TelegramSignalsPanel() {
             )}
           </div>
           <Button
-            variant={listener?.isConnected ? 'destructive' : 'default'}
+            variant="ghost"
             size="sm"
             onClick={toggleListener}
             disabled={isToggling}
-            className="h-7 px-3 text-xs"
+            className="h-7 px-2 text-xs"
           >
             {isToggling ? '...' : listener?.isConnected ? 'Stop' : 'Start'}
           </Button>

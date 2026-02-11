@@ -132,6 +132,8 @@ export default function Dashboard() {
   const [telegramStatus, setTelegramStatus] = useState<TelegramListenerStatus | null>(null);
   const [selectedSymbol, setSelectedSymbol] = useState('XAUUSD.s');
   const [isLoading, setIsLoading] = useState(true);
+  const [isBotToggling, setIsBotToggling] = useState(false);
+  const [isTelegramToggling, setIsTelegramToggling] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -185,42 +187,30 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  const handleStartBot = async () => {
+  const handleToggleBot = async () => {
+    const isRunning = accountData?.botStatus.isRunning || false;
+    setIsBotToggling(true);
     try {
       const res = await fetch('/api/bot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'start' }),
+        body: JSON.stringify({ action: isRunning ? 'stop' : 'start' }),
       });
 
-      if (!res.ok) throw new Error('Failed to start bot');
+      if (!res.ok) throw new Error(`Failed to ${isRunning ? 'stop' : 'start'} bot`);
 
       await fetchData();
     } catch (err) {
-      console.error('Error starting bot:', err);
-      setError('Failed to start bot. Please try again.');
-    }
-  };
-
-  const handleStopBot = async () => {
-    try {
-      const res = await fetch('/api/bot', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'stop' }),
-      });
-
-      if (!res.ok) throw new Error('Failed to stop bot');
-
-      await fetchData();
-    } catch (err) {
-      console.error('Error stopping bot:', err);
-      setError('Failed to stop bot. Please try again.');
+      console.error('Error toggling bot:', err);
+      setError(`Failed to ${isRunning ? 'stop' : 'start'} bot. Please try again.`);
+    } finally {
+      setIsBotToggling(false);
     }
   };
 
   const handleToggleTelegram = async () => {
     const isRunning = telegramStatus?.isConnected || false;
+    setIsTelegramToggling(true);
     try {
       const res = await fetch('/api/telegram-listener', {
         method: 'POST',
@@ -234,6 +224,8 @@ export default function Dashboard() {
     } catch (err) {
       console.error('Error toggling telegram listener:', err);
       setError('Failed to toggle Telegram listener. Please try again.');
+    } finally {
+      setIsTelegramToggling(false);
     }
   };
 
@@ -255,12 +247,23 @@ export default function Dashboard() {
             <p className="text-muted-foreground text-sm md:text-base">Smart Money Concept Automated Trading</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 md:gap-4">
-            <ServiceStatus
-              label="Bot"
-              icon={Bot}
-              isRunning={accountData?.botStatus.isRunning || false}
-              startedAt={accountData?.botStatus.startedAt || null}
-            />
+            <div className="flex items-center gap-1">
+              <ServiceStatus
+                label="Bot"
+                icon={Bot}
+                isRunning={accountData?.botStatus.isRunning || false}
+                startedAt={accountData?.botStatus.startedAt || null}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleToggleBot}
+                disabled={isBotToggling}
+                className="h-7 px-2 text-xs"
+              >
+                {isBotToggling ? '...' : accountData?.botStatus.isRunning ? 'Stop' : 'Start'}
+              </Button>
+            </div>
             <div className="flex items-center gap-1">
               <ServiceStatus
                 label="Signals"
@@ -272,9 +275,10 @@ export default function Dashboard() {
                 variant="ghost"
                 size="sm"
                 onClick={handleToggleTelegram}
+                disabled={isTelegramToggling}
                 className="h-7 px-2 text-xs"
               >
-                {telegramStatus?.isConnected ? 'Stop' : 'Start'}
+                {isTelegramToggling ? '...' : telegramStatus?.isConnected ? 'Stop' : 'Start'}
               </Button>
             </div>
             <Link href="/calculator" className="hidden md:inline-flex">
@@ -340,8 +344,8 @@ export default function Dashboard() {
               isRunning={accountData?.botStatus.isRunning || false}
               symbols={accountData?.botStatus.symbols || ['XAUUSD.s', 'XAGUSD.s', 'BTCUSD', 'ETHUSD']}
               startedAt={accountData?.botStatus.startedAt || null}
-              onStart={handleStartBot}
-              onStop={handleStopBot}
+              onStart={handleToggleBot}
+              onStop={handleToggleBot}
               onRefresh={fetchData}
             />
           </div>
