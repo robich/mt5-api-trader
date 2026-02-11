@@ -122,11 +122,19 @@ class TelegramListenerService {
    * On AUTH_KEY_DUPLICATED, destroys the client and retries after a delay
    * (the old connection from a previous deploy needs time to expire).
    */
+  /**
+   * Ensure the singleton client is connected.
+   * On AUTH_KEY_DUPLICATED, retries up to 3 times with increasing delays
+   * (old deploy connection needs time to expire on Telegram servers).
+   */
   private async ensureConnected(): Promise<TelegramClient> {
     const client = this.getOrCreateClient();
     if (client.connected) {
       return client;
     }
+
+    // Retry delays for AUTH_KEY_DUPLICATED: 15s, 30s, 60s
+    const retryDelays = [15_000, 30_000, 60_000];
 
     console.log('[TelegramListener] Calling client.connect()...');
     try {
@@ -134,21 +142,39 @@ class TelegramListenerService {
       console.log('[TelegramListener] client.connect() succeeded');
       return client;
     } catch (error: any) {
-      const msg = error?.message || String(error);
-      const code = error?.code || error?.errorMessage || 'unknown';
-      console.error('[TelegramListener] client.connect() failed:', { message: msg, code, errorType: error?.constructor?.name });
-      if (msg.includes('AUTH_KEY_DUPLICATED')) {
-        console.warn('[TelegramListener] AUTH_KEY_DUPLICATED — previous connection still alive, destroying client and retrying in 10s...');
+      const errMsg = error?.message || String(error);
+      console.error('[TelegramListener] client.connect() failed:', {
+        message: errMsg,
+        code: error?.code || error?.errorMessage,
+      });
+
+      if (!errMsg.includes('AUTH_KEY_DUPLICATED')) {
+        throw error;
+      }
+
+      // Retry loop for AUTH_KEY_DUPLICATED
+      for (let i = 0; i < retryDelays.length; i++) {
+        const delay = retryDelays[i];
+        console.warn(`[TelegramListener] AUTH_KEY_DUPLICATED — waiting ${delay / 1000}s before retry ${i + 1}/${retryDelays.length}...`);
         try { await client.disconnect(); } catch { /* ignore */ }
         this.client = null;
-        await new Promise((r) => setTimeout(r, 10_000));
-        console.log('[TelegramListener] Retrying with fresh client...');
+        await new Promise((r) => setTimeout(r, delay));
+
         const freshClient = this.getOrCreateClient();
-        await freshClient.connect();
-        console.log('[TelegramListener] Retry succeeded');
-        return freshClient;
+        try {
+          await freshClient.connect();
+          console.log(`[TelegramListener] Retry ${i + 1} succeeded`);
+          return freshClient;
+        } catch (retryErr: any) {
+          const retryMsg = retryErr?.message || String(retryErr);
+          if (!retryMsg.includes('AUTH_KEY_DUPLICATED')) {
+            throw retryErr;
+          }
+          console.warn(`[TelegramListener] Retry ${i + 1} failed: AUTH_KEY_DUPLICATED`);
+        }
       }
-      throw error;
+
+      throw new Error('AUTH_KEY_DUPLICATED: failed after all retries — is another instance using this session?');
     }
   }
 
