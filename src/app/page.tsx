@@ -249,7 +249,7 @@ export default function Dashboard() {
               isRunning={telegramStatus?.isConnected || false}
               startedAt={telegramStatus?.startedAt || null}
             />
-            <Link href="/calculator">
+            <Link href="/calculator" className="hidden md:inline-flex">
               <Button variant="outline" size="sm">
                 <Calculator className="h-4 w-4 mr-2" />
                 Calculator
@@ -320,7 +320,7 @@ export default function Dashboard() {
         </div>
 
         {/* TradingView Chart - Full Width */}
-        <Card className="overflow-visible">
+        <Card id="chart" className="overflow-visible scroll-mt-4">
           <CardContent className="p-0 h-[400px] md:h-[600px] overflow-visible">
             <TradingViewChart
               symbol={selectedSymbol}
@@ -404,7 +404,7 @@ export default function Dashboard() {
           </div>
 
           {/* Signals & Analysis Panel */}
-          <div className="space-y-4 md:space-y-6">
+          <div id="signals" className="space-y-4 md:space-y-6 scroll-mt-4">
             <TelegramSignalsPanel />
             <MarketAnalysisPanel />
             <AnalysisPanel analysisResults={analysisData?.analysis || []} />

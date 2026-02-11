@@ -74,6 +74,7 @@ const nextConfig = {
   },
   // Mark metaapi as external for server-side to avoid bundling issues
   experimental: {
+    instrumentationHook: true,
     serverComponentsExternalPackages: ['metaapi.cloud-sdk'],
   },
 };
