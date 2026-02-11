@@ -36,6 +36,7 @@ class TelegramListenerService {
   private reconnectAttempts = 0;
   private healthCheckInterval: NodeJS.Timeout | null = null;
   private lastCallbacks: TelegramMessageCallback | null = null;
+  private connectPromise: Promise<TelegramClient> | null = null; // mutex for concurrent connect calls
 
   initialize(): boolean {
     const apiId = process.env.TELEGRAM_API_ID?.trim();
@@ -118,14 +119,9 @@ class TelegramListenerService {
 
   /**
    * Ensure the singleton client is connected.
-   * If already connected, returns immediately.
-   * On AUTH_KEY_DUPLICATED, destroys the client and retries after a delay
-   * (the old connection from a previous deploy needs time to expire).
-   */
-  /**
-   * Ensure the singleton client is connected.
-   * On AUTH_KEY_DUPLICATED, retries up to 3 times with increasing delays
-   * (old deploy connection needs time to expire on Telegram servers).
+   * Uses a mutex (connectPromise) so concurrent callers (start + fetchLatest)
+   * share a single connection attempt instead of racing each other.
+   * On AUTH_KEY_DUPLICATED, retries with exponential backoff (never gives up).
    */
   private async ensureConnected(): Promise<TelegramClient> {
     const client = this.getOrCreateClient();
@@ -133,54 +129,65 @@ class TelegramListenerService {
       return client;
     }
 
-    // Retry delays for AUTH_KEY_DUPLICATED: 15s, 30s, 60s
-    const retryDelays = [15_000, 30_000, 60_000];
+    // Mutex: if another caller is already connecting, wait for that attempt
+    if (this.connectPromise) {
+      console.log('[TelegramListener] Connection attempt already in progress, waiting...');
+      return this.connectPromise;
+    }
 
-    console.log('[TelegramListener] Calling client.connect()...');
+    this.connectPromise = this._doConnect();
     try {
-      await client.connect();
-      console.log('[TelegramListener] client.connect() succeeded');
-      return client;
-    } catch (error: any) {
-      const errMsg = error?.message || String(error);
-      console.error('[TelegramListener] client.connect() failed:', {
-        message: errMsg,
-        code: error?.code || error?.errorMessage,
-      });
+      return await this.connectPromise;
+    } finally {
+      this.connectPromise = null;
+    }
+  }
 
-      if (!errMsg.includes('AUTH_KEY_DUPLICATED')) {
-        throw error;
-      }
+  /**
+   * Internal connect logic with indefinite AUTH_KEY_DUPLICATED retries.
+   * Backoff: 30s, 60s, 120s, 120s, 120s, ... (caps at 2 minutes)
+   */
+  private async _doConnect(): Promise<TelegramClient> {
+    let attempt = 0;
+    const maxDelay = 120_000; // 2 minutes cap
 
-      // Retry loop for AUTH_KEY_DUPLICATED
-      for (let i = 0; i < retryDelays.length; i++) {
-        const delay = retryDelays[i];
-        console.warn(`[TelegramListener] AUTH_KEY_DUPLICATED — waiting ${delay / 1000}s before retry ${i + 1}/${retryDelays.length}...`);
-        try { await client.disconnect(); } catch { /* ignore */ }
+    while (true) {
+      // Destroy any stale client before each attempt
+      if (attempt > 0) {
+        try { await this.client?.disconnect(); } catch { /* ignore */ }
         this.client = null;
-        await new Promise((r) => setTimeout(r, delay));
-
-        const freshClient = this.getOrCreateClient();
-        try {
-          await freshClient.connect();
-          console.log(`[TelegramListener] Retry ${i + 1} succeeded`);
-          return freshClient;
-        } catch (retryErr: any) {
-          const retryMsg = retryErr?.message || String(retryErr);
-          if (!retryMsg.includes('AUTH_KEY_DUPLICATED')) {
-            throw retryErr;
-          }
-          console.warn(`[TelegramListener] Retry ${i + 1} failed: AUTH_KEY_DUPLICATED`);
-        }
       }
 
-      throw new Error('AUTH_KEY_DUPLICATED: failed after all retries — is another instance using this session?');
+      const client = this.getOrCreateClient();
+      console.log(`[TelegramListener] Calling client.connect() (attempt ${attempt + 1})...`);
+
+      try {
+        await client.connect();
+        console.log('[TelegramListener] client.connect() succeeded');
+        return client;
+      } catch (error: any) {
+        const errMsg = error?.message || String(error);
+        console.error('[TelegramListener] client.connect() failed:', {
+          message: errMsg,
+          code: error?.code || error?.errorMessage,
+        });
+
+        if (!errMsg.includes('AUTH_KEY_DUPLICATED')) {
+          throw error; // non-retryable error
+        }
+
+        attempt++;
+        const delay = Math.min(30_000 * Math.pow(2, attempt - 1), maxDelay);
+        console.warn(`[TelegramListener] AUTH_KEY_DUPLICATED — waiting ${delay / 1000}s before retry ${attempt}...`);
+        await new Promise((r) => setTimeout(r, delay));
+      }
     }
   }
 
   /**
    * Fetch the latest messages from the channel on demand.
-   * Reuses the singleton client — never creates a second connection.
+   * Only works if already connected — does NOT trigger a new connection
+   * to avoid racing with start() and causing AUTH_KEY_DUPLICATED.
    */
   async fetchLatest(count: number = 10): Promise<Array<{
     id: number;
@@ -193,8 +200,12 @@ class TelegramListenerService {
       throw new Error('Telegram listener not enabled (missing env vars)');
     }
 
-    const client = await this.ensureConnected();
-    return this._fetchMessages(client, count);
+    if (!this.client?.connected) {
+      console.log('[TelegramListener] fetchLatest: not connected yet, returning empty');
+      return [];
+    }
+
+    return this._fetchMessages(this.client, count);
   }
 
   private async _fetchMessages(client: TelegramClient, count: number): Promise<Array<{

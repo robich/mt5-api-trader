@@ -93,7 +93,7 @@ export class TradingBot {
     // Start market analysis scheduler
     analysisScheduler.start();
 
-    // Initialize Telegram channel listener (non-blocking)
+    // Initialize Telegram channel listener (fire-and-forget — never blocks bot startup)
     try {
       console.log('[Bot] Initializing Telegram listener...');
       const listenerEnabled = telegramListener.initialize();
@@ -101,16 +101,25 @@ export class TradingBot {
       if (listenerEnabled) {
         telegramSignalAnalyzer.initialize();
         telegramTradeExecutor.initialize();
-        console.log('[Bot] Calling telegramListener.start()...');
-        await telegramListener.start({
-          onMessage: async (msg) => {
-            await telegramTradeExecutor.processMessage(msg);
-          },
-        });
-        console.log('[Bot] Telegram channel listener started successfully');
+        const startDelayS = parseInt(process.env.TELEGRAM_START_DELAY_S || '30', 10);
+        console.log(`[Bot] Telegram listener will connect in ${startDelayS}s (TELEGRAM_START_DELAY_S)...`);
+        // Fire-and-forget: start in background after delay so old deploy has time to release the session
+        setTimeout(async () => {
+          try {
+            console.log('[Bot] Starting Telegram listener now...');
+            await telegramListener.start({
+              onMessage: async (msg) => {
+                await telegramTradeExecutor.processMessage(msg);
+              },
+            });
+            console.log('[Bot] Telegram channel listener started successfully');
+          } catch (err) {
+            console.error('[Bot] Telegram listener failed to start:', err);
+          }
+        }, startDelayS * 1000);
       }
     } catch (listenerError) {
-      console.error('[Bot] Telegram listener failed to start (non-blocking):', listenerError);
+      console.error('[Bot] Telegram listener init failed (non-blocking):', listenerError);
     }
 
     try {

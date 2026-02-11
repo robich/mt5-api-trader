@@ -107,7 +107,10 @@
       "Bash(git -C \"C:\\\\Users\\\\genoletr\\\\Documents\\\\git\\\\per\\\\mt5-api-trader\" commit -m \"$\\(cat <<''EOF''\nfeat: custom server entry point for reliable bot auto-start\n\nReplace `next start` with a custom server.mjs that starts Next.js\nand then calls POST /api/bot { action: ''start'' } via localhost 5s\nafter the server is listening. This guarantees the bot starts on\nevery deploy without needing a page visit or manual button click.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git -C \"C:\\\\Users\\\\genoletr\\\\Documents\\\\git\\\\per\\\\mt5-api-trader\" add server.mjs)",
       "Bash(git -C \"C:\\\\Users\\\\genoletr\\\\Documents\\\\git\\\\per\\\\mt5-api-trader\" commit -m \"$\\(cat <<''EOF''\nfix: graceful shutdown on SIGTERM to prevent AUTH_KEY_DUPLICATED\n\nOn SIGTERM \\(DigitalOcean deploy\\), the old process now calls\nPOST /api/bot { stop } to disconnect the Telegram session cleanly\nbefore exiting. This releases the auth key so the new process can\nconnect without hitting AUTH_KEY_DUPLICATED. Force-exits after 15s\nif shutdown hangs.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(findstr:*)",
+      "Bash(git commit:*)",
+      "Bash(git -C \"C:\\\\Users\\\\genoletr\\\\Documents\\\\git\\\\per\\\\mt5-api-trader\" log --oneline -20)"
     ]
   }
 }
