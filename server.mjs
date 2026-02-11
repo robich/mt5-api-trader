@@ -1,7 +1,8 @@
 /**
  * Custom server entry point.
  * Starts Next.js, then auto-starts the trading bot once the server is ready.
- * This replaces `next start` so the bot starts on deploy without any page visit.
+ * On SIGTERM (deploy), gracefully stops the bot so the Telegram session
+ * is released before the new process tries to connect.
  */
 import { createServer } from 'http';
 import { parse } from 'url';
@@ -37,4 +38,31 @@ app.prepare().then(() => {
       }, 5000);
     }
   });
+
+  // Graceful shutdown: stop the bot and disconnect Telegram before exiting.
+  // This prevents AUTH_KEY_DUPLICATED on the next deploy — the old process
+  // cleanly releases the Telegram session so the new one can connect.
+  const shutdown = async (signal) => {
+    console.log(`[Server] ${signal} received, stopping bot...`);
+    try {
+      await fetch(`http://127.0.0.1:${port}/api/bot`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'stop' }),
+        signal: AbortSignal.timeout(10000),
+      });
+      console.log('[Server] Bot stopped, closing server...');
+    } catch (err) {
+      console.error('[Server] Error stopping bot:', err.message);
+    }
+    server.close(() => {
+      console.log('[Server] Server closed');
+      process.exit(0);
+    });
+    // Force exit after 15s if graceful shutdown hangs
+    setTimeout(() => process.exit(1), 15000);
+  };
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 });
