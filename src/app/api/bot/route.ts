@@ -4,8 +4,27 @@ import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
+// Auto-start: triggered once when the first GET /api/bot request arrives
+// (dashboard polls this on load). More reliable than instrumentation.ts.
+let autoStartTriggered = false;
+
 export async function GET() {
   try {
+    // Auto-start bot on first status check if enabled
+    if (!autoStartTriggered && process.env.BOT_AUTO_START !== 'false') {
+      autoStartTriggered = true;
+      const status = tradingBot.getStatus();
+      if (!status.isRunning) {
+        console.log('[Auto-Start] Bot not running — starting automatically...');
+        // Fire-and-forget so the status response isn't delayed
+        tradingBot.start().then(() => {
+          console.log('[Auto-Start] Trading bot started successfully');
+        }).catch((err) => {
+          console.error('[Auto-Start] Failed to start trading bot:', err);
+        });
+      }
+    }
+
     const status = tradingBot.getStatus();
 
     const botState = await prisma.botState.findUnique({
