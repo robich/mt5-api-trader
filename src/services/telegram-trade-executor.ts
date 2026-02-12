@@ -62,21 +62,23 @@ class TelegramTradeExecutor {
     const analysis = await telegramSignalAnalyzer.analyzeMessage(msg.text, dbMessage.id);
     console.log(`[TradeExecutor] Analysis result: ${analysis.category} (confidence: ${analysis.confidence})`);
 
-    // Persist analysis
-    const dbAnalysis = await prisma.telegramSignalAnalysis.create({
-      data: {
-        messageId: dbMessage.id,
-        category: analysis.category,
-        symbol: analysis.symbol,
-        direction: analysis.direction,
-        entryPrice: analysis.entryPrice,
-        stopLoss: analysis.stopLoss,
-        takeProfit: analysis.takeProfit,
-        confidence: analysis.confidence,
-        reasoning: analysis.reasoning,
-        linkedSignalId: analysis.linkedSignalId,
-        executionStatus: 'PENDING',
-      },
+    // Persist analysis (upsert to handle duplicate messages)
+    const analysisData = {
+      category: analysis.category,
+      symbol: analysis.symbol,
+      direction: analysis.direction,
+      entryPrice: analysis.entryPrice,
+      stopLoss: analysis.stopLoss,
+      takeProfit: analysis.takeProfit,
+      confidence: analysis.confidence,
+      reasoning: analysis.reasoning,
+      linkedSignalId: analysis.linkedSignalId,
+      executionStatus: 'PENDING',
+    };
+    const dbAnalysis = await prisma.telegramSignalAnalysis.upsert({
+      where: { messageId: dbMessage.id },
+      create: { messageId: dbMessage.id, ...analysisData },
+      update: analysisData,
     });
 
     // Skip execution if the message is too old (>30s)
@@ -142,21 +144,23 @@ class TelegramTradeExecutor {
     // Analyze with Claude
     const analysis = await telegramSignalAnalyzer.analyzeMessage(text, dbMessage.id);
 
-    // Persist analysis
-    const dbAnalysis = await prisma.telegramSignalAnalysis.create({
-      data: {
-        messageId: dbMessage.id,
-        category: analysis.category,
-        symbol: analysis.symbol,
-        direction: analysis.direction,
-        entryPrice: analysis.entryPrice,
-        stopLoss: analysis.stopLoss,
-        takeProfit: analysis.takeProfit,
-        confidence: analysis.confidence,
-        reasoning: analysis.reasoning,
-        linkedSignalId: analysis.linkedSignalId,
-        executionStatus: simulate ? 'SKIPPED' : 'PENDING',
-      },
+    // Persist analysis (upsert to handle duplicate messages)
+    const testAnalysisData = {
+      category: analysis.category,
+      symbol: analysis.symbol,
+      direction: analysis.direction,
+      entryPrice: analysis.entryPrice,
+      stopLoss: analysis.stopLoss,
+      takeProfit: analysis.takeProfit,
+      confidence: analysis.confidence,
+      reasoning: analysis.reasoning,
+      linkedSignalId: analysis.linkedSignalId,
+      executionStatus: simulate ? 'SKIPPED' : 'PENDING',
+    };
+    const dbAnalysis = await prisma.telegramSignalAnalysis.upsert({
+      where: { messageId: dbMessage.id },
+      create: { messageId: dbMessage.id, ...testAnalysisData },
+      update: testAnalysisData,
     });
 
     if (!simulate && analysis.category === 'SIGNAL') {
