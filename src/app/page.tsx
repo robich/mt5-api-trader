@@ -69,6 +69,7 @@ interface StatsData {
     netDeposits: number;
     totalSwap: number;
     totalCommission: number;
+    tradingProfit?: number;
     operations: Array<{
       type: string;
       amount: number;

@@ -39,14 +39,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get balance summary from MetaAPI deals (only when bot is running)
-    let balanceSummary: {
-      totalDeposits: number;
-      totalWithdrawals: number;
-      netDeposits: number;
-      totalSwap: number;
-      totalCommission: number;
-      operations: Array<{ type: string; amount: number; time: Date; comment: string | null }>;
-    } | null = null;
+    let balanceSummary: BalanceSummary | null = null;
 
     if (botStatus.isRunning) {
       try {
@@ -57,6 +50,7 @@ export async function GET(request: NextRequest) {
           netDeposits: summary.deposits - summary.withdrawals,
           totalSwap: summary.totalSwap,
           totalCommission: summary.totalCommission,
+          tradingProfit: summary.tradingProfit,
           operations: summary.operations,
         };
       } catch (error) {
@@ -91,6 +85,7 @@ interface BalanceSummary {
   netDeposits: number;
   totalSwap: number;
   totalCommission: number;
+  tradingProfit?: number;
   operations: Array<{ type: string; amount: number; time: Date; comment: string | null }>;
 }
 
@@ -136,8 +131,9 @@ async function buildEquityCurveFromTrades(
     return [];
   }
 
-  // Calculate total P&L from ALL closed trades (raw profit, excludes swap/commission)
-  const totalPnl = closedTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+  // Total trading P&L: prefer deal summary (complete) over DB trades (may have null PnL)
+  const totalPnl = balanceSummary?.tradingProfit
+    ?? closedTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
 
   // Starting balance = current balance - all cash flows
   // currentBalance = startingBalance + netDeposits + tradingProfit + swap + commission
