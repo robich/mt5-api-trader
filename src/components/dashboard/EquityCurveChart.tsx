@@ -28,6 +28,8 @@ interface BalanceSummary {
   totalDeposits: number;
   totalWithdrawals: number;
   netDeposits: number;
+  totalSwap?: number;
+  totalCommission?: number;
   operations: Array<{
     type: string;
     amount: number;
@@ -202,6 +204,26 @@ export function EquityCurveChart({
                   <span className="block text-xs text-orange-400">Withdrawals</span>
                   <span className="font-medium text-orange-400">
                     {formatCurrency(balanceSummary.totalWithdrawals)}
+                  </span>
+                </div>
+              )}
+            </>
+          )}
+          {balanceSummary && (balanceSummary.totalSwap || balanceSummary.totalCommission) && (
+            <>
+              {balanceSummary.totalSwap !== undefined && balanceSummary.totalSwap !== 0 && (
+                <div className="text-center">
+                  <span className="block text-xs text-yellow-400">Swap</span>
+                  <span className={`font-medium ${balanceSummary.totalSwap >= 0 ? 'text-yellow-400' : 'text-yellow-500'}`}>
+                    {balanceSummary.totalSwap >= 0 ? '' : '-'}{formatCurrency(Math.abs(balanceSummary.totalSwap))}
+                  </span>
+                </div>
+              )}
+              {balanceSummary.totalCommission !== undefined && balanceSummary.totalCommission !== 0 && (
+                <div className="text-center">
+                  <span className="block text-xs text-purple-400">Commission</span>
+                  <span className="font-medium text-purple-400">
+                    -{formatCurrency(Math.abs(balanceSummary.totalCommission))}
                   </span>
                 </div>
               )}

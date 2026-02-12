@@ -598,9 +598,10 @@ class MetaAPIClient {
   }
 
   /**
-   * Get balance deals (deposits/withdrawals) from the synchronized history storage
+   * Get ALL deals from the synchronized history storage (no type filter)
+   * Includes trading deals, balance operations, swaps, commissions, etc.
    */
-  async getBalanceDeals(startTime?: Date, endTime?: Date): Promise<any[]> {
+  async getAllDeals(startTime?: Date, endTime?: Date): Promise<any[]> {
     this.ensureConnected();
     try {
       const historyStorage = this.connection.historyStorage;
@@ -610,9 +611,6 @@ class MetaAPIClient {
       }
 
       let deals = historyStorage.deals;
-
-      // Filter to only balance deals
-      deals = deals.filter((d: any) => d.type === 'DEAL_TYPE_BALANCE');
 
       // Filter by time range if provided
       if (startTime || endTime) {
@@ -626,9 +624,61 @@ class MetaAPIClient {
 
       return deals;
     } catch (error) {
-      console.error('[MetaAPI] Error fetching balance deals:', error);
+      console.error('[MetaAPI] Error fetching all deals:', error);
       return [];
     }
+  }
+
+  /**
+   * Compute account summary from all deals in history storage
+   * Deposits, withdrawals, swap, commission, trading profit — all from deals
+   */
+  async getAccountDealsSummary(startTime?: Date, endTime?: Date): Promise<{
+    deposits: number;
+    withdrawals: number;
+    totalSwap: number;
+    totalCommission: number;
+    tradingProfit: number;
+    dealCount: number;
+    operations: Array<{ type: 'deposit' | 'withdrawal'; amount: number; time: Date; comment: string | null }>;
+  }> {
+    const deals = await this.getAllDeals(startTime, endTime);
+
+    let deposits = 0;
+    let withdrawals = 0;
+    let totalSwap = 0;
+    let totalCommission = 0;
+    let tradingProfit = 0;
+    const operations: Array<{ type: 'deposit' | 'withdrawal'; amount: number; time: Date; comment: string | null }> = [];
+
+    for (const deal of deals) {
+      // Accumulate swap and commission from every deal
+      totalSwap += deal.swap || 0;
+      totalCommission += deal.commission || 0;
+
+      if (deal.type === 'DEAL_TYPE_BALANCE') {
+        const profit = deal.profit || 0;
+        if (profit > 0) {
+          deposits += profit;
+          operations.push({ type: 'deposit', amount: profit, time: new Date(deal.time), comment: deal.comment || null });
+        } else if (profit < 0) {
+          withdrawals += Math.abs(profit);
+          operations.push({ type: 'withdrawal', amount: Math.abs(profit), time: new Date(deal.time), comment: deal.comment || null });
+        }
+      } else if (deal.type === 'DEAL_TYPE_BUY' || deal.type === 'DEAL_TYPE_SELL') {
+        tradingProfit += deal.profit || 0;
+      }
+    }
+
+    return {
+      deposits,
+      withdrawals,
+      totalSwap,
+      totalCommission,
+      tradingProfit,
+      dealCount: deals.length,
+      operations,
+    };
   }
 
   /**

@@ -888,66 +888,6 @@ export class TradeManager {
   }
 
   /**
-   * Sync balance operations (deposits/withdrawals) from MT5 to the database
-   * Uses upsert keyed on mt5DealId for idempotency
-   *
-   * Balance deal format from MetaAPI historyStorage:
-   * - type: "DEAL_TYPE_BALANCE"
-   * - profit: positive = deposit, negative = withdrawal
-   * - id: unique deal ID
-   * - time, comment
-   */
-  async syncBalanceOperations(balanceDeals: any[]): Promise<{ imported: number; skipped: number }> {
-    let imported = 0;
-    let skipped = 0;
-
-    for (const deal of balanceDeals) {
-      try {
-        const dealId = deal.id?.toString();
-        if (!dealId) {
-          skipped++;
-          continue;
-        }
-
-        const profit = deal.profit || 0;
-        if (profit === 0) {
-          skipped++;
-          continue;
-        }
-
-        const type = profit > 0 ? 'DEPOSIT' : 'WITHDRAWAL';
-        const amount = Math.abs(profit);
-
-        const result = await prisma.balanceOperation.upsert({
-          where: { mt5DealId: dealId },
-          update: {},  // No update needed - deal data doesn't change
-          create: {
-            mt5DealId: dealId,
-            type,
-            amount,
-            comment: deal.comment || null,
-            time: new Date(deal.time),
-          },
-        });
-
-        // upsert returns the record - check if it was just created
-        // by comparing createdAt with a small window
-        const isNew = Date.now() - result.createdAt.getTime() < 5000;
-        if (isNew) {
-          imported++;
-        } else {
-          skipped++;
-        }
-      } catch (error) {
-        console.error(`[TradeManager] Error syncing balance deal ${deal.id}:`, error);
-        skipped++;
-      }
-    }
-
-    return { imported, skipped };
-  }
-
-  /**
    * Update open trades with current prices from broker
    * Call this periodically to keep track of unrealized PnL
    */

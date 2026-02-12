@@ -297,19 +297,6 @@ model TelegramListenerState {
   updatedAt       DateTime @updatedAt
 }
 
-// Deposit/withdrawal operations from MT5
-model BalanceOperation {
-  id            String   @id @default(uuid())
-  mt5DealId     String   @unique
-  type          String   // DEPOSIT or WITHDRAWAL
-  amount        Float    // Always positive
-  comment       String?
-  time          DateTime
-  createdAt     DateTime @default(now())
-
-  @@index([time])
-}
-
 // Daily market analysis using Claude AI
 model MarketAnalysis {
   id                 String   @id @default(uuid())

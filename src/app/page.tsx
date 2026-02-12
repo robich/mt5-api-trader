@@ -67,13 +67,15 @@ interface StatsData {
     totalDeposits: number;
     totalWithdrawals: number;
     netDeposits: number;
+    totalSwap: number;
+    totalCommission: number;
     operations: Array<{
       type: string;
       amount: number;
       time: string;
       comment: string | null;
     }>;
-  };
+  } | null;
 }
 
 interface AnalysisData {

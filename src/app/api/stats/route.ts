@@ -38,20 +38,34 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Get balance operations (deposits/withdrawals)
-    const balanceOperations = await prisma.balanceOperation.findMany({
-      orderBy: { time: 'asc' },
-    });
+    // Get balance summary from MetaAPI deals (only when bot is running)
+    let balanceSummary: {
+      totalDeposits: number;
+      totalWithdrawals: number;
+      netDeposits: number;
+      totalSwap: number;
+      totalCommission: number;
+      operations: Array<{ type: string; amount: number; time: Date; comment: string | null }>;
+    } | null = null;
 
-    const totalDeposits = balanceOperations
-      .filter(op => op.type === 'DEPOSIT')
-      .reduce((sum, op) => sum + op.amount, 0);
-    const totalWithdrawals = balanceOperations
-      .filter(op => op.type === 'WITHDRAWAL')
-      .reduce((sum, op) => sum + op.amount, 0);
+    if (botStatus.isRunning) {
+      try {
+        const summary = await tradingBot.getAccountSummary();
+        balanceSummary = {
+          totalDeposits: summary.deposits,
+          totalWithdrawals: summary.withdrawals,
+          netDeposits: summary.deposits - summary.withdrawals,
+          totalSwap: summary.totalSwap,
+          totalCommission: summary.totalCommission,
+          operations: summary.operations,
+        };
+      } catch (error) {
+        console.error('Error fetching account summary from bot:', error);
+      }
+    }
 
-    // Build equity curve from closed trades (more accurate than sparse snapshots)
-    const equityCurve = await buildEquityCurveFromTrades(days, currentAccountInfo, balanceOperations);
+    // Build equity curve from closed trades
+    const equityCurve = await buildEquityCurveFromTrades(days, currentAccountInfo, balanceSummary);
 
     // Get daily P&L
     const dailyPnl = await getDailyPnL(days);
@@ -60,17 +74,7 @@ export async function GET(request: NextRequest) {
       stats,
       equityCurve,
       dailyPnl,
-      balanceSummary: {
-        totalDeposits,
-        totalWithdrawals,
-        netDeposits: totalDeposits - totalWithdrawals,
-        operations: balanceOperations.map(op => ({
-          type: op.type,
-          amount: op.amount,
-          time: op.time,
-          comment: op.comment,
-        })),
-      },
+      balanceSummary,
     });
   } catch (error) {
     console.error('Stats API error:', error);
@@ -81,11 +85,13 @@ export async function GET(request: NextRequest) {
   }
 }
 
-interface BalanceOp {
-  type: string;
-  amount: number;
-  time: Date;
-  comment: string | null;
+interface BalanceSummary {
+  totalDeposits: number;
+  totalWithdrawals: number;
+  netDeposits: number;
+  totalSwap: number;
+  totalCommission: number;
+  operations: Array<{ type: string; amount: number; time: Date; comment: string | null }>;
 }
 
 /**
@@ -95,7 +101,7 @@ interface BalanceOp {
 async function buildEquityCurveFromTrades(
   days: number,
   currentAccountInfo: { balance: number; equity: number } | null,
-  balanceOperations: BalanceOp[]
+  balanceSummary: BalanceSummary | null
 ) {
   const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
@@ -113,12 +119,11 @@ async function buildEquityCurveFromTrades(
     },
   });
 
-  // Net deposits = deposits - withdrawals (all-time)
-  const netDeposits = balanceOperations.reduce((sum, op) => {
-    return sum + (op.type === 'DEPOSIT' ? op.amount : -op.amount);
-  }, 0);
+  // Net deposits from deal summary (or 0 if bot offline)
+  const netDeposits = balanceSummary?.netDeposits || 0;
+  const operations = balanceSummary?.operations || [];
 
-  if (closedTrades.length === 0 && balanceOperations.length === 0) {
+  if (closedTrades.length === 0 && operations.length === 0) {
     if (currentAccountInfo) {
       return [{
         timestamp: new Date(),
@@ -133,7 +138,6 @@ async function buildEquityCurveFromTrades(
   const totalPnl = closedTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
 
   // Starting balance = current balance - total P&L - net deposits/withdrawals
-  // This gives us the original account balance before any trading or cash flows
   const currentBalance = currentAccountInfo?.balance || 0;
   const startingBalance = currentBalance - totalPnl - netDeposits;
 
@@ -156,11 +160,11 @@ async function buildEquityCurveFromTrades(
     }
   }
 
-  for (const op of balanceOperations) {
+  for (const op of operations) {
     timeline.push({
-      timestamp: op.time,
-      pnl: op.type === 'DEPOSIT' ? op.amount : -op.amount,
-      event: op.type === 'DEPOSIT' ? 'deposit' : 'withdrawal',
+      timestamp: new Date(op.time),
+      pnl: op.type === 'deposit' ? op.amount : -op.amount,
+      event: op.type as 'deposit' | 'withdrawal',
       amount: op.amount,
     });
   }
