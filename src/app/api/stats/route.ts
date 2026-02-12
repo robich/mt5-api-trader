@@ -38,8 +38,20 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Get balance operations (deposits/withdrawals)
+    const balanceOperations = await prisma.balanceOperation.findMany({
+      orderBy: { time: 'asc' },
+    });
+
+    const totalDeposits = balanceOperations
+      .filter(op => op.type === 'DEPOSIT')
+      .reduce((sum, op) => sum + op.amount, 0);
+    const totalWithdrawals = balanceOperations
+      .filter(op => op.type === 'WITHDRAWAL')
+      .reduce((sum, op) => sum + op.amount, 0);
+
     // Build equity curve from closed trades (more accurate than sparse snapshots)
-    const equityCurve = await buildEquityCurveFromTrades(days, currentAccountInfo);
+    const equityCurve = await buildEquityCurveFromTrades(days, currentAccountInfo, balanceOperations);
 
     // Get daily P&L
     const dailyPnl = await getDailyPnL(days);
@@ -48,6 +60,17 @@ export async function GET(request: NextRequest) {
       stats,
       equityCurve,
       dailyPnl,
+      balanceSummary: {
+        totalDeposits,
+        totalWithdrawals,
+        netDeposits: totalDeposits - totalWithdrawals,
+        operations: balanceOperations.map(op => ({
+          type: op.type,
+          amount: op.amount,
+          time: op.time,
+          comment: op.comment,
+        })),
+      },
     });
   } catch (error) {
     console.error('Stats API error:', error);
@@ -58,13 +81,21 @@ export async function GET(request: NextRequest) {
   }
 }
 
+interface BalanceOp {
+  type: string;
+  amount: number;
+  time: Date;
+  comment: string | null;
+}
+
 /**
- * Build equity curve from closed trades
- * Calculates cumulative P&L over time based on actual trade results
+ * Build equity curve from closed trades and balance operations
+ * Correctly accounts for deposits/withdrawals when computing starting balance
  */
 async function buildEquityCurveFromTrades(
   days: number,
-  currentAccountInfo: { balance: number; equity: number } | null
+  currentAccountInfo: { balance: number; equity: number } | null,
+  balanceOperations: BalanceOp[]
 ) {
   const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
@@ -82,8 +113,12 @@ async function buildEquityCurveFromTrades(
     },
   });
 
-  if (closedTrades.length === 0) {
-    // No trades - just return current balance as single point if available
+  // Net deposits = deposits - withdrawals (all-time)
+  const netDeposits = balanceOperations.reduce((sum, op) => {
+    return sum + (op.type === 'DEPOSIT' ? op.amount : -op.amount);
+  }, 0);
+
+  if (closedTrades.length === 0 && balanceOperations.length === 0) {
     if (currentAccountInfo) {
       return [{
         timestamp: new Date(),
@@ -94,39 +129,80 @@ async function buildEquityCurveFromTrades(
     return [];
   }
 
-  // Calculate total P&L from ALL closed trades (to derive starting balance)
+  // Calculate total P&L from ALL closed trades
   const totalPnl = closedTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
 
-  // Starting balance = current balance - total P&L from all trades
+  // Starting balance = current balance - total P&L - net deposits/withdrawals
+  // This gives us the original account balance before any trading or cash flows
   const currentBalance = currentAccountInfo?.balance || 0;
-  const startingBalance = currentBalance - totalPnl;
+  const startingBalance = currentBalance - totalPnl - netDeposits;
+
+  // Merge trades and balance operations into a single timeline
+  type TimelineEvent = {
+    timestamp: Date;
+    pnl: number;
+    event?: 'deposit' | 'withdrawal';
+    amount?: number;
+  };
+
+  const timeline: TimelineEvent[] = [];
+
+  for (const trade of closedTrades) {
+    if (trade.closeTime) {
+      timeline.push({
+        timestamp: trade.closeTime,
+        pnl: trade.pnl || 0,
+      });
+    }
+  }
+
+  for (const op of balanceOperations) {
+    timeline.push({
+      timestamp: op.time,
+      pnl: op.type === 'DEPOSIT' ? op.amount : -op.amount,
+      event: op.type === 'DEPOSIT' ? 'deposit' : 'withdrawal',
+      amount: op.amount,
+    });
+  }
+
+  // Sort by timestamp
+  timeline.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
   // Build equity curve points
-  const equityCurve: Array<{ timestamp: Date; equity: number; balance: number }> = [];
+  const equityCurve: Array<{
+    timestamp: Date;
+    equity: number;
+    balance: number;
+    event?: 'deposit' | 'withdrawal';
+    amount?: number;
+  }> = [];
 
-  // Find P&L accumulated before the display period
-  const pnlBeforePeriod = closedTrades
-    .filter(t => t.closeTime && t.closeTime < startDate)
-    .reduce((sum, t) => sum + (t.pnl || 0), 0);
+  // Accumulate everything before the display period
+  let balanceBeforePeriod = startingBalance;
+  for (const evt of timeline) {
+    if (evt.timestamp >= startDate) break;
+    balanceBeforePeriod += evt.pnl;
+  }
 
-  // Add starting point at beginning of period
-  const balanceAtPeriodStart = startingBalance + pnlBeforePeriod;
+  // Add starting point
   equityCurve.push({
     timestamp: startDate,
-    equity: balanceAtPeriodStart,
-    balance: balanceAtPeriodStart,
+    equity: balanceBeforePeriod,
+    balance: balanceBeforePeriod,
   });
 
-  // Add point for each trade in the period
-  let runningBalance = balanceAtPeriodStart;
-  for (const trade of closedTrades) {
-    if (!trade.closeTime || trade.closeTime < startDate) continue;
+  // Add point for each event in the period
+  let runningBalance = balanceBeforePeriod;
+  for (const evt of timeline) {
+    if (evt.timestamp < startDate) continue;
 
-    runningBalance += trade.pnl || 0;
+    runningBalance += evt.pnl;
     equityCurve.push({
-      timestamp: trade.closeTime,
+      timestamp: evt.timestamp,
       equity: runningBalance,
       balance: runningBalance,
+      event: evt.event,
+      amount: evt.amount,
     });
   }
 

@@ -10,6 +10,8 @@ import {
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
+  Scatter,
+  ComposedChart,
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, TrendingDown } from 'lucide-react';
@@ -18,18 +20,34 @@ interface EquitySnapshot {
   timestamp: string;
   equity: number;
   balance: number;
+  event?: 'deposit' | 'withdrawal';
+  amount?: number;
+}
+
+interface BalanceSummary {
+  totalDeposits: number;
+  totalWithdrawals: number;
+  netDeposits: number;
+  operations: Array<{
+    type: string;
+    amount: number;
+    time: string;
+    comment: string | null;
+  }>;
 }
 
 interface EquityCurveChartProps {
   equityCurve: EquitySnapshot[];
   currency?: string;
   totalTrades?: number;
+  balanceSummary?: BalanceSummary | null;
 }
 
 export function EquityCurveChart({
   equityCurve,
   currency = 'USD',
   totalTrades = 0,
+  balanceSummary,
 }: EquityCurveChartProps) {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -47,6 +65,11 @@ export function EquityCurveChart({
       timestamp: new Date(snapshot.timestamp).getTime(),
       equity: snapshot.equity,
       balance: snapshot.balance,
+      event: snapshot.event,
+      amount: snapshot.amount,
+      // Separate series for deposit/withdrawal dots
+      depositDot: snapshot.event === 'deposit' ? snapshot.balance : undefined,
+      withdrawalDot: snapshot.event === 'withdrawal' ? snapshot.balance : undefined,
       date: new Date(snapshot.timestamp).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
@@ -98,6 +121,8 @@ export function EquityCurveChart({
   }, [chartData, minEquity, maxEquity]);
 
   const isProfitable = overallPnl >= 0;
+
+  const hasBalanceOps = balanceSummary && (balanceSummary.totalDeposits > 0 || balanceSummary.totalWithdrawals > 0);
 
   if (chartData.length === 0) {
     return (
@@ -162,6 +187,26 @@ export function EquityCurveChart({
               {totalTrades}
             </span>
           </div>
+          {hasBalanceOps && (
+            <>
+              {balanceSummary.totalDeposits > 0 && (
+                <div className="text-center">
+                  <span className="block text-xs text-blue-400">Deposits</span>
+                  <span className="font-medium text-blue-400">
+                    {formatCurrency(balanceSummary.totalDeposits)}
+                  </span>
+                </div>
+              )}
+              {balanceSummary.totalWithdrawals > 0 && (
+                <div className="text-center">
+                  <span className="block text-xs text-orange-400">Withdrawals</span>
+                  <span className="font-medium text-orange-400">
+                    {formatCurrency(balanceSummary.totalWithdrawals)}
+                  </span>
+                </div>
+              )}
+            </>
+          )}
           <div className="text-right">
             <span className="block text-xs">Current</span>
             <span className="font-medium text-foreground">
@@ -172,7 +217,7 @@ export function EquityCurveChart({
 
         <div className="h-[200px]">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart
+            <ComposedChart
               data={chartData}
               margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
             >
@@ -223,8 +268,14 @@ export function EquityCurveChart({
                   fontSize: '12px',
                 }}
                 labelStyle={{ color: 'hsl(var(--foreground))' }}
-                formatter={(value, name) => {
+                formatter={(value: any, name: string | undefined, props: any) => {
                   const numValue = typeof value === 'number' ? value : 0;
+                  if (name === 'depositDot') {
+                    return [formatCurrency(props.payload.amount || 0), 'Deposit'];
+                  }
+                  if (name === 'withdrawalDot') {
+                    return [formatCurrency(props.payload.amount || 0), 'Withdrawal'];
+                  }
                   return [
                     formatCurrency(numValue),
                     name === 'balance' ? 'Balance' : 'Equity',
@@ -252,7 +303,27 @@ export function EquityCurveChart({
                   fill: 'hsl(var(--background))',
                 }}
               />
-            </AreaChart>
+              {hasBalanceOps && (
+                <>
+                  <Scatter
+                    dataKey="depositDot"
+                    fill="#3b82f6"
+                    stroke="#1d4ed8"
+                    strokeWidth={2}
+                    r={5}
+                    shape="circle"
+                  />
+                  <Scatter
+                    dataKey="withdrawalDot"
+                    fill="#f97316"
+                    stroke="#c2410c"
+                    strokeWidth={2}
+                    r={5}
+                    shape="circle"
+                  />
+                </>
+              )}
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
       </CardContent>

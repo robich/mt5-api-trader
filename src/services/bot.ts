@@ -161,6 +161,19 @@ export class TradingBot {
         }
       }
 
+      // Sync balance operations (deposits/withdrawals)
+      try {
+        const balanceDeals = await metaApiClient.getBalanceDeals(startTime, endTime);
+        if (balanceDeals.length > 0) {
+          const balanceResult = await tradeManager.syncBalanceOperations(balanceDeals);
+          if (balanceResult.imported > 0) {
+            console.log(`[Bot] Balance operations sync: ${balanceResult.imported} imported, ${balanceResult.skipped} skipped`);
+          }
+        }
+      } catch (balanceError) {
+        console.error('[Bot] Error syncing balance operations (non-blocking):', balanceError);
+      }
+
       return deals;
     } catch (error) {
       console.error('[Bot] Error syncing historical trades:', error);

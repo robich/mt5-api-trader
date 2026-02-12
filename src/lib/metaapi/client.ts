@@ -598,6 +598,40 @@ class MetaAPIClient {
   }
 
   /**
+   * Get balance deals (deposits/withdrawals) from the synchronized history storage
+   */
+  async getBalanceDeals(startTime?: Date, endTime?: Date): Promise<any[]> {
+    this.ensureConnected();
+    try {
+      const historyStorage = this.connection.historyStorage;
+      if (!historyStorage || !historyStorage.deals) {
+        console.log('[MetaAPI] No history storage or deals available');
+        return [];
+      }
+
+      let deals = historyStorage.deals;
+
+      // Filter to only balance deals
+      deals = deals.filter((d: any) => d.type === 'DEAL_TYPE_BALANCE');
+
+      // Filter by time range if provided
+      if (startTime || endTime) {
+        deals = deals.filter((d: any) => {
+          const dealTime = new Date(d.time);
+          if (startTime && dealTime < startTime) return false;
+          if (endTime && dealTime > endTime) return false;
+          return true;
+        });
+      }
+
+      return deals;
+    } catch (error) {
+      console.error('[MetaAPI] Error fetching balance deals:', error);
+      return [];
+    }
+  }
+
+  /**
    * Get historical orders from the synchronized history storage
    */
   async getHistoricalOrders(startTime?: Date, endTime?: Date): Promise<any[]> {

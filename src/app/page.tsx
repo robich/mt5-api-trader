@@ -56,11 +56,24 @@ interface StatsData {
     timestamp: string;
     equity: number;
     balance: number;
+    event?: 'deposit' | 'withdrawal';
+    amount?: number;
   }>;
   dailyPnl: Array<{
     date: string;
     pnl: number;
   }>;
+  balanceSummary?: {
+    totalDeposits: number;
+    totalWithdrawals: number;
+    netDeposits: number;
+    operations: Array<{
+      type: string;
+      amount: number;
+      time: string;
+      comment: string | null;
+    }>;
+  };
 }
 
 interface AnalysisData {
@@ -318,6 +331,7 @@ export default function Dashboard() {
           equityCurve={stats?.equityCurve || []}
           currency={accountData?.account.currency || 'USD'}
           totalTrades={stats?.stats.totalTrades || 0}
+          balanceSummary={stats?.balanceSummary || null}
         />
       </div>
 
