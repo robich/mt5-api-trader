@@ -108,10 +108,10 @@ export class TradingBot {
       await metaApiClient.connect();
 
       // Sync historical trades from MT5 to ensure all past trades are known
-      await this.syncHistoricalTradesOnStartup();
+      const historicalDeals = await this.syncHistoricalTradesOnStartup();
 
-      // Sync open positions with MT5 on startup
-      await this.syncPositionsOnStartup();
+      // Sync open positions with MT5 on startup (pass historical deals for close data)
+      await this.syncPositionsOnStartup(historicalDeals);
 
       // Set up event-driven listener
       await this.setupEventListener();
@@ -138,8 +138,9 @@ export class TradingBot {
    * Sync historical trades from MT5 on startup
    * Fetches closed deals from MT5 and imports them into the database
    * This ensures all past trades are known locally
+   * @returns The historical deals array for use in position sync backfill
    */
-  private async syncHistoricalTradesOnStartup(): Promise<void> {
+  private async syncHistoricalTradesOnStartup(): Promise<any[]> {
     console.log('[Bot] Syncing historical trades from MT5...');
 
     try {
@@ -159,9 +160,12 @@ export class TradingBot {
           console.log('[Bot] Historical trades sync complete: No new trades to import');
         }
       }
+
+      return deals;
     } catch (error) {
       console.error('[Bot] Error syncing historical trades:', error);
       // Don't throw - allow bot to start even if historical sync fails
+      return [];
     }
   }
 
@@ -169,8 +173,9 @@ export class TradingBot {
    * Sync positions with MT5 on startup
    * Imports any open positions from MT5 that don't exist in DB
    * Marks any DB trades as closed if they no longer exist on MT5
+   * @param historicalDeals Historical deals for backfilling close data
    */
-  private async syncPositionsOnStartup(): Promise<void> {
+  private async syncPositionsOnStartup(historicalDeals: any[] = []): Promise<void> {
     console.log('[Bot] Syncing positions with MT5...');
 
     try {
@@ -178,13 +183,21 @@ export class TradingBot {
       const positions = await metaApiClient.getPositions();
       console.log(`[Bot] Found ${positions.length} open positions on MT5`);
 
-      // Sync with trade manager
-      const result = await tradeManager.syncWithBrokerPositions(positions);
+      // Sync with trade manager (pass historical deals for close data recovery)
+      const result = await tradeManager.syncWithBrokerPositions(positions, historicalDeals);
 
       if (result.imported > 0 || result.closed > 0) {
         console.log(`[Bot] Sync complete: ${result.imported} positions imported, ${result.closed} trades marked as closed`);
       } else {
         console.log('[Bot] Sync complete: No changes needed');
+      }
+
+      // Backfill any remaining closed trades with missing close data
+      if (historicalDeals.length > 0) {
+        const backfilled = await tradeManager.backfillMissingCloseData(historicalDeals);
+        if (backfilled > 0) {
+          console.log(`[Bot] Backfilled close data for ${backfilled} trades`);
+        }
       }
 
       // Store initial position state for tracking (convert to PositionUpdate format for lastKnownPositions)
@@ -343,7 +356,7 @@ export class TradingBot {
         console.log(`[Bot] Position ${removedId} closed: ${lastKnown.symbol} @ ${lastKnown.currentPrice}, Profit: $${lastKnown.profit?.toFixed(2) || 'N/A'}`);
 
         // Close the trade with the last known price and profit
-        if (lastKnown.currentPrice && lastKnown.profit !== undefined) {
+        if (lastKnown.currentPrice != null && lastKnown.profit != null) {
           await tradeManager.closeTradeFromBroker(
             removedId,
             lastKnown.currentPrice,

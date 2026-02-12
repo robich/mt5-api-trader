@@ -530,14 +530,29 @@ export class TradeManager {
    * Sync open trades with broker positions
    * - Imports MT5 positions that don't exist in DB (opened externally)
    * - Marks DB trades as closed if they no longer exist on broker
+   * @param brokerPositions Current open positions from broker
+   * @param historicalDeals Optional historical deals to get close data from
    */
-  async syncWithBrokerPositions(brokerPositions: Position[]): Promise<{
+  async syncWithBrokerPositions(brokerPositions: Position[], historicalDeals?: any[]): Promise<{
     imported: number;
     closed: number;
   }> {
     const dbOpenTrades = await this.getAllOpenTrades();
     let imported = 0;
     let closed = 0;
+
+    // Index historical deals by positionId for fast lookup
+    const dealsByPosition = new Map<string, any[]>();
+    if (historicalDeals) {
+      for (const deal of historicalDeals) {
+        const positionId = deal.positionId?.toString();
+        if (!positionId) continue;
+        if (!dealsByPosition.has(positionId)) {
+          dealsByPosition.set(positionId, []);
+        }
+        dealsByPosition.get(positionId)!.push(deal);
+      }
+    }
 
     // 1. Check for DB trades that no longer exist on broker (closed externally)
     for (const dbTrade of dbOpenTrades) {
@@ -546,18 +561,35 @@ export class TradeManager {
       );
 
       if (!brokerPosition) {
-        // Position was closed externally
-        // We don't have the exact close price, so mark as closed without PnL
-        // This happens when positions are closed manually or by SL/TP on the broker side
-        await prisma.trade.update({
-          where: { id: dbTrade.id },
-          data: {
-            status: 'CLOSED',
-            closeTime: new Date(),
-            notes: 'Closed externally - price unknown',
-          },
-        });
-        console.log(`[TradeManager] Trade ${dbTrade.id} closed externally (no price available)`);
+        // Position was closed externally - try to get close data from historical deals
+        const positionDeals = dbTrade.mt5PositionId ? dealsByPosition.get(dbTrade.mt5PositionId) : undefined;
+        const exitDeal = positionDeals?.find((d: any) => d.entryType === 'DEAL_ENTRY_OUT');
+
+        if (exitDeal) {
+          const profit = exitDeal.profit || 0;
+          const pnlPercent = dbTrade.riskAmount > 0 ? (profit / dbTrade.riskAmount) * 100 : 0;
+          await prisma.trade.update({
+            where: { id: dbTrade.id },
+            data: {
+              status: 'CLOSED',
+              closePrice: exitDeal.price,
+              closeTime: new Date(exitDeal.time),
+              pnl: profit,
+              pnlPercent,
+            },
+          });
+          console.log(`[TradeManager] Trade ${dbTrade.id} closed externally: ${dbTrade.symbol} @ ${exitDeal.price}, PnL: $${profit.toFixed(2)}`);
+        } else {
+          await prisma.trade.update({
+            where: { id: dbTrade.id },
+            data: {
+              status: 'CLOSED',
+              closeTime: new Date(),
+              notes: 'Closed externally - price unknown',
+            },
+          });
+          console.log(`[TradeManager] Trade ${dbTrade.id} closed externally (no deal data available)`);
+        }
         closed++;
       }
     }
@@ -796,6 +828,63 @@ export class TradeManager {
     }
 
     return { imported, skipped };
+  }
+
+  /**
+   * Backfill missing close data for CLOSED trades from historical deals
+   * Finds trades with null closePrice/pnl and fills from deal data
+   */
+  async backfillMissingCloseData(historicalDeals: any[]): Promise<number> {
+    // Find closed trades with missing close data
+    const tradesWithMissingData = await prisma.trade.findMany({
+      where: {
+        status: 'CLOSED',
+        OR: [
+          { closePrice: null },
+          { pnl: null },
+        ],
+      },
+    });
+
+    if (tradesWithMissingData.length === 0) return 0;
+
+    // Index deals by positionId
+    const dealsByPosition = new Map<string, any[]>();
+    for (const deal of historicalDeals) {
+      const positionId = deal.positionId?.toString();
+      if (!positionId) continue;
+      if (!dealsByPosition.has(positionId)) {
+        dealsByPosition.set(positionId, []);
+      }
+      dealsByPosition.get(positionId)!.push(deal);
+    }
+
+    let backfilled = 0;
+    for (const trade of tradesWithMissingData) {
+      if (!trade.mt5PositionId) continue;
+
+      const positionDeals = dealsByPosition.get(trade.mt5PositionId);
+      const exitDeal = positionDeals?.find((d: any) => d.entryType === 'DEAL_ENTRY_OUT');
+
+      if (exitDeal) {
+        const profit = exitDeal.profit || 0;
+        const pnlPercent = trade.riskAmount > 0 ? (profit / trade.riskAmount) * 100 : 0;
+        await prisma.trade.update({
+          where: { id: trade.id },
+          data: {
+            closePrice: exitDeal.price,
+            closeTime: new Date(exitDeal.time),
+            pnl: profit,
+            pnlPercent,
+            notes: null, // Clear "price unknown" note
+          },
+        });
+        console.log(`[TradeManager] Backfilled close data for ${trade.symbol}: @ ${exitDeal.price}, PnL: $${profit.toFixed(2)}`);
+        backfilled++;
+      }
+    }
+
+    return backfilled;
   }
 
   /**
