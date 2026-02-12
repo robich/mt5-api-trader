@@ -119,8 +119,10 @@ async function buildEquityCurveFromTrades(
     },
   });
 
-  // Net deposits from deal summary (or 0 if bot offline)
+  // Net deposits and swap/commission from deal summary (or 0 if bot offline)
   const netDeposits = balanceSummary?.netDeposits || 0;
+  const totalSwap = balanceSummary?.totalSwap || 0;
+  const totalCommission = balanceSummary?.totalCommission || 0;
   const operations = balanceSummary?.operations || [];
 
   if (closedTrades.length === 0 && operations.length === 0) {
@@ -134,12 +136,13 @@ async function buildEquityCurveFromTrades(
     return [];
   }
 
-  // Calculate total P&L from ALL closed trades
+  // Calculate total P&L from ALL closed trades (raw profit, excludes swap/commission)
   const totalPnl = closedTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
 
-  // Starting balance = current balance - total P&L - net deposits/withdrawals
+  // Starting balance = current balance - all cash flows
+  // currentBalance = startingBalance + netDeposits + tradingProfit + swap + commission
   const currentBalance = currentAccountInfo?.balance || 0;
-  const startingBalance = currentBalance - totalPnl - netDeposits;
+  const startingBalance = currentBalance - totalPnl - netDeposits - totalSwap - totalCommission;
 
   // Merge trades and balance operations into a single timeline
   type TimelineEvent = {
