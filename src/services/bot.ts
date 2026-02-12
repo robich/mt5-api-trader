@@ -375,6 +375,7 @@ export class TradingBot {
               entryPrice: lastKnown.openPrice,
               exitPrice: lastKnown.currentPrice!,
               profit: lastKnown.profit!,
+              lotSize: lastKnown.volume,
             },
             openPositions
           );
@@ -465,12 +466,8 @@ export class TradingBot {
     // Stop market analysis scheduler
     analysisScheduler.stop();
 
-    // Stop Telegram channel listener
-    try {
-      await telegramListener.stop();
-    } catch (listenerError) {
-      console.warn('[Bot] Error stopping Telegram listener:', listenerError);
-    }
+    // NOTE: Telegram listener is NOT stopped here — it's independently managed
+    // via the /api/telegram-listener route and dashboard controls.
 
     // Stop heartbeat
     if (this.heartbeatInterval) {

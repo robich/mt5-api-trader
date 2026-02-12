@@ -158,6 +158,9 @@ class TelegramNotifier {
     message += `─────────────────\n`;
     message += `Entry: ${this.formatPrice(trade.entryPrice, trade.symbol)}\n`;
     message += `Exit: ${this.formatPrice(trade.exitPrice, trade.symbol)}\n`;
+    if (trade.lotSize) {
+      message += `Size: ${trade.lotSize} lots\n`;
+    }
     message += `P/L: <b>${profitSign}$${trade.profit.toFixed(2)}</b>\n`;
     message += this.formatOpenPositionsSummary(openPositions);
 

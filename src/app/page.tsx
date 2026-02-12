@@ -140,7 +140,7 @@ export default function Dashboard() {
       const [accountRes, openRes, closedRes, signalsRes, statsRes, analysisRes, telegramRes] = await Promise.all([
         fetch('/api/account'),
         fetch('/api/trades?status=OPEN'),
-        fetch('/api/trades?status=CLOSED&limit=20'),
+        fetch('/api/trades?status=CLOSED&limit=100'),
         fetch('/api/signals?limit=20'),
         fetch('/api/stats?days=30'),
         fetch('/api/analysis'),
@@ -374,7 +374,7 @@ export default function Dashboard() {
                         Open ({openTrades?.trades.length || 0})
                       </TabsTrigger>
                       <TabsTrigger value="closed">
-                        History ({(closedTrades?.trades || []).filter((t: any) => t.pnl != null).length})
+                        History ({closedTrades?.total || 0})
                       </TabsTrigger>
                     </TabsList>
                   </div>
@@ -412,9 +412,7 @@ export default function Dashboard() {
                   </TabsContent>
                   <TabsContent value="closed" className="mt-0">
                     <TradeTable
-                      trades={(closedTrades?.trades || []).filter((trade: any) =>
-                        trade.pnl != null
-                      )}
+                      trades={closedTrades?.trades || []}
                       type="closed"
                       currency={accountData?.account.currency || 'USD'}
                     />
