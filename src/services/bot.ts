@@ -375,6 +375,37 @@ export class TradingBot {
             lastKnown.profit,
             new Date()
           );
+        } else {
+          // Fallback: look up exit deal from history storage when lastKnown data is incomplete
+          console.log(`[Bot] Position ${removedId} missing price/profit, looking up exit deal...`);
+          try {
+            const posDeals = metaApiClient.getDealsByPosition(removedId);
+            const exitDeal = posDeals.find((d: any) => d.entryType === 'DEAL_ENTRY_OUT');
+            if (exitDeal) {
+              const closePrice = exitDeal.price;
+              const profit = exitDeal.profit || 0;
+              console.log(`[Bot] Found exit deal for ${removedId}: @ ${closePrice}, Profit: $${profit.toFixed(2)}`);
+              await tradeManager.closeTradeFromBroker(removedId, closePrice, profit, new Date(exitDeal.time));
+            } else {
+              // Last resort: close with whatever data we have so trade doesn't stay OPEN
+              console.warn(`[Bot] No exit deal found for ${removedId}, closing with available data`);
+              await tradeManager.closeTradeFromBroker(
+                removedId,
+                lastKnown.currentPrice || lastKnown.openPrice,
+                lastKnown.profit || 0,
+                new Date()
+              );
+            }
+          } catch (dealError) {
+            console.error(`[Bot] Error looking up exit deal for ${removedId}:`, dealError);
+            // Still close the trade to avoid leaving it OPEN
+            await tradeManager.closeTradeFromBroker(
+              removedId,
+              lastKnown.currentPrice || lastKnown.openPrice,
+              lastKnown.profit || 0,
+              new Date()
+            );
+          }
         }
 
         // Clean up breakeven tracking

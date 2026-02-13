@@ -641,6 +641,13 @@ class MetaAPIClient {
     tradingProfit: number;
     dealCount: number;
     operations: Array<{ type: 'deposit' | 'withdrawal'; amount: number; time: Date; comment: string | null }>;
+    dealTimeline: Array<{
+      timestamp: Date;
+      balanceChange: number;
+      event?: 'deposit' | 'withdrawal';
+      amount?: number;
+      symbol?: string;
+    }>;
   }> {
     const deals = await this.getAllDeals(startTime, endTime);
 
@@ -650,25 +657,44 @@ class MetaAPIClient {
     let totalCommission = 0;
     let tradingProfit = 0;
     const operations: Array<{ type: 'deposit' | 'withdrawal'; amount: number; time: Date; comment: string | null }> = [];
+    const dealTimeline: Array<{
+      timestamp: Date;
+      balanceChange: number;
+      event?: 'deposit' | 'withdrawal';
+      amount?: number;
+      symbol?: string;
+    }> = [];
 
     for (const deal of deals) {
       // Accumulate swap and commission from every deal
       totalSwap += deal.swap || 0;
       totalCommission += deal.commission || 0;
 
+      // Each deal's effect on balance = profit + swap + commission
+      const balanceChange = (deal.profit || 0) + (deal.swap || 0) + (deal.commission || 0);
+
       if (deal.type === 'DEAL_TYPE_BALANCE') {
         const profit = deal.profit || 0;
         if (profit > 0) {
           deposits += profit;
           operations.push({ type: 'deposit', amount: profit, time: new Date(deal.time), comment: deal.comment || null });
+          dealTimeline.push({ timestamp: new Date(deal.time), balanceChange, event: 'deposit', amount: profit });
         } else if (profit < 0) {
           withdrawals += Math.abs(profit);
           operations.push({ type: 'withdrawal', amount: Math.abs(profit), time: new Date(deal.time), comment: deal.comment || null });
+          dealTimeline.push({ timestamp: new Date(deal.time), balanceChange, event: 'withdrawal', amount: Math.abs(profit) });
         }
       } else if (deal.type === 'DEAL_TYPE_BUY' || deal.type === 'DEAL_TYPE_SELL') {
         tradingProfit += deal.profit || 0;
+        // Only include deals with non-zero balance effect (skip zero-change entries)
+        if (balanceChange !== 0) {
+          dealTimeline.push({ timestamp: new Date(deal.time), balanceChange, symbol: deal.symbol });
+        }
       }
     }
+
+    // Sort timeline chronologically
+    dealTimeline.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
     return {
       deposits,
@@ -678,6 +704,7 @@ class MetaAPIClient {
       tradingProfit,
       dealCount: deals.length,
       operations,
+      dealTimeline,
     };
   }
 

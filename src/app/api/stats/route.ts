@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
           totalCommission: summary.totalCommission,
           tradingProfit: summary.tradingProfit,
           operations: summary.operations,
+          dealTimeline: summary.dealTimeline,
         };
       } catch (error) {
         console.error('Error fetching account summary from bot:', error);
@@ -64,11 +65,14 @@ export async function GET(request: NextRequest) {
     // Get daily P&L
     const dailyPnl = await getDailyPnL(days);
 
+    // Strip dealTimeline from response (internal data, not needed by frontend)
+    const { dealTimeline: _, ...balanceSummaryForClient } = balanceSummary || {} as any;
+
     return NextResponse.json({
       stats,
       equityCurve,
       dailyPnl,
-      balanceSummary,
+      balanceSummary: balanceSummary ? balanceSummaryForClient : null,
     });
   } catch (error) {
     console.error('Stats API error:', error);
@@ -87,11 +91,18 @@ interface BalanceSummary {
   totalCommission: number;
   tradingProfit?: number;
   operations: Array<{ type: string; amount: number; time: Date; comment: string | null }>;
+  dealTimeline?: Array<{
+    timestamp: Date;
+    balanceChange: number;
+    event?: 'deposit' | 'withdrawal';
+    amount?: number;
+    symbol?: string;
+  }>;
 }
 
 /**
- * Build equity curve from closed trades and balance operations
- * Correctly accounts for deposits/withdrawals when computing starting balance
+ * Build equity curve from deal timeline (when bot is running) or DB trades (offline fallback)
+ * Always starts at 0 before the first deposit — the graph shows cumulative account growth
  */
 async function buildEquityCurveFromTrades(
   days: number,
@@ -100,7 +111,90 @@ async function buildEquityCurveFromTrades(
 ) {
   const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
-  // Get all closed trades with P&L, ordered by close time
+  // When bot is running, use the complete deal timeline from MetaAPI
+  // This is authoritative — every balance change comes from deals
+  if (balanceSummary?.dealTimeline && balanceSummary.dealTimeline.length > 0) {
+    return buildEquityCurveFromDealTimeline(startDate, balanceSummary.dealTimeline, currentAccountInfo);
+  }
+
+  // Offline fallback: use DB trades (may have incomplete PnL)
+  return buildEquityCurveFromDB(startDate, currentAccountInfo, balanceSummary);
+}
+
+/**
+ * Build equity curve from MetaAPI deal timeline (authoritative, complete)
+ * Every deal's balance change = profit + swap + commission
+ * Starting point is always 0 (before any deposits)
+ */
+function buildEquityCurveFromDealTimeline(
+  startDate: Date,
+  dealTimeline: NonNullable<BalanceSummary['dealTimeline']>,
+  currentAccountInfo: { balance: number; equity: number } | null
+) {
+  const equityCurve: Array<{
+    timestamp: Date;
+    equity: number;
+    balance: number;
+    event?: 'deposit' | 'withdrawal';
+    amount?: number;
+  }> = [];
+
+  // Accumulate balance from all deals before the display period
+  // Starting from 0 (before any deposits)
+  let balanceBeforePeriod = 0;
+  for (const evt of dealTimeline) {
+    const ts = new Date(evt.timestamp);
+    if (ts >= startDate) break;
+    balanceBeforePeriod += evt.balanceChange;
+  }
+
+  // Add starting point
+  equityCurve.push({
+    timestamp: startDate,
+    equity: balanceBeforePeriod,
+    balance: balanceBeforePeriod,
+  });
+
+  // Add point for each deal event in the display period
+  let runningBalance = balanceBeforePeriod;
+  for (const evt of dealTimeline) {
+    const ts = new Date(evt.timestamp);
+    if (ts < startDate) continue;
+
+    runningBalance += evt.balanceChange;
+    equityCurve.push({
+      timestamp: ts,
+      equity: runningBalance,
+      balance: runningBalance,
+      event: evt.event,
+      amount: evt.amount,
+    });
+  }
+
+  // Add current balance as final point if it differs (accounts for open trades)
+  if (currentAccountInfo) {
+    const lastPoint = equityCurve[equityCurve.length - 1];
+    if (Math.abs(lastPoint.balance - currentAccountInfo.balance) > 0.01) {
+      equityCurve.push({
+        timestamp: new Date(),
+        equity: currentAccountInfo.balance,
+        balance: currentAccountInfo.balance,
+      });
+    }
+  }
+
+  return equityCurve;
+}
+
+/**
+ * Offline fallback: build equity curve from DB trades
+ * Less accurate — trades with null PnL are excluded
+ */
+async function buildEquityCurveFromDB(
+  startDate: Date,
+  currentAccountInfo: { balance: number; equity: number } | null,
+  balanceSummary: BalanceSummary | null
+) {
   const closedTrades = await prisma.trade.findMany({
     where: {
       status: 'CLOSED',
@@ -114,10 +208,6 @@ async function buildEquityCurveFromTrades(
     },
   });
 
-  // Net deposits and swap/commission from deal summary (or 0 if bot offline)
-  const netDeposits = balanceSummary?.netDeposits || 0;
-  const totalSwap = balanceSummary?.totalSwap || 0;
-  const totalCommission = balanceSummary?.totalCommission || 0;
   const operations = balanceSummary?.operations || [];
 
   if (closedTrades.length === 0 && operations.length === 0) {
@@ -131,15 +221,6 @@ async function buildEquityCurveFromTrades(
     return [];
   }
 
-  // Total trading P&L: prefer deal summary (complete) over DB trades (may have null PnL)
-  const totalPnl = balanceSummary?.tradingProfit
-    ?? closedTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
-
-  // Starting balance = current balance - all cash flows
-  // currentBalance = startingBalance + netDeposits + tradingProfit + swap + commission
-  const currentBalance = currentAccountInfo?.balance || 0;
-  const startingBalance = currentBalance - totalPnl - netDeposits - totalSwap - totalCommission;
-
   // Merge trades and balance operations into a single timeline
   type TimelineEvent = {
     timestamp: Date;
@@ -152,10 +233,7 @@ async function buildEquityCurveFromTrades(
 
   for (const trade of closedTrades) {
     if (trade.closeTime) {
-      timeline.push({
-        timestamp: trade.closeTime,
-        pnl: trade.pnl || 0,
-      });
+      timeline.push({ timestamp: trade.closeTime, pnl: trade.pnl || 0 });
     }
   }
 
@@ -168,10 +246,13 @@ async function buildEquityCurveFromTrades(
     });
   }
 
-  // Sort by timestamp
   timeline.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
-  // Build equity curve points
+  // Compute starting balance: current - total of all events
+  const totalFromTimeline = timeline.reduce((sum, evt) => sum + evt.pnl, 0);
+  const currentBalance = currentAccountInfo?.balance || 0;
+  const startingBalance = currentBalance - totalFromTimeline;
+
   const equityCurve: Array<{
     timestamp: Date;
     equity: number;
@@ -180,25 +261,21 @@ async function buildEquityCurveFromTrades(
     amount?: number;
   }> = [];
 
-  // Accumulate everything before the display period
   let balanceBeforePeriod = startingBalance;
   for (const evt of timeline) {
     if (evt.timestamp >= startDate) break;
     balanceBeforePeriod += evt.pnl;
   }
 
-  // Add starting point
   equityCurve.push({
     timestamp: startDate,
     equity: balanceBeforePeriod,
     balance: balanceBeforePeriod,
   });
 
-  // Add point for each event in the period
   let runningBalance = balanceBeforePeriod;
   for (const evt of timeline) {
     if (evt.timestamp < startDate) continue;
-
     runningBalance += evt.pnl;
     equityCurve.push({
       timestamp: evt.timestamp,
@@ -209,10 +286,9 @@ async function buildEquityCurveFromTrades(
     });
   }
 
-  // Add current balance as final point
   if (currentAccountInfo) {
     const lastPoint = equityCurve[equityCurve.length - 1];
-    if (lastPoint.balance !== currentAccountInfo.balance) {
+    if (Math.abs(lastPoint.balance - currentAccountInfo.balance) > 0.01) {
       equityCurve.push({
         timestamp: new Date(),
         equity: currentAccountInfo.balance,
