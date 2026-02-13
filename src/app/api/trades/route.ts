@@ -12,6 +12,26 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
 
+    // When bot is running and requesting closed trades, use MetaAPI deals as source of truth
+    if (status === 'CLOSED') {
+      try {
+        const botStatus = tradingBot.getStatus();
+        if (botStatus.isRunning) {
+          const result = await tradingBot.getClosedTradesFromDeals(limit, offset, symbol || undefined);
+          return NextResponse.json({
+            trades: result.trades,
+            total: result.total,
+            limit,
+            offset,
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching deals for closed trades, falling back to DB:', error);
+        // Fall through to DB query below
+      }
+    }
+
+    // DB path: used for OPEN trades, offline closed trades, or as fallback
     const where: any = {};
 
     if (status) {
@@ -62,9 +82,20 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // For closed trades from DB (offline), deduplicate by mt5PositionId
+    if (status === 'CLOSED') {
+      const seen = new Set<string>();
+      enrichedTrades = enrichedTrades.filter((trade) => {
+        if (!trade.mt5PositionId) return true; // Keep trades without positionId
+        if (seen.has(trade.mt5PositionId)) return false;
+        seen.add(trade.mt5PositionId);
+        return true;
+      });
+    }
+
     return NextResponse.json({
       trades: enrichedTrades,
-      total,
+      total: status === 'CLOSED' ? enrichedTrades.length : total,
       limit,
       offset,
     });

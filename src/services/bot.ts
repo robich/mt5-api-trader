@@ -836,6 +836,151 @@ export class TradingBot {
   }
 
   /**
+   * Get closed trades built directly from MetaAPI deals (authoritative source).
+   * Groups deals by positionId, pairs entry/exit deals, and enriches with DB strategy data.
+   * Returns trades matching the shape the TradeTable component expects.
+   */
+  async getClosedTradesFromDeals(limit: number = 50, offset: number = 0, symbolFilter?: string): Promise<{ trades: any[]; total: number }> {
+    // Fetch ALL deals (includes balance operations) and trading deals separately
+    const [allDeals, tradingDeals] = await Promise.all([
+      metaApiClient.getAllDeals(),
+      metaApiClient.getHistoricalDeals(),
+    ]);
+
+    // --- Build closed trades from trading deals ---
+    // Group trading deals by positionId
+    const positionDeals = new Map<string, any[]>();
+    for (const deal of tradingDeals) {
+      const posId = deal.positionId?.toString();
+      if (!posId) continue;
+      if (!positionDeals.has(posId)) positionDeals.set(posId, []);
+      positionDeals.get(posId)!.push(deal);
+    }
+
+    const closedTrades: any[] = [];
+    for (const [posId, pDeals] of positionDeals) {
+      const entryDeal = pDeals.find((d: any) => d.entryType === 'DEAL_ENTRY_IN');
+      const exitDeal = pDeals.find((d: any) => d.entryType === 'DEAL_ENTRY_OUT');
+      if (!entryDeal || !exitDeal) continue; // Only include fully closed positions
+
+      const direction = entryDeal.type === 'DEAL_TYPE_BUY' ? 'BUY' : 'SELL';
+
+      // Sum profit from all exit deals for this position (handles partial closes)
+      const totalProfit = pDeals
+        .filter((d: any) => d.entryType === 'DEAL_ENTRY_OUT')
+        .reduce((sum: number, d: any) => sum + (d.profit || 0), 0);
+
+      // Parse strategy from deal comment (bot sets "SMC ORDER_BLOCK" etc.)
+      let strategy: StrategyType = 'EXTERNAL';
+      if (entryDeal.comment) {
+        const smcMatch = entryDeal.comment.match(/^SMC\s+(.+)$/);
+        if (smcMatch) {
+          const parsed = smcMatch[1] as StrategyType;
+          const validStrategies: StrategyType[] = [
+            'ORDER_BLOCK', 'LIQUIDITY_SWEEP', 'BOS', 'FBO_CLASSIC',
+            'FBO_SWEEP', 'FBO_STRUCTURE', 'M1_TREND', 'EXTERNAL',
+          ];
+          if (validStrategies.includes(parsed)) strategy = parsed;
+        }
+      }
+
+      closedTrades.push({
+        id: `deal-${posId}`,
+        symbol: entryDeal.symbol,
+        direction,
+        strategy,
+        entryPrice: entryDeal.price,
+        closePrice: exitDeal.price,
+        stopLoss: entryDeal.stopLoss ?? null,
+        takeProfit: entryDeal.takeProfit ?? null,
+        lotSize: entryDeal.volume,
+        openTime: new Date(entryDeal.time),
+        closeTime: new Date(exitDeal.time),
+        pnl: totalProfit,
+        pnlPercent: null as number | null,
+        status: 'CLOSED',
+        mt5PositionId: posId,
+        mt5OrderId: entryDeal.orderId ?? null,
+        riskAmount: 0,
+        riskRewardRatio: 0,
+        notes: entryDeal.comment ?? null,
+      });
+    }
+
+    // Enrich with DB data (strategy, riskAmount, riskRewardRatio, pnlPercent)
+    try {
+      const positionIds = closedTrades.map((t) => t.mt5PositionId).filter(Boolean);
+      if (positionIds.length > 0) {
+        const dbTrades = await prisma.trade.findMany({
+          where: { mt5PositionId: { in: positionIds } },
+        });
+        const dbByPosId = new Map<string, any>();
+        for (const t of dbTrades) {
+          if (t.mt5PositionId) dbByPosId.set(t.mt5PositionId, t);
+        }
+        for (const trade of closedTrades) {
+          const dbTrade = dbByPosId.get(trade.mt5PositionId);
+          if (dbTrade) {
+            trade.id = dbTrade.id;
+            trade.strategy = dbTrade.strategy;
+            trade.riskAmount = dbTrade.riskAmount || 0;
+            trade.riskRewardRatio = dbTrade.riskRewardRatio || 0;
+            trade.pnlPercent = dbTrade.pnlPercent ?? null;
+            trade.stopLoss = dbTrade.stopLoss ?? trade.stopLoss;
+            trade.takeProfit = dbTrade.takeProfit ?? trade.takeProfit;
+          }
+        }
+      }
+    } catch (dbError) {
+      console.error('[Bot] Error enriching deals with DB data:', dbError);
+    }
+
+    // --- Build rows for deposits/withdrawals from balance deals ---
+    for (const deal of allDeals) {
+      if (deal.type !== 'DEAL_TYPE_BALANCE') continue;
+      const amount = deal.profit || 0;
+      if (amount === 0) continue;
+
+      const isDeposit = amount > 0;
+      closedTrades.push({
+        id: `bal-${deal.id || deal.time}`,
+        symbol: isDeposit ? 'DEPOSIT' : 'WITHDRAWAL',
+        direction: isDeposit ? 'BUY' : 'SELL',
+        strategy: isDeposit ? 'DEPOSIT' : 'WITHDRAWAL',
+        entryPrice: null,
+        closePrice: null,
+        stopLoss: null,
+        takeProfit: null,
+        lotSize: null,
+        openTime: new Date(deal.time),
+        closeTime: new Date(deal.time),
+        pnl: amount,
+        pnlPercent: null,
+        status: 'CLOSED',
+        mt5PositionId: null,
+        mt5OrderId: null,
+        riskAmount: 0,
+        riskRewardRatio: 0,
+        notes: deal.comment ?? null,
+      });
+    }
+
+    // Apply symbol filter before sorting/pagination
+    // Balance ops (DEPOSIT/WITHDRAWAL) are excluded when a symbol filter is active
+    const filtered = symbolFilter
+      ? closedTrades.filter((t) => t.symbol === symbolFilter)
+      : closedTrades;
+
+    // Sort by closeTime DESC
+    filtered.sort((a, b) => b.closeTime.getTime() - a.closeTime.getTime());
+
+    const total = filtered.length;
+    const paged = filtered.slice(offset, offset + limit);
+
+    return { trades: paged, total };
+  }
+
+  /**
    * Get account summary computed from MetaAPI deals
    * Returns deposits, withdrawals, swap, commission, trading profit
    */
