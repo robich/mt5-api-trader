@@ -26,6 +26,7 @@ import InteractiveTradeChart from './InteractiveTradeChart';
 
 // Default symbol specifications
 const DEFAULT_SYMBOL_INFO: Record<string, Partial<SymbolInfo>> = {
+  // Metals
   'XAUUSD.s': {
     pipSize: 0.1,
     contractSize: 100,
@@ -46,6 +47,7 @@ const DEFAULT_SYMBOL_INFO: Record<string, Partial<SymbolInfo>> = {
     tickValue: 1,
     digits: 3,
   },
+  // Crypto
   BTCUSD: {
     pipSize: 1,
     contractSize: 1,
@@ -66,6 +68,79 @@ const DEFAULT_SYMBOL_INFO: Record<string, Partial<SymbolInfo>> = {
     tickValue: 1,
     digits: 2,
   },
+  // Indices
+  DAX40: {
+    pipSize: 1,
+    contractSize: 1,
+    minVolume: 0.01,
+    maxVolume: 100,
+    volumeStep: 0.01,
+    tickSize: 0.1,
+    tickValue: 1,
+    digits: 1,
+  },
+  US30: {
+    pipSize: 1,
+    contractSize: 1,
+    minVolume: 0.01,
+    maxVolume: 100,
+    volumeStep: 0.01,
+    tickSize: 0.01,
+    tickValue: 1,
+    digits: 2,
+  },
+  US500: {
+    pipSize: 1,
+    contractSize: 1,
+    minVolume: 0.01,
+    maxVolume: 100,
+    volumeStep: 0.01,
+    tickSize: 0.01,
+    tickValue: 1,
+    digits: 2,
+  },
+  NAS100: {
+    pipSize: 1,
+    contractSize: 1,
+    minVolume: 0.01,
+    maxVolume: 100,
+    volumeStep: 0.01,
+    tickSize: 0.01,
+    tickValue: 1,
+    digits: 2,
+  },
+  UK100: {
+    pipSize: 1,
+    contractSize: 1,
+    minVolume: 0.01,
+    maxVolume: 100,
+    volumeStep: 0.01,
+    tickSize: 0.01,
+    tickValue: 1,
+    digits: 2,
+  },
+  // Energy
+  USOIL: {
+    pipSize: 0.01,
+    contractSize: 1000,
+    minVolume: 0.01,
+    maxVolume: 100,
+    volumeStep: 0.01,
+    tickSize: 0.01,
+    tickValue: 10,
+    digits: 2,
+  },
+  UKOIL: {
+    pipSize: 0.01,
+    contractSize: 1000,
+    minVolume: 0.01,
+    maxVolume: 100,
+    volumeStep: 0.01,
+    tickSize: 0.01,
+    tickValue: 10,
+    digits: 2,
+  },
+  // Forex
   EURUSD: {
     pipSize: 0.0001,
     contractSize: 100000,
@@ -95,6 +170,56 @@ const DEFAULT_SYMBOL_INFO: Record<string, Partial<SymbolInfo>> = {
     tickSize: 0.001,
     tickValue: 1,
     digits: 3,
+  },
+  AUDUSD: {
+    pipSize: 0.0001,
+    contractSize: 100000,
+    minVolume: 0.01,
+    maxVolume: 100,
+    volumeStep: 0.01,
+    tickSize: 0.00001,
+    tickValue: 1,
+    digits: 5,
+  },
+  USDCHF: {
+    pipSize: 0.0001,
+    contractSize: 100000,
+    minVolume: 0.01,
+    maxVolume: 100,
+    volumeStep: 0.01,
+    tickSize: 0.00001,
+    tickValue: 1,
+    digits: 5,
+  },
+  EURGBP: {
+    pipSize: 0.0001,
+    contractSize: 100000,
+    minVolume: 0.01,
+    maxVolume: 100,
+    volumeStep: 0.01,
+    tickSize: 0.00001,
+    tickValue: 1,
+    digits: 5,
+  },
+  NZDUSD: {
+    pipSize: 0.0001,
+    contractSize: 100000,
+    minVolume: 0.01,
+    maxVolume: 100,
+    volumeStep: 0.01,
+    tickSize: 0.00001,
+    tickValue: 1,
+    digits: 5,
+  },
+  USDCAD: {
+    pipSize: 0.0001,
+    contractSize: 100000,
+    minVolume: 0.01,
+    maxVolume: 100,
+    volumeStep: 0.01,
+    tickSize: 0.00001,
+    tickValue: 1,
+    digits: 5,
   },
 };
 
@@ -524,11 +649,23 @@ export default function TradeCalculator() {
                 <SelectContent>
                   <SelectItem value="XAUUSD.s">XAUUSD.s (Gold)</SelectItem>
                   <SelectItem value="XAGUSD.s">XAGUSD.s (Silver)</SelectItem>
-                  <SelectItem value="BTCUSD">BTCUSD</SelectItem>
-                  <SelectItem value="ETHUSD">ETHUSD</SelectItem>
+                  <SelectItem value="BTCUSD">BTCUSD (Bitcoin)</SelectItem>
+                  <SelectItem value="ETHUSD">ETHUSD (Ethereum)</SelectItem>
+                  <SelectItem value="DAX40">DAX40 (Germany 40)</SelectItem>
+                  <SelectItem value="US30">US30 (Dow Jones)</SelectItem>
+                  <SelectItem value="US500">US500 (S&P 500)</SelectItem>
+                  <SelectItem value="NAS100">NAS100 (Nasdaq)</SelectItem>
+                  <SelectItem value="UK100">UK100 (FTSE 100)</SelectItem>
+                  <SelectItem value="USOIL">USOIL (WTI Crude)</SelectItem>
+                  <SelectItem value="UKOIL">UKOIL (Brent Crude)</SelectItem>
                   <SelectItem value="EURUSD">EURUSD</SelectItem>
                   <SelectItem value="GBPUSD">GBPUSD</SelectItem>
                   <SelectItem value="USDJPY">USDJPY</SelectItem>
+                  <SelectItem value="AUDUSD">AUDUSD</SelectItem>
+                  <SelectItem value="USDCHF">USDCHF</SelectItem>
+                  <SelectItem value="EURGBP">EURGBP</SelectItem>
+                  <SelectItem value="NZDUSD">NZDUSD</SelectItem>
+                  <SelectItem value="USDCAD">USDCAD</SelectItem>
                 </SelectContent>
               </Select>
             </div>
