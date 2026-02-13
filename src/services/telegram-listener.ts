@@ -248,6 +248,12 @@ class TelegramListenerService {
       const client = await this.ensureConnected();
       console.log('[TelegramListener] Connected to Telegram');
 
+      // Fetch dialogs to prime gramjs's internal update state (pts/qts).
+      // Without this, gramjs connects but never receives real-time updates
+      // because it hasn't synced the update gap with Telegram's servers.
+      await client.getDialogs({ limit: 10 });
+      console.log('[TelegramListener] Dialogs fetched — update state primed');
+
       // Resolve the channel entity to get its numeric ID
       const channelEntity = await client.getEntity(this.channelId);
       const channelPeerId = (channelEntity as any).id;
