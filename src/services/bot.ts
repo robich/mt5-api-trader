@@ -193,10 +193,22 @@ export class TradingBot {
       }
 
       // Backfill any remaining closed trades with missing close data
-      if (historicalDeals.length > 0) {
-        const backfilled = await tradeManager.backfillMissingCloseData(historicalDeals);
-        if (backfilled > 0) {
-          console.log(`[Bot] Backfilled close data for ${backfilled} trades`);
+      // Use ALL deals from history storage (not just 30-day window) for complete coverage
+      try {
+        const allDeals = await metaApiClient.getAllDeals();
+        if (allDeals.length > 0) {
+          const backfilled = await tradeManager.backfillMissingCloseData(allDeals);
+          if (backfilled > 0) {
+            console.log(`[Bot] Backfilled close data for ${backfilled} trades (from ${allDeals.length} total deals)`);
+          }
+        }
+      } catch (backfillError) {
+        // Fall back to 30-day deals if getAllDeals fails
+        if (historicalDeals.length > 0) {
+          const backfilled = await tradeManager.backfillMissingCloseData(historicalDeals);
+          if (backfilled > 0) {
+            console.log(`[Bot] Backfilled close data for ${backfilled} trades (30-day fallback)`);
+          }
         }
       }
 
