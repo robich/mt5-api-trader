@@ -56,6 +56,7 @@ export class TradingBot {
   private lastKnownPositions: Map<string, PositionUpdate> = new Map(); // positionId -> last known state
   private breakevenManager: BreakevenManager;
   private tieredTPManager: TieredTPManager;
+  private heartbeatCount = 0;
 
   private constructor(config?: Partial<BotConfig>) {
     this.config = { ...DEFAULT_BOT_CONFIG, ...config };
@@ -499,6 +500,15 @@ export class TradingBot {
         // Expire old signals
         await tradeManager.expireOldSignals();
 
+        // Hourly cleanup: delete analysis scans older than 7 days
+        this.heartbeatCount++;
+        if (this.heartbeatCount % 60 === 0) {
+          const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+          prisma.analysisScan.deleteMany({
+            where: { scannedAt: { lt: sevenDaysAgo } },
+          }).catch((err) => console.error('[Bot] Failed to cleanup old scans:', err));
+        }
+
         // Log status
         console.log(`[Bot] Heartbeat - Prices: ${this.latestPrices.size}, Symbols: ${this.config.symbols.length}`);
 
@@ -668,6 +678,28 @@ export class TradingBot {
 
       // Run all enabled strategies
       const signal = runAllStrategies(context, this.config.strategies);
+
+      // Persist scan to DB (fire-and-forget)
+      prisma.analysisScan.create({
+        data: {
+          symbol,
+          currentPrice: context.currentPrice,
+          htfBias: analysis.htf.bias,
+          mtfBias: analysis.mtf.bias,
+          ltfBias: analysis.ltf.bias,
+          confluenceScore: analysis.confluenceScore,
+          htfOBCount: analysis.htf.orderBlocks.length,
+          mtfOBCount: analysis.mtf.orderBlocks.length,
+          mtfFVGCount: analysis.mtf.fvgs.length,
+          ltfFVGCount: analysis.ltf.fvgs.length,
+          htfLiqZoneCount: analysis.htf.liquidityZones.length,
+          mtfLiqZoneCount: analysis.mtf.liquidityZones.length,
+          signalGenerated: !!signal,
+          signalDirection: signal?.direction ?? null,
+          signalStrategy: signal?.strategy ?? null,
+          signalConfidence: signal?.confidence ?? null,
+        },
+      }).catch((err) => console.error('[Bot] Failed to persist analysis scan:', err));
 
       if (signal) {
         console.log(`[Bot] Signal generated for ${symbol}: ${signal.direction} via ${signal.strategy}`);

@@ -5,6 +5,7 @@ import { analyzeStrategies, reviewChanges, fixCompilationErrors } from './claude
 import { applyChanges } from './code-applier.mjs';
 import { validateChanges, validateDiffSize, checkTypeScript, validateModifiedFiles, hardLimits } from './safety-validator.mjs';
 import { sendReport, sendError, sendNoChanges } from './telegram-notifier.mjs';
+import { persistRun } from './run-reporter.mjs';
 import { execSync } from 'child_process';
 
 const DRY_RUN = process.env.DRY_RUN === 'true';
@@ -15,6 +16,7 @@ const MAX_TSC_RETRIES = 2;
  */
 export async function runAnalysis() {
   const startTime = Date.now();
+  const startedAt = new Date();
   const date = new Date().toISOString().split('T')[0];
 
   console.log('═'.repeat(60));
@@ -57,6 +59,16 @@ export async function runAnalysis() {
       console.log('\n[result] No changes recommended.');
       await sendNoChanges(analysis.marketAssessment);
       logDuration(startTime);
+      persistRun({
+        startedAt,
+        durationSeconds: (Date.now() - startTime) / 1000,
+        status: 'NO_CHANGES',
+        dryRun: DRY_RUN,
+        marketAssessment: analysis.marketAssessment,
+        riskAssessment: analysis.riskAssessment,
+        reasoning: analysis.reasoning,
+        backtestBaseline: baseline,
+      }).catch(err => console.error('[reporter] Failed to persist run:', err.message));
       return { success: true, noChanges: true };
     }
 
@@ -73,6 +85,14 @@ export async function runAnalysis() {
       console.error('[review] Changes REJECTED by reviewer:', review.issues);
       await sendError(`Safety review rejected: ${review.issues.join('; ')}`, 'safety-review');
       logDuration(startTime);
+      persistRun({
+        startedAt, durationSeconds: (Date.now() - startTime) / 1000,
+        status: 'FAILED', dryRun: DRY_RUN, failureStep: 'safety-review',
+        failureReason: review.issues.join('; '),
+        marketAssessment: analysis.marketAssessment, riskAssessment: analysis.riskAssessment,
+        reasoning: analysis.reasoning, changesProposed: analysis.changes.length,
+        backtestBaseline: baseline,
+      }).catch(e => console.error('[reporter] Failed to persist run:', e.message));
       return { success: false, reason: 'review-rejected', issues: review.issues };
     }
 
@@ -83,6 +103,14 @@ export async function runAnalysis() {
       console.error('[validate] Pre-apply validation FAILED:', preValidation.errors);
       await sendError(`Validation failed: ${preValidation.errors.join('; ')}`, 'pre-validation');
       logDuration(startTime);
+      persistRun({
+        startedAt, durationSeconds: (Date.now() - startTime) / 1000,
+        status: 'FAILED', dryRun: DRY_RUN, failureStep: 'pre-validation',
+        failureReason: preValidation.errors.join('; '),
+        marketAssessment: analysis.marketAssessment, riskAssessment: analysis.riskAssessment,
+        reasoning: analysis.reasoning, changesProposed: analysis.changes.length,
+        backtestBaseline: baseline,
+      }).catch(e => console.error('[reporter] Failed to persist run:', e.message));
       return { success: false, reason: 'validation-failed', errors: preValidation.errors };
     }
 
@@ -94,6 +122,14 @@ export async function runAnalysis() {
       console.error('[apply] No changes could be applied.');
       await sendError(`All ${failed.length} changes failed to apply`, 'apply');
       logDuration(startTime);
+      persistRun({
+        startedAt, durationSeconds: (Date.now() - startTime) / 1000,
+        status: 'FAILED', dryRun: DRY_RUN, failureStep: 'apply',
+        failureReason: `All ${failed.length} changes failed to apply`,
+        marketAssessment: analysis.marketAssessment, riskAssessment: analysis.riskAssessment,
+        reasoning: analysis.reasoning, changesProposed: analysis.changes.length,
+        changesFailed: failed.length, backtestBaseline: baseline,
+      }).catch(e => console.error('[reporter] Failed to persist run:', e.message));
       return { success: false, reason: 'apply-failed', failed };
     }
 
@@ -105,6 +141,16 @@ export async function runAnalysis() {
       rollback();
       await sendError(diffCheck.errors.join('; '), 'diff-size');
       logDuration(startTime);
+      persistRun({
+        startedAt, durationSeconds: (Date.now() - startTime) / 1000,
+        status: 'FAILED', dryRun: DRY_RUN, failureStep: 'diff-size',
+        failureReason: diffCheck.errors.join('; '),
+        marketAssessment: analysis.marketAssessment, riskAssessment: analysis.riskAssessment,
+        reasoning: analysis.reasoning, changesProposed: analysis.changes.length,
+        changesApplied: applied.length, changesFailed: failed.length,
+        changesDetail: applied.map(a => ({ file: a.file, description: a.description })),
+        backtestBaseline: baseline,
+      }).catch(e => console.error('[reporter] Failed to persist run:', e.message));
       return { success: false, reason: 'diff-too-large', errors: diffCheck.errors };
     }
 
@@ -115,6 +161,16 @@ export async function runAnalysis() {
       rollback();
       await sendError(fileCheck.errors.join('; '), 'file-validation');
       logDuration(startTime);
+      persistRun({
+        startedAt, durationSeconds: (Date.now() - startTime) / 1000,
+        status: 'FAILED', dryRun: DRY_RUN, failureStep: 'file-validation',
+        failureReason: fileCheck.errors.join('; '),
+        marketAssessment: analysis.marketAssessment, riskAssessment: analysis.riskAssessment,
+        reasoning: analysis.reasoning, changesProposed: analysis.changes.length,
+        changesApplied: applied.length, changesFailed: failed.length,
+        changesDetail: applied.map(a => ({ file: a.file, description: a.description })),
+        backtestBaseline: baseline,
+      }).catch(e => console.error('[reporter] Failed to persist run:', e.message));
       return { success: false, reason: 'file-validation-failed', errors: fileCheck.errors };
     }
 
@@ -154,6 +210,17 @@ export async function runAnalysis() {
       rollback();
       await sendError(`TypeScript compilation failed:\n${tscResult.errors[0]?.substring(0, 300)}`, 'tsc');
       logDuration(startTime);
+      persistRun({
+        startedAt, durationSeconds: (Date.now() - startTime) / 1000,
+        status: 'FAILED', dryRun: DRY_RUN, failureStep: 'tsc',
+        failureReason: tscResult.errors.join('\n').substring(0, 2000),
+        marketAssessment: analysis.marketAssessment, riskAssessment: analysis.riskAssessment,
+        reasoning: analysis.reasoning, codeChanged: true,
+        changesProposed: analysis.changes.length, changesApplied: applied.length,
+        changesFailed: failed.length,
+        changesDetail: applied.map(a => ({ file: a.file, description: a.description })),
+        backtestBaseline: baseline,
+      }).catch(e => console.error('[reporter] Failed to persist run:', e.message));
       return { success: false, reason: 'tsc-failed', errors: tscResult.errors };
     }
 
@@ -180,6 +247,21 @@ export async function runAnalysis() {
         redeployed: false,
       });
       logDuration(startTime);
+      persistRun({
+        startedAt, durationSeconds: (Date.now() - startTime) / 1000,
+        status: 'FAILED', dryRun: DRY_RUN, failureStep: 'backtest-validation',
+        failureReason: Object.entries(comparison.details)
+          .filter(([, d]) => !d.passed)
+          .map(([s, d]) => `${s}: ${d.failures?.join(', ')}`)
+          .join('; '),
+        marketAssessment: analysis.marketAssessment, riskAssessment: analysis.riskAssessment,
+        reasoning: analysis.reasoning, codeChanged: true,
+        changesProposed: analysis.changes.length, changesApplied: applied.length,
+        changesFailed: failed.length,
+        changesDetail: applied.map(a => ({ file: a.file, description: a.description })),
+        backtestBaseline: baseline, backtestValidation: validation,
+        backtestPassed: false,
+      }).catch(e => console.error('[reporter] Failed to persist run:', e.message));
       return { success: false, reason: 'backtest-gate-failed', comparison };
     }
 
@@ -210,6 +292,25 @@ export async function runAnalysis() {
     });
 
     logDuration(startTime);
+    persistRun({
+      startedAt,
+      durationSeconds: (Date.now() - startTime) / 1000,
+      status: 'SUCCESS',
+      dryRun: DRY_RUN,
+      marketAssessment: analysis.marketAssessment,
+      riskAssessment: analysis.riskAssessment,
+      reasoning: analysis.reasoning,
+      codeChanged: true,
+      changesProposed: analysis.changes.length,
+      changesApplied: applied.length,
+      changesFailed: failed.length,
+      changesDetail: applied.map(a => ({ file: a.file, description: a.description })),
+      backtestBaseline: baseline,
+      backtestValidation: validation,
+      backtestPassed: comparison.allPassed,
+      commitHash: commit?.hash ?? null,
+      branch: commit?.branch ?? null,
+    }).catch(err => console.error('[reporter] Failed to persist run:', err.message));
     return { success: true, applied, commit, comparison };
 
   } catch (err) {
@@ -219,6 +320,14 @@ export async function runAnalysis() {
       try { rollback(); } catch {}
     }
     logDuration(startTime);
+    persistRun({
+      startedAt,
+      durationSeconds: (Date.now() - startTime) / 1000,
+      status: 'FAILED',
+      dryRun: DRY_RUN,
+      failureStep: 'orchestrator',
+      failureReason: err.message || String(err),
+    }).catch(e => console.error('[reporter] Failed to persist run:', e.message));
     return { success: false, reason: 'fatal', error: err.message };
   }
 }

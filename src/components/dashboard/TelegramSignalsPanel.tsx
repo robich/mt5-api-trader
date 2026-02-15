@@ -65,6 +65,8 @@ function getCategoryBadge(category: string) {
       return <Badge className="bg-orange-500/20 text-orange-500">SL UPDATE</Badge>;
     case 'CLOSE_SIGNAL':
       return <Badge className="bg-purple-500/20 text-purple-500">CLOSE</Badge>;
+    case 'MOVE_TO_BE':
+      return <Badge className="bg-cyan-500/20 text-cyan-500">MOVE TO BE</Badge>;
     default:
       return <Badge className="bg-gray-500/20 text-gray-500">OTHER</Badge>;
   }

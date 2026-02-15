@@ -6,7 +6,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { prisma } from '@/lib/db';
 
-export type SignalCategory = 'SIGNAL' | 'TP_UPDATE' | 'SL_UPDATE' | 'CLOSE_SIGNAL' | 'OTHER';
+export type SignalCategory = 'SIGNAL' | 'TP_UPDATE' | 'SL_UPDATE' | 'CLOSE_SIGNAL' | 'MOVE_TO_BE' | 'OTHER';
 
 export interface SignalAnalysis {
   category: SignalCategory;
@@ -18,6 +18,7 @@ export interface SignalAnalysis {
   confidence: number;
   reasoning: string;
   linkedSignalId: string | null;
+  closePercent: number | null;
 }
 
 // Symbol alias mapping
@@ -130,7 +131,12 @@ IMPORTANT RULES:
 - Only classify as SIGNAL if there is a CLEAR, ACTIONABLE trade instruction with explicit direction (BUY/SELL/LONG/SHORT/ACHAT/VENTE) and a specific price level
 - TP_UPDATE: message provides a new take-profit price for a recently executed signal
 - SL_UPDATE: message provides a new stop-loss price for a recently executed signal
-- CLOSE_SIGNAL: message explicitly says to close/exit a position
+- CLOSE_SIGNAL: message explicitly says to close/exit a position (full or partial). Extract the TP level and set closePercent:
+  - "CLOSE TP1" or "fermer TP1" → closePercent: 50
+  - "CLOSE TP2" or "fermer TP2" → closePercent: 30
+  - "CLOSE TP3" or "fermer TP3" → closePercent: 20
+  - "CLOSE ALL" / "CLOSE" / no TP level → closePercent: 100
+- MOVE_TO_BE: message says to move stop-loss to breakeven / entry price. Trigger phrases: "déplacer à BE", "move to breakeven", "sécuriser", "secure entry", "mettre à BE", "BE activé"
 
 Symbol mapping (use the mapped name):
 - GOLD / OR / XAU / XAUUSD -> XAUUSD.s
@@ -148,7 +154,7 @@ ${text}
 
 Respond with ONLY a valid JSON object (no markdown, no explanation outside JSON):
 {
-  "category": "SIGNAL" | "TP_UPDATE" | "SL_UPDATE" | "CLOSE_SIGNAL" | "OTHER",
+  "category": "SIGNAL" | "TP_UPDATE" | "SL_UPDATE" | "CLOSE_SIGNAL" | "MOVE_TO_BE" | "OTHER",
   "symbol": "XAUUSD.s" | "BTCUSD" | null,
   "direction": "BUY" | "SELL" | null,
   "entryPrice": number | null,
@@ -156,7 +162,8 @@ Respond with ONLY a valid JSON object (no markdown, no explanation outside JSON)
   "takeProfit": number | null,
   "confidence": 0.0-1.0,
   "reasoning": "brief explanation",
-  "linkedSignalId": "id from recent signals" | null
+  "linkedSignalId": "id from recent signals" | null,
+  "closePercent": 50 | 30 | 20 | 100 | null
 }`;
   }
 
@@ -171,7 +178,7 @@ Respond with ONLY a valid JSON object (no markdown, no explanation outside JSON)
       const parsed = JSON.parse(jsonMatch[0]);
 
       // Validate and normalize
-      const validCategories: SignalCategory[] = ['SIGNAL', 'TP_UPDATE', 'SL_UPDATE', 'CLOSE_SIGNAL', 'OTHER'];
+      const validCategories: SignalCategory[] = ['SIGNAL', 'TP_UPDATE', 'SL_UPDATE', 'CLOSE_SIGNAL', 'MOVE_TO_BE', 'OTHER'];
       const category: SignalCategory = validCategories.includes(parsed.category) ? parsed.category : 'OTHER';
 
       // Normalize symbol
@@ -198,6 +205,7 @@ Respond with ONLY a valid JSON object (no markdown, no explanation outside JSON)
         confidence: typeof parsed.confidence === 'number' ? Math.max(0, Math.min(1, parsed.confidence)) : 0.5,
         reasoning: parsed.reasoning || 'No reasoning provided',
         linkedSignalId: parsed.linkedSignalId || null,
+        closePercent: typeof parsed.closePercent === 'number' ? parsed.closePercent : null,
       };
     } catch (error) {
       console.error('[SignalAnalyzer] Error parsing response:', error);
@@ -216,6 +224,7 @@ Respond with ONLY a valid JSON object (no markdown, no explanation outside JSON)
       confidence: 0,
       reasoning,
       linkedSignalId: null,
+      closePercent: null,
     };
   }
 }

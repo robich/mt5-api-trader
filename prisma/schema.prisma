@@ -297,6 +297,60 @@ model TelegramListenerState {
   updatedAt       DateTime @updatedAt
 }
 
+// Analysis scan history (every bot analysis cycle)
+model AnalysisScan {
+  id               String   @id @default(uuid())
+  symbol           String
+  currentPrice     Float
+  htfBias          String   // BULLISH, BEARISH, NEUTRAL
+  mtfBias          String
+  ltfBias          String
+  confluenceScore  Float    // 0-100
+  htfOBCount       Int
+  mtfOBCount       Int
+  mtfFVGCount      Int
+  ltfFVGCount      Int
+  htfLiqZoneCount  Int
+  mtfLiqZoneCount  Int
+  signalGenerated  Boolean  @default(false)
+  signalDirection  String?  // BUY or SELL
+  signalStrategy   String?  // Strategy name
+  signalConfidence Float?   // 0-1
+  scannedAt        DateTime @default(now())
+
+  @@index([symbol, scannedAt])
+  @@index([scannedAt])
+  @@index([signalGenerated])
+}
+
+// Strategy Analyst pipeline run history
+model StrategyAnalystRun {
+  id                 String   @id @default(uuid())
+  startedAt          DateTime
+  completedAt        DateTime @default(now())
+  durationSeconds    Float
+  status             String   // SUCCESS, NO_CHANGES, FAILED
+  dryRun             Boolean  @default(false)
+  failureStep        String?  // Which pipeline step failed
+  failureReason      String?  @db.Text
+  marketAssessment   String?  @db.Text
+  riskAssessment     String?  // LOW, MEDIUM, HIGH
+  reasoning          String?  @db.Text  // Claude's full reasoning
+  codeChanged        Boolean  @default(false)
+  changesProposed    Int      @default(0)
+  changesApplied     Int      @default(0)
+  changesFailed      Int      @default(0)
+  changesDetail      String?  @db.Text  // JSON: [{file, description}]
+  backtestBaseline   String?  @db.Text  // JSON: baseline summary per symbol
+  backtestValidation String?  @db.Text  // JSON: validation summary per symbol
+  backtestPassed     Boolean?
+  commitHash         String?
+  branch             String?
+
+  @@index([startedAt])
+  @@index([status])
+}
+
 // Daily market analysis using Claude AI
 model MarketAnalysis {
   id                 String   @id @default(uuid())

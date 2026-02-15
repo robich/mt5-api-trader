@@ -26,6 +26,10 @@ export async function POST() {
       prisma.accountSnapshot.deleteMany({}),
       // Delete daily drawdown tracking
       prisma.dailyDrawdown.deleteMany({}),
+      // Delete analysis scan history
+      prisma.analysisScan.deleteMany({}),
+      // Delete strategy analyst runs
+      prisma.strategyAnalystRun.deleteMany({}),
     ]);
 
     console.log('Database reset completed successfully');
@@ -43,6 +47,8 @@ export async function POST() {
         'cachedCandles',
         'accountSnapshots',
         'dailyDrawdown',
+        'analysisScans',
+        'strategyAnalystRuns',
       ],
     });
   } catch (error) {

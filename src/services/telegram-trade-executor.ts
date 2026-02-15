@@ -55,7 +55,7 @@ class TelegramTradeExecutor {
 
     if (!dbMessage) {
       console.error(`[TradeExecutor] Message #${msg.id} not found in DB`);
-      return { category: 'OTHER', symbol: null, direction: null, entryPrice: null, stopLoss: null, takeProfit: null, confidence: 0, reasoning: 'Message not found in DB', linkedSignalId: null };
+      return { category: 'OTHER', symbol: null, direction: null, entryPrice: null, stopLoss: null, takeProfit: null, confidence: 0, reasoning: 'Message not found in DB', linkedSignalId: null, closePercent: null };
     }
 
     // Analyze with Claude
@@ -105,6 +105,9 @@ class TelegramTradeExecutor {
           break;
         case 'CLOSE_SIGNAL':
           await this.handleCloseSignal(dbAnalysis.id, analysis);
+          break;
+        case 'MOVE_TO_BE':
+          await this.handleMoveToBreakeven(dbAnalysis.id, analysis);
           break;
         default:
           await this.markSkipped(dbAnalysis.id, 'Not a trading signal');
@@ -306,37 +309,24 @@ class TelegramTradeExecutor {
   }
 
   /**
-   * Handle TP_UPDATE: modify the take-profit of a linked trade
+   * Handle TP_UPDATE: modify the take-profit of a linked trade.
+   * Falls back to most recent open EXTERNAL trade if linkedSignalId is missing.
    */
   private async handleTPUpdate(analysisId: string, analysis: SignalAnalysis): Promise<void> {
-    if (!analysis.linkedSignalId || !analysis.takeProfit) {
-      await this.markSkipped(analysisId, 'Missing linkedSignalId or takeProfit for TP update');
+    if (!analysis.takeProfit) {
+      await this.markSkipped(analysisId, 'Missing takeProfit value for TP update');
       return;
     }
 
-    // Find the linked signal's trade
-    const linkedSignal = await prisma.telegramSignalAnalysis.findUnique({
-      where: { id: analysis.linkedSignalId },
-    });
+    const trade = await this.findOpenTrade(analysis);
 
-    if (!linkedSignal?.tradeId) {
-      await this.markSkipped(analysisId, 'Linked signal has no trade');
+    if (!trade) {
+      await this.markSkipped(analysisId, 'No open EXTERNAL trade found for TP update');
       return;
     }
 
-    const trade = await prisma.trade.findUnique({
-      where: { id: linkedSignal.tradeId },
-    });
-
-    if (!trade?.mt5PositionId || trade.status !== 'OPEN') {
-      await this.markSkipped(analysisId, 'Trade not found or not open');
-      return;
-    }
-
-    // Modify position TP
     await metaApiClient.modifyPosition(trade.mt5PositionId, trade.stopLoss, analysis.takeProfit);
 
-    // Update trade in DB
     await prisma.trade.update({
       where: { id: trade.id },
       data: { takeProfit: analysis.takeProfit },
@@ -354,29 +344,19 @@ class TelegramTradeExecutor {
   }
 
   /**
-   * Handle SL_UPDATE: modify the stop-loss of a linked trade
+   * Handle SL_UPDATE: modify the stop-loss of a linked trade.
+   * Falls back to most recent open EXTERNAL trade if linkedSignalId is missing.
    */
   private async handleSLUpdate(analysisId: string, analysis: SignalAnalysis): Promise<void> {
-    if (!analysis.linkedSignalId || !analysis.stopLoss) {
-      await this.markSkipped(analysisId, 'Missing linkedSignalId or stopLoss for SL update');
+    if (!analysis.stopLoss) {
+      await this.markSkipped(analysisId, 'Missing stopLoss value for SL update');
       return;
     }
 
-    const linkedSignal = await prisma.telegramSignalAnalysis.findUnique({
-      where: { id: analysis.linkedSignalId },
-    });
+    const trade = await this.findOpenTrade(analysis);
 
-    if (!linkedSignal?.tradeId) {
-      await this.markSkipped(analysisId, 'Linked signal has no trade');
-      return;
-    }
-
-    const trade = await prisma.trade.findUnique({
-      where: { id: linkedSignal.tradeId },
-    });
-
-    if (!trade?.mt5PositionId || trade.status !== 'OPEN') {
-      await this.markSkipped(analysisId, 'Trade not found or not open');
+    if (!trade) {
+      await this.markSkipped(analysisId, 'No open EXTERNAL trade found for SL update');
       return;
     }
 
@@ -399,33 +379,75 @@ class TelegramTradeExecutor {
   }
 
   /**
-   * Handle CLOSE_SIGNAL: close the linked trade
+   * Handle CLOSE_SIGNAL: close the linked trade (full or partial).
+   * If closePercent < 100, performs a partial close and moves SL to breakeven.
+   * Falls back to most recent open EXTERNAL trade if linkedSignalId is missing.
    */
   private async handleCloseSignal(analysisId: string, analysis: SignalAnalysis): Promise<void> {
-    if (!analysis.linkedSignalId) {
-      await this.markSkipped(analysisId, 'Missing linkedSignalId for close signal');
+    const trade = await this.findOpenTrade(analysis);
+
+    if (!trade) {
+      await this.markSkipped(analysisId, 'No open EXTERNAL trade found to close');
       return;
     }
 
-    const linkedSignal = await prisma.telegramSignalAnalysis.findUnique({
-      where: { id: analysis.linkedSignalId },
+    const closePercent = analysis.closePercent ?? 100;
+
+    if (closePercent < 100) {
+      // Partial close
+      const closeVolume = trade.lotSize * (closePercent / 100);
+      const symbolInfo = await metaApiClient.getSymbolInfo(trade.symbol);
+      const roundedVolume = Math.round(closeVolume / symbolInfo.volumeStep) * symbolInfo.volumeStep;
+
+      if (roundedVolume < symbolInfo.minVolume) {
+        await this.markSkipped(analysisId, `Partial close volume too small: ${roundedVolume} < ${symbolInfo.minVolume}`);
+        return;
+      }
+
+      await metaApiClient.closePositionPartially(trade.mt5PositionId, roundedVolume);
+      console.log(`[TradeExecutor] Partial close ${closePercent}% (${roundedVolume} lots) for trade ${trade.id}`);
+
+      // After partial close, move SL to breakeven to protect remaining position
+      const beSL = this.computeBreakevenSL(trade.entryPrice, trade.symbol, trade.direction);
+      await metaApiClient.modifyPosition(trade.mt5PositionId, beSL, trade.takeProfit);
+      await prisma.trade.update({
+        where: { id: trade.id },
+        data: { stopLoss: beSL },
+      });
+      console.log(`[TradeExecutor] SL moved to breakeven (${beSL}) after partial close`);
+    } else {
+      // Full close
+      await metaApiClient.closePosition(trade.mt5PositionId);
+      console.log(`[TradeExecutor] Position fully closed for trade ${trade.id}`);
+    }
+
+    await prisma.telegramSignalAnalysis.update({
+      where: { id: analysisId },
+      data: {
+        executionStatus: 'EXECUTED',
+        tradeId: trade.id,
+      },
     });
+  }
 
-    if (!linkedSignal?.tradeId) {
-      await this.markSkipped(analysisId, 'Linked signal has no trade');
+  /**
+   * Handle MOVE_TO_BE: move stop-loss to breakeven (entry price + small buffer).
+   */
+  private async handleMoveToBreakeven(analysisId: string, analysis: SignalAnalysis): Promise<void> {
+    const trade = await this.findOpenTrade(analysis);
+
+    if (!trade) {
+      await this.markSkipped(analysisId, 'No open EXTERNAL trade found for move to BE');
       return;
     }
 
-    const trade = await prisma.trade.findUnique({
-      where: { id: linkedSignal.tradeId },
+    const beSL = this.computeBreakevenSL(trade.entryPrice, trade.symbol, trade.direction);
+
+    await metaApiClient.modifyPosition(trade.mt5PositionId, beSL, trade.takeProfit);
+    await prisma.trade.update({
+      where: { id: trade.id },
+      data: { stopLoss: beSL },
     });
-
-    if (!trade?.mt5PositionId || trade.status !== 'OPEN') {
-      await this.markSkipped(analysisId, 'Trade not found or not open');
-      return;
-    }
-
-    await metaApiClient.closePosition(trade.mt5PositionId);
 
     await prisma.telegramSignalAnalysis.update({
       where: { id: analysisId },
@@ -435,7 +457,74 @@ class TelegramTradeExecutor {
       },
     });
 
-    console.log(`[TradeExecutor] Position closed for trade ${trade.id}`);
+    console.log(`[TradeExecutor] SL moved to breakeven (${beSL}) for trade ${trade.id}`);
+  }
+
+  /**
+   * Compute breakeven SL = entry +/- small buffer (direction-aware).
+   * Buffer covers spread so we don't get stopped out at exact entry.
+   */
+  private computeBreakevenSL(entryPrice: number, symbol: string, direction: string): number {
+    const buffers: Record<string, number> = {
+      'XAUUSD.s': 0.5,
+      'XAGUSD.s': 0.05,
+      'BTCUSD': 50,
+      'ETHUSD': 3,
+    };
+    const buffer = buffers[symbol] ?? 0.0003; // forex default
+
+    return direction === 'BUY'
+      ? entryPrice + buffer
+      : entryPrice - buffer;
+  }
+
+  /**
+   * Find the open trade for a management message (CLOSE/TP_UPDATE/SL_UPDATE).
+   * Resolution order:
+   *  1. linkedSignalId from LLM analysis (if valid and has an open trade)
+   *  2. Most recent open EXTERNAL trade matching the symbol (if symbol provided)
+   *  3. Most recent open EXTERNAL trade (any symbol)
+   */
+  private async findOpenTrade(analysis: SignalAnalysis): Promise<{ id: string; mt5PositionId: string; stopLoss: number; takeProfit: number; symbol: string; entryPrice: number; lotSize: number; direction: string } | null> {
+    // 1. Try linkedSignalId
+    if (analysis.linkedSignalId) {
+      const linkedSignal = await prisma.telegramSignalAnalysis.findUnique({
+        where: { id: analysis.linkedSignalId },
+      });
+      if (linkedSignal?.tradeId) {
+        const trade = await prisma.trade.findUnique({
+          where: { id: linkedSignal.tradeId },
+        });
+        if (trade?.mt5PositionId && trade.status === 'OPEN') {
+          console.log(`[TradeExecutor] Linked trade found: ${trade.id} (${trade.symbol})`);
+          return { id: trade.id, mt5PositionId: trade.mt5PositionId, stopLoss: trade.stopLoss, takeProfit: trade.takeProfit, symbol: trade.symbol, entryPrice: trade.entryPrice, lotSize: trade.lotSize, direction: trade.direction };
+        }
+      }
+    }
+
+    // 2. Most recent open EXTERNAL trade for the symbol
+    if (analysis.symbol) {
+      const trade = await prisma.trade.findFirst({
+        where: { status: 'OPEN', strategy: 'EXTERNAL', symbol: analysis.symbol, mt5PositionId: { not: null } },
+        orderBy: { openTime: 'desc' },
+      });
+      if (trade?.mt5PositionId) {
+        console.log(`[TradeExecutor] Found open trade by symbol ${analysis.symbol}: ${trade.id}`);
+        return { id: trade.id, mt5PositionId: trade.mt5PositionId, stopLoss: trade.stopLoss, takeProfit: trade.takeProfit, symbol: trade.symbol, entryPrice: trade.entryPrice, lotSize: trade.lotSize, direction: trade.direction };
+      }
+    }
+
+    // 3. Most recent open EXTERNAL trade (any symbol)
+    const trade = await prisma.trade.findFirst({
+      where: { status: 'OPEN', strategy: 'EXTERNAL', mt5PositionId: { not: null } },
+      orderBy: { openTime: 'desc' },
+    });
+    if (trade?.mt5PositionId) {
+      console.log(`[TradeExecutor] Found most recent open EXTERNAL trade: ${trade.id} (${trade.symbol})`);
+      return { id: trade.id, mt5PositionId: trade.mt5PositionId, stopLoss: trade.stopLoss, takeProfit: trade.takeProfit, symbol: trade.symbol, entryPrice: trade.entryPrice, lotSize: trade.lotSize, direction: trade.direction };
+    }
+
+    return null;
   }
 
   private async markSkipped(analysisId: string, reason: string): Promise<void> {

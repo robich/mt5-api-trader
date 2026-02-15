@@ -5,12 +5,13 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Calculator, Bot, Radio, RefreshCw } from 'lucide-react';
+import { Calculator, Bot, Radio, RefreshCw, Brain } from 'lucide-react';
 import { KPICards } from '@/components/dashboard/KPICards';
 import { TradeTable } from '@/components/dashboard/TradeTable';
 import { SignalsList } from '@/components/dashboard/SignalsList';
 import { TradingViewChart } from '@/components/dashboard/TradingViewChart';
-import { AnalysisPanel } from '@/components/dashboard/AnalysisPanel';
+import { AnalysisPanelContent } from '@/components/dashboard/AnalysisPanel';
+import { AnalysisHistoryPanel } from '@/components/dashboard/AnalysisHistoryPanel';
 import { MarketAnalysisPanel } from '@/components/dashboard/MarketAnalysisPanel';
 import { TelegramSignalsPanel } from '@/components/dashboard/TelegramSignalsPanel';
 import { EquityCurveChart } from '@/components/dashboard/EquityCurveChart';
@@ -295,6 +296,12 @@ export default function Dashboard() {
             <Button variant="ghost" size="sm" onClick={fetchData} className="h-7 px-2">
               <RefreshCw className="h-3.5 w-3.5" />
             </Button>
+            <Link href="/strategy-analyst" className="hidden md:inline-flex">
+              <Button variant="outline" size="sm">
+                <Brain className="h-4 w-4 mr-2" />
+                Strategy AI
+              </Button>
+            </Link>
             <Link href="/calculator" className="hidden md:inline-flex">
               <Button variant="outline" size="sm">
                 <Calculator className="h-4 w-4 mr-2" />
@@ -442,7 +449,27 @@ export default function Dashboard() {
           {/* Signals & Analysis Panel */}
           <div className="space-y-4 md:space-y-6">
             <MarketAnalysisPanel />
-            <AnalysisPanel analysisResults={analysisData?.analysis || []} />
+            <Card>
+              <Tabs defaultValue="live">
+                <CardHeader className="pb-0">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">SMC Analysis</CardTitle>
+                    <TabsList>
+                      <TabsTrigger value="live">Live</TabsTrigger>
+                      <TabsTrigger value="history">History</TabsTrigger>
+                    </TabsList>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <TabsContent value="live" className="mt-0">
+                    <AnalysisPanelContent analysisResults={analysisData?.analysis || []} />
+                  </TabsContent>
+                  <TabsContent value="history" className="mt-0">
+                    <AnalysisHistoryPanel />
+                  </TabsContent>
+                </CardContent>
+              </Tabs>
+            </Card>
 
             <Card>
               <CardHeader>
