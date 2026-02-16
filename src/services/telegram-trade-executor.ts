@@ -58,6 +58,46 @@ class TelegramTradeExecutor {
       return { category: 'OTHER', symbol: null, direction: null, entryPrice: null, stopLoss: null, takeProfit: null, confidence: 0, reasoning: 'Message not found in DB', linkedSignalId: null, closePercent: null };
     }
 
+    // Check if this message was already processed (has a terminal analysis status).
+    // This prevents re-analysis + re-execution on restart / reconnect / polling.
+    const existingAnalysis = await prisma.telegramSignalAnalysis.findUnique({
+      where: { messageId: dbMessage.id },
+    });
+    if (existingAnalysis && existingAnalysis.executionStatus !== 'PENDING') {
+      console.log(`[TradeExecutor] Message #${msg.id} already processed (${existingAnalysis.executionStatus}), skipping`);
+      return {
+        category: existingAnalysis.category as SignalCategory,
+        symbol: existingAnalysis.symbol,
+        direction: existingAnalysis.direction as 'BUY' | 'SELL' | null,
+        entryPrice: existingAnalysis.entryPrice,
+        stopLoss: existingAnalysis.stopLoss,
+        takeProfit: existingAnalysis.takeProfit,
+        confidence: existingAnalysis.confidence ?? 0,
+        reasoning: existingAnalysis.reasoning ?? '',
+        linkedSignalId: existingAnalysis.linkedSignalId,
+        closePercent: null,
+      };
+    }
+
+    // Skip execution if the message is too old (>2 min)
+    const messageAgeMs = Date.now() - msg.date.getTime();
+    const MAX_SIGNAL_AGE_MS = 120_000;
+    if (messageAgeMs > MAX_SIGNAL_AGE_MS) {
+      console.log(`[TradeExecutor] Message #${msg.id} is ${(messageAgeMs / 1000).toFixed(0)}s old, skipping analysis`);
+      // Persist as skipped so we don't re-process on next poll
+      if (!existingAnalysis) {
+        await prisma.telegramSignalAnalysis.create({
+          data: {
+            messageId: dbMessage.id,
+            category: 'OTHER',
+            executionStatus: 'SKIPPED',
+            executionError: `Message too old: ${(messageAgeMs / 1000).toFixed(0)}s`,
+          },
+        });
+      }
+      return { category: 'OTHER', symbol: null, direction: null, entryPrice: null, stopLoss: null, takeProfit: null, confidence: 0, reasoning: `Message too old (${(messageAgeMs / 1000).toFixed(0)}s)`, linkedSignalId: null, closePercent: null };
+    }
+
     // Analyze with Claude
     const analysis = await telegramSignalAnalyzer.analyzeMessage(msg.text, dbMessage.id);
     console.log(`[TradeExecutor] Analysis result: ${analysis.category} (confidence: ${analysis.confidence})`);
@@ -80,16 +120,6 @@ class TelegramTradeExecutor {
       create: { messageId: dbMessage.id, ...analysisData },
       update: analysisData,
     });
-
-    // Skip execution if the message is too old (>30s)
-    const messageAgeMs = Date.now() - msg.date.getTime();
-    const MAX_SIGNAL_AGE_MS = 30_000;
-    if (messageAgeMs > MAX_SIGNAL_AGE_MS && analysis.category !== 'OTHER') {
-      const ageSec = (messageAgeMs / 1000).toFixed(1);
-      await this.markSkipped(dbAnalysis.id, `Signal too old: ${ageSec}s (max ${MAX_SIGNAL_AGE_MS / 1000}s)`);
-      console.log(`[TradeExecutor] Skipped stale signal (${ageSec}s old): ${analysis.category} ${analysis.symbol || ''}`);
-      return analysis;
-    }
 
     // Route by category
     try {

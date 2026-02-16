@@ -40,6 +40,7 @@ class TelegramListenerService {
   private connectPromise: Promise<TelegramClient> | null = null; // mutex for concurrent connect calls
   private eventHandler: ((event: NewMessageEvent) => Promise<void>) | null = null;
   private lastEventMessageAt: number = 0; // timestamp of last event-driven message
+  private listenerStartedAt: Date | null = null; // when this session started - messages before this are skipped
 
   initialize(): boolean {
     const apiId = process.env.TELEGRAM_API_ID?.trim();
@@ -289,6 +290,7 @@ class TelegramListenerService {
       this.reconnectAttempts = 0;
       this.lastCallbacks = callbacks;
       this.lastEventMessageAt = Date.now();
+      this.listenerStartedAt = new Date();
 
       // Periodic active health check + keepalive
       this.startHealthCheck(callbacks);
@@ -339,6 +341,12 @@ class TelegramListenerService {
         : null;
       const hasMedia = !!msg.media;
       const date = msg.date ? new Date(msg.date * 1000) : new Date();
+
+      // Skip messages sent before this listener session started (update gap backfill)
+      if (this.listenerStartedAt && date < this.listenerStartedAt) {
+        console.log(`[TelegramListener] Skipping pre-start message #${telegramMsgId} (sent ${date.toISOString()}, listener started ${this.listenerStartedAt.toISOString()})`);
+        return;
+      }
 
       console.log(`[TelegramListener] New message #${telegramMsgId}: ${text.substring(0, 80)}...`);
 
@@ -461,6 +469,8 @@ class TelegramListenerService {
         const messages = await this._fetchMessages(this.client, 5);
 
         for (const msg of messages) {
+          // Skip messages sent before this listener session started
+          if (this.listenerStartedAt && msg.date < this.listenerStartedAt) continue;
           // Dedup via DB unique constraint - only new messages get inserted
           try {
             await prisma.telegramChannelMessage.create({
