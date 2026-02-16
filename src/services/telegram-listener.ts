@@ -35,8 +35,11 @@ class TelegramListenerService {
   private reconnectTimeout: NodeJS.Timeout | null = null;
   private reconnectAttempts = 0;
   private healthCheckInterval: NodeJS.Timeout | null = null;
+  private pollInterval: NodeJS.Timeout | null = null;
   private lastCallbacks: TelegramMessageCallback | null = null;
   private connectPromise: Promise<TelegramClient> | null = null; // mutex for concurrent connect calls
+  private eventHandler: ((event: NewMessageEvent) => Promise<void>) | null = null;
+  private lastEventMessageAt: number = 0; // timestamp of last event-driven message
 
   initialize(): boolean {
     const apiId = process.env.TELEGRAM_API_ID?.trim();
@@ -248,6 +251,16 @@ class TelegramListenerService {
       const client = await this.ensureConnected();
       console.log('[TelegramListener] Connected to Telegram');
 
+      // Remove any previous event handler to prevent duplicates on reconnect
+      if (this.eventHandler) {
+        try {
+          client.removeEventHandler(this.eventHandler, new NewMessage({}));
+        } catch {
+          // Ignore - handler may already be gone if client was recreated
+        }
+        this.eventHandler = null;
+      }
+
       // Fetch dialogs to prime gramjs's internal update state (pts/qts).
       // Without this, gramjs connects but never receives real-time updates
       // because it hasn't synced the update gap with Telegram's servers.
@@ -261,10 +274,12 @@ class TelegramListenerService {
 
       // Register new message handler filtered to channel
       // gramjs NewMessage chats filter needs numeric IDs, not entity objects
+      this.eventHandler = async (event: NewMessageEvent) => {
+        this.lastEventMessageAt = Date.now();
+        await this.handleNewMessage(event, callbacks);
+      };
       client.addEventHandler(
-        async (event: NewMessageEvent) => {
-          await this.handleNewMessage(event, callbacks);
-        },
+        this.eventHandler,
         new NewMessage({
           chats: [channelPeerId],
         })
@@ -273,9 +288,13 @@ class TelegramListenerService {
       this.listening = true;
       this.reconnectAttempts = 0;
       this.lastCallbacks = callbacks;
+      this.lastEventMessageAt = Date.now();
 
-      // Periodic health check - reconnect if connection is lost
+      // Periodic active health check + keepalive
       this.startHealthCheck(callbacks);
+
+      // Periodic polling fallback — catches any messages the event handler missed
+      this.startPollingFallback(callbacks);
 
       // Update DB state
       await this.updateState({
@@ -284,7 +303,7 @@ class TelegramListenerService {
         errorMessage: null,
       });
 
-      console.log('[TelegramListener] Listening for messages (persistent mode)');
+      console.log('[TelegramListener] Listening for messages (persistent mode + polling fallback)');
     } catch (error: any) {
       const errMsg = error instanceof Error ? error.message : String(error);
       const errStack = error instanceof Error ? error.stack : undefined;
@@ -385,6 +404,7 @@ class TelegramListenerService {
     this.reconnectTimeout = setTimeout(async () => {
       this.reconnectTimeout = null;
       this.stopHealthCheck();
+      this.stopPollingFallback();
       this.listening = false;
       await this.start(callbacks);
     }, delay);
@@ -393,27 +413,30 @@ class TelegramListenerService {
   private startHealthCheck(callbacks: TelegramMessageCallback): void {
     this.stopHealthCheck();
 
-    // Check every 60 seconds if still connected
+    // Active health check every 30 seconds - actually pings Telegram
+    // to detect stale connections and keep the TCP socket alive
     this.healthCheckInterval = setInterval(async () => {
       if (!this.client || !this.listening) return;
-
-      // Skip if a reconnect is already scheduled
-      if (this.reconnectTimeout) return;
+      if (this.reconnectTimeout) return; // skip if reconnect pending
 
       try {
-        const connected = this.client.connected;
-        if (!connected) {
-          console.warn('[TelegramListener] Health check: connection lost, reconnecting...');
+        if (!this.client.connected) {
+          console.warn('[TelegramListener] Health check: connection flag is false, reconnecting...');
           this.listening = false;
           await this.updateState({ isListening: false, errorMessage: 'Connection lost (health check)' });
           this.scheduleReconnect(callbacks);
+          return;
         }
+
+        // Active ping: call getMe() to keep the connection alive and verify it works
+        await this.client.getMe();
       } catch (error) {
-        console.error('[TelegramListener] Health check error:', error);
+        console.error('[TelegramListener] Health check ping failed, reconnecting:', error);
         this.listening = false;
+        await this.updateState({ isListening: false, errorMessage: 'Connection stale (ping failed)' });
         this.scheduleReconnect(callbacks);
       }
-    }, 60_000);
+    }, 30_000);
   }
 
   private stopHealthCheck(): void {
@@ -423,8 +446,68 @@ class TelegramListenerService {
     }
   }
 
+  /**
+   * Polling fallback: every 45 seconds, fetch the latest messages from the channel
+   * and persist any that the event handler missed. This is belt-and-suspenders:
+   * events give real-time delivery, polling gives reliability.
+   */
+  private startPollingFallback(callbacks: TelegramMessageCallback): void {
+    this.stopPollingFallback();
+
+    this.pollInterval = setInterval(async () => {
+      if (!this.client?.connected || !this.listening) return;
+
+      try {
+        const messages = await this._fetchMessages(this.client, 5);
+
+        for (const msg of messages) {
+          // Dedup via DB unique constraint - only new messages get inserted
+          try {
+            await prisma.telegramChannelMessage.create({
+              data: {
+                telegramMsgId: msg.id,
+                channelId: this.channelId,
+                text: msg.text,
+                senderName: msg.senderName?.trim() || null,
+                hasMedia: msg.hasMedia,
+                receivedAt: msg.date,
+              },
+            });
+
+            // This message was NOT caught by the event handler — process it
+            console.log(`[TelegramListener] Poll caught missed message #${msg.id}`);
+
+            await prisma.telegramListenerState.update({
+              where: { id: 'singleton' },
+              data: {
+                lastMessageAt: msg.date,
+                totalMessages: { increment: 1 },
+              },
+            });
+
+            await callbacks.onMessage(msg);
+          } catch (e: any) {
+            if (e.code === 'P2002') continue; // already in DB, skip
+            console.error(`[TelegramListener] Poll error for message #${msg.id}:`, e);
+          }
+        }
+      } catch (error) {
+        // Don't reconnect on poll failure — the health check handles that
+        console.error('[TelegramListener] Polling fallback error:', error);
+      }
+    }, 45_000);
+  }
+
+  private stopPollingFallback(): void {
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = null;
+    }
+  }
+
   async stop(): Promise<void> {
     this.stopHealthCheck();
+    this.stopPollingFallback();
 
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
@@ -432,6 +515,13 @@ class TelegramListenerService {
     }
 
     if (this.client) {
+      // Remove event handler before disconnecting
+      if (this.eventHandler) {
+        try {
+          this.client.removeEventHandler(this.eventHandler, new NewMessage({}));
+        } catch { /* ignore */ }
+        this.eventHandler = null;
+      }
       try {
         await this.client.disconnect();
       } catch (error) {
