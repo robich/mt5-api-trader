@@ -339,12 +339,8 @@ export class TradingBot {
       const ltfMetaApi = TIMEFRAME_MAP[symbolTf.ltf];
 
       // Trigger analysis when we get a new candle on this symbol's LTF
+      // Rate limiting is handled inside analyzeSymbol() (30s per symbol)
       if (candle.timeframe === ltfMetaApi) {
-        // Rate limit analysis to avoid overwhelming
-        const lastTime = this.lastAnalysisTime.get(candle.symbol) || 0;
-        if (Date.now() - lastTime < 10000) continue; // Min 10 seconds between analyses
-
-        this.lastAnalysisTime.set(candle.symbol, Date.now());
         await this.analyzeSymbol(candle.symbol);
       }
     }
@@ -509,6 +505,17 @@ export class TradingBot {
           }).catch((err) => console.error('[Bot] Failed to cleanup old scans:', err));
         }
 
+        // Fallback: re-analyze symbols that haven't been analyzed in 5+ minutes
+        // (in case streaming candle events stopped arriving)
+        const staleThreshold = 5 * 60 * 1000;
+        for (const symbol of this.config.symbols) {
+          const lastTime = this.lastAnalysisTime.get(symbol) || 0;
+          if (Date.now() - lastTime > staleThreshold) {
+            console.log(`[Bot] Heartbeat: ${symbol} analysis stale (${Math.round((Date.now() - lastTime) / 1000)}s ago), re-analyzing`);
+            await this.analyzeSymbol(symbol);
+          }
+        }
+
         // Log status
         console.log(`[Bot] Heartbeat - Prices: ${this.latestPrices.size}, Symbols: ${this.config.symbols.length}`);
 
@@ -609,7 +616,9 @@ export class TradingBot {
     try {
       // Rate limit analysis per symbol (minimum 30 seconds between analysis)
       const lastTime = this.lastAnalysisTime.get(symbol) || 0;
-      if (Date.now() - lastTime < 30000) {
+      const elapsed = Date.now() - lastTime;
+      if (elapsed < 30000) {
+        console.log(`[Bot] Skipping ${symbol} analysis (${Math.round(elapsed / 1000)}s since last, need 30s)`);
         return;
       }
       this.lastAnalysisTime.set(symbol, Date.now());
