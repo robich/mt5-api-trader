@@ -226,11 +226,34 @@ class TelegramTradeExecutor {
   }
 
   /**
-   * Execute a SIGNAL: calculate position size with 2% risk, place market order
+   * Execute a SIGNAL: calculate position size with 2% risk, place market order.
+   * Deduplicates by checking if a signal with the same symbol+direction was
+   * already executed within the last DEDUP_WINDOW_MS (default 5 minutes).
    */
   private async executeSignal(analysisId: string, analysis: SignalAnalysis): Promise<void> {
     if (!analysis.symbol || !analysis.direction) {
       await this.markSkipped(analysisId, 'Missing symbol or direction');
+      return;
+    }
+
+    // Dedup: check for a recently executed signal with the same symbol + direction
+    const DEDUP_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+    const recentDuplicate = await prisma.telegramSignalAnalysis.findFirst({
+      where: {
+        category: 'SIGNAL',
+        symbol: analysis.symbol,
+        direction: analysis.direction,
+        executionStatus: 'EXECUTED',
+        id: { not: analysisId },
+        message: {
+          receivedAt: { gte: new Date(Date.now() - DEDUP_WINDOW_MS) },
+        },
+      },
+      orderBy: { message: { receivedAt: 'desc' } },
+    });
+
+    if (recentDuplicate) {
+      await this.markSkipped(analysisId, `Duplicate signal: same ${analysis.direction} ${analysis.symbol} already executed ${((Date.now() - (recentDuplicate.createdAt?.getTime() || Date.now())) / 1000).toFixed(0)}s ago (analysis ${recentDuplicate.id})`);
       return;
     }
 
