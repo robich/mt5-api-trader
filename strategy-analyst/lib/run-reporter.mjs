@@ -30,8 +30,7 @@ import { randomUUID } from 'crypto';
 export async function persistRun(runData) {
   const connStr = process.env.DATABASE_URL;
   if (!connStr) {
-    console.warn('[reporter] No DATABASE_URL, skipping DB persist');
-    return;
+    throw new Error('DATABASE_URL is not set — cannot persist run');
   }
 
   const id = randomUUID();

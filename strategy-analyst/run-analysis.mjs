@@ -15,7 +15,7 @@ async function main() {
   console.log('');
 
   // Validate required env vars
-  const required = ['ANTHROPIC_API_KEY', 'GIT_REPO_URL', 'GIT_TOKEN', 'META_API_TOKEN', 'META_API_ACCOUNT_ID'];
+  const required = ['ANTHROPIC_API_KEY', 'GIT_REPO_URL', 'GIT_TOKEN', 'META_API_TOKEN', 'META_API_ACCOUNT_ID', 'DATABASE_URL'];
   const missing = required.filter(k => !process.env[k]);
   if (missing.length > 0) {
     console.error(`Missing required environment variables: ${missing.join(', ')}`);
