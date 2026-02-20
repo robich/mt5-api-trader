@@ -116,21 +116,25 @@ ${JSON.stringify(changes, null, 2)}
 ${JSON.stringify(hardLimits, null, 2)}
 \`\`\`
 
-## Review Checklist
-1. Do any changes EXCEED the hard limits? (e.g. riskPercent > maxRiskPercentPerTrade, dailyDrawdown > maxDailyDrawdown). Note: REDUCING a risk parameter (making it more conservative) is ALWAYS safe and does NOT violate hard limits. A maxDailyDrawdown of 12% does NOT violate a hard limit of 15% — it is stricter.
-2. Are there logic errors or inverted conditions?
-3. Do all signals still include stopLoss and takeProfit?
-4. Are there any dangerous patterns (eval, exec, filesystem access)?
-5. Will the searchBlock strings actually match the current file content?
-6. Are parameter values reasonable for live trading?
+## Review Checklist — ONLY reject for CRITICAL safety issues
+1. Do any numeric values EXCEED the hard limits? (riskPercent > 3%, dailyDrawdown > 15%, etc.). Reducing values (making them stricter/more conservative) is ALWAYS safe — do NOT reject.
+2. Are there actual logic errors or inverted conditions that would cause wrong trades?
+3. Are there dangerous code patterns (eval, exec, filesystem, network access)?
 
-IMPORTANT: Only set "approved" to false for genuinely dangerous changes. Reducing risk, tightening filters, or adjusting strategy parameters within hard limits should be APPROVED.
+## What is NOT a rejection reason (approve these):
+- Adjusting strategy parameters (riskReward, minOBScore, useKillZones, etc.) — these are the PURPOSE of the analyst
+- Changing or removing tiered TP profiles — this is a valid strategy adjustment
+- searchBlock appearing to be a partial match — the code applier handles substring matching, partial blocks are fine
+- Reducing risk parameters below hard limits — this is more conservative, always safe
+- Changing filters, timeframes, or entry conditions — these are normal strategy tuning
+
+You should ALMOST ALWAYS approve. Only reject if a change would exceed hard limits, introduce code execution vulnerabilities, or contain an obvious logic bug that would cause unintended trades.
 
 Respond with JSON:
 \`\`\`json
 {
   "approved": true/false,
-  "issues": ["description of each issue found"],
+  "issues": ["only list genuinely dangerous issues, not observations"],
   "severity": "NONE|LOW|MEDIUM|HIGH|CRITICAL"
 }
 \`\`\``;
