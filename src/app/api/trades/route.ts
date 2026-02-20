@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
             enrichedTrades = syncedTrades.map((trade) => {
               const position = positions.find((p) => p.id === trade.mt5PositionId);
               if (position) {
-                return { ...trade, currentPnl: position.profit || 0, currentPrice: position.currentPrice || trade.entryPrice };
+                return { ...trade, currentPnl: (position.profit || 0) + (position.swap || 0), currentPrice: position.currentPrice || trade.entryPrice };
               }
               return trade;
             });
@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
             if (position) {
               return {
                 ...trade,
-                currentPnl: position.profit || 0,
+                currentPnl: (position.profit || 0) + (position.swap || 0),
                 currentPrice: position.currentPrice || trade.entryPrice,
               };
             }
