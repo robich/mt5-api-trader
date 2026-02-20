@@ -69,7 +69,7 @@ export async function runAnalysis() {
       console.log('\n[result] No changes recommended.');
       await sendNoChanges(analysis.marketAssessment);
       logDuration(startTime);
-      persistRun({
+      await persistRun({
         startedAt,
         durationSeconds: (Date.now() - startTime) / 1000,
         status: 'NO_CHANGES',
@@ -78,7 +78,7 @@ export async function runAnalysis() {
         riskAssessment: analysis.riskAssessment,
         reasoning: analysis.reasoning,
         backtestBaseline: baseline,
-      }).catch(err => console.error('[reporter] Failed to persist run:', err.message));
+      }).catch(e => console.error('[reporter] Failed to persist run:', e.message));
       return { success: true, noChanges: true };
     }
 
@@ -95,7 +95,7 @@ export async function runAnalysis() {
       console.error('[review] Changes REJECTED by reviewer:', review.issues);
       await sendError(`Safety review rejected: ${review.issues.join('; ')}`, 'safety-review');
       logDuration(startTime);
-      persistRun({
+      await persistRun({
         startedAt, durationSeconds: (Date.now() - startTime) / 1000,
         status: 'FAILED', dryRun: DRY_RUN, failureStep: 'safety-review',
         failureReason: review.issues.join('; '),
@@ -113,7 +113,7 @@ export async function runAnalysis() {
       console.error('[validate] Pre-apply validation FAILED:', preValidation.errors);
       await sendError(`Validation failed: ${preValidation.errors.join('; ')}`, 'pre-validation');
       logDuration(startTime);
-      persistRun({
+      await persistRun({
         startedAt, durationSeconds: (Date.now() - startTime) / 1000,
         status: 'FAILED', dryRun: DRY_RUN, failureStep: 'pre-validation',
         failureReason: preValidation.errors.join('; '),
@@ -132,7 +132,7 @@ export async function runAnalysis() {
       console.error('[apply] No changes could be applied.');
       await sendError(`All ${failed.length} changes failed to apply`, 'apply');
       logDuration(startTime);
-      persistRun({
+      await persistRun({
         startedAt, durationSeconds: (Date.now() - startTime) / 1000,
         status: 'FAILED', dryRun: DRY_RUN, failureStep: 'apply',
         failureReason: `All ${failed.length} changes failed to apply`,
@@ -151,7 +151,7 @@ export async function runAnalysis() {
       rollback();
       await sendError(diffCheck.errors.join('; '), 'diff-size');
       logDuration(startTime);
-      persistRun({
+      await persistRun({
         startedAt, durationSeconds: (Date.now() - startTime) / 1000,
         status: 'FAILED', dryRun: DRY_RUN, failureStep: 'diff-size',
         failureReason: diffCheck.errors.join('; '),
@@ -171,7 +171,7 @@ export async function runAnalysis() {
       rollback();
       await sendError(fileCheck.errors.join('; '), 'file-validation');
       logDuration(startTime);
-      persistRun({
+      await persistRun({
         startedAt, durationSeconds: (Date.now() - startTime) / 1000,
         status: 'FAILED', dryRun: DRY_RUN, failureStep: 'file-validation',
         failureReason: fileCheck.errors.join('; '),
@@ -220,7 +220,7 @@ export async function runAnalysis() {
       rollback();
       await sendError(`TypeScript compilation failed:\n${tscResult.errors[0]?.substring(0, 300)}`, 'tsc');
       logDuration(startTime);
-      persistRun({
+      await persistRun({
         startedAt, durationSeconds: (Date.now() - startTime) / 1000,
         status: 'FAILED', dryRun: DRY_RUN, failureStep: 'tsc',
         failureReason: tscResult.errors.join('\n').substring(0, 2000),
@@ -257,7 +257,7 @@ export async function runAnalysis() {
         redeployed: false,
       });
       logDuration(startTime);
-      persistRun({
+      await persistRun({
         startedAt, durationSeconds: (Date.now() - startTime) / 1000,
         status: 'FAILED', dryRun: DRY_RUN, failureStep: 'backtest-validation',
         failureReason: Object.entries(comparison.details)
@@ -302,7 +302,7 @@ export async function runAnalysis() {
     });
 
     logDuration(startTime);
-    persistRun({
+    await persistRun({
       startedAt,
       durationSeconds: (Date.now() - startTime) / 1000,
       status: 'SUCCESS',
@@ -320,7 +320,7 @@ export async function runAnalysis() {
       backtestPassed: comparison.allPassed,
       commitHash: commit?.hash ?? null,
       branch: commit?.branch ?? null,
-    }).catch(err => console.error('[reporter] Failed to persist run:', err.message));
+    }).catch(e => console.error('[reporter] Failed to persist run:', e.message));
     return { success: true, applied, commit, comparison };
 
   } catch (err) {
@@ -330,7 +330,7 @@ export async function runAnalysis() {
       try { rollback(); } catch {}
     }
     logDuration(startTime);
-    persistRun({
+    await persistRun({
       startedAt,
       durationSeconds: (Date.now() - startTime) / 1000,
       status: 'FAILED',
