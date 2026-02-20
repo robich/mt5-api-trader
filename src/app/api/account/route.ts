@@ -49,9 +49,14 @@ export async function GET() {
       .filter((t) => t.status === 'CLOSED' && t.pnl)
       .reduce((sum, t) => sum + (t.pnl || 0), 0);
 
-    const openTrades = await prisma.trade.count({
+    let openTrades = await prisma.trade.count({
       where: { status: 'OPEN' },
     });
+
+    // Use MetaAPI positions count if DB has none but broker has positions
+    if (openTrades === 0 && positions.length > 0) {
+      openTrades = positions.length;
+    }
 
     return NextResponse.json({
       account: accountInfo || {

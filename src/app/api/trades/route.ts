@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { tradingBot } from '@/services/bot';
+import { tradeManager } from '@/lib/risk/trade-manager';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,6 +63,35 @@ export async function GET(request: NextRequest) {
         const botStatus = tradingBot.getStatus();
         if (botStatus.isRunning) {
           const positions = await tradingBot.getPositions();
+
+          // If DB has no open trades but MetaAPI has positions, sync them into DB
+          if (trades.length === 0 && positions.length > 0) {
+            console.log(`[Trades API] DB has 0 open trades but MetaAPI has ${positions.length} positions, syncing...`);
+            await tradeManager.syncWithBrokerPositions(positions);
+
+            // Re-query DB after sync
+            const syncedTrades = await prisma.trade.findMany({
+              where,
+              orderBy: { openTime: 'desc' },
+              take: limit,
+              skip: offset,
+              include: { signal: true },
+            });
+            enrichedTrades = syncedTrades.map((trade) => {
+              const position = positions.find((p) => p.id === trade.mt5PositionId);
+              if (position) {
+                return { ...trade, currentPnl: position.profit || 0, currentPrice: position.currentPrice || trade.entryPrice };
+              }
+              return trade;
+            });
+
+            return NextResponse.json({
+              trades: enrichedTrades,
+              total: enrichedTrades.length,
+              limit,
+              offset,
+            });
+          }
 
           enrichedTrades = trades.map((trade) => {
             // Match by mt5PositionId
