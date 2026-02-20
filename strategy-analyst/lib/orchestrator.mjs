@@ -32,8 +32,10 @@ export async function runAnalysis() {
     repoDir = clone();
 
     // Install dependencies for backtest + tsc
+    // Use --ignore-scripts to skip native module compilation (e.g. better-sqlite3)
+    // which fails in sandboxed environments like DigitalOcean App Platform
     console.log('\n[2/10] Installing dependencies...');
-    execSync('npm ci', { cwd: repoDir, stdio: 'pipe', timeout: 180_000 });
+    execSync('npm ci --ignore-scripts', { cwd: repoDir, stdio: 'pipe', timeout: 180_000 });
     execSync('npx prisma generate', { cwd: repoDir, stdio: 'pipe', timeout: 60_000 });
 
     // ── Step 2: Baseline backtest ──
