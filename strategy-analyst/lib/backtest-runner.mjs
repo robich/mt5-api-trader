@@ -24,7 +24,7 @@ export async function runBacktests(repoDir) {
         {
           cwd: repoDir,
           encoding: 'utf-8',
-          timeout: 300_000, // 5 min per symbol
+          timeout: 600_000, // 10 min per symbol
           env: { ...process.env, NODE_ENV: 'production' },
           maxBuffer: 10 * 1024 * 1024,
         }

@@ -54,6 +54,7 @@ export class TradingBot {
   private latestPrices: Map<string, SymbolPrice> = new Map();
   private candleBuffers: Map<string, Map<string, Candle[]>> = new Map(); // symbol -> timeframe -> candles
   private lastKnownPositions: Map<string, PositionUpdate> = new Map(); // positionId -> last known state
+  private notifiedClosePositions: Set<string> = new Set(); // dedup close notifications
   private breakevenManager: BreakevenManager;
   private tieredTPManager: TieredTPManager;
   private heartbeatCount = 0;
@@ -362,6 +363,10 @@ export class TradingBot {
     for (const removedId of removedIds) {
       const lastKnown = this.lastKnownPositions.get(removedId);
       if (lastKnown) {
+        // Remove from tracking immediately to prevent duplicate handling
+        // if MetaAPI fires another onPositionsUpdated while we're awaiting
+        this.lastKnownPositions.delete(removedId);
+
         console.log(`[Bot] Position ${removedId} closed: ${lastKnown.symbol} @ ${lastKnown.currentPrice}, Profit: $${lastKnown.profit?.toFixed(2) || 'N/A'}`);
 
         // Close the trade with the last known price and profit
@@ -411,8 +416,9 @@ export class TradingBot {
         // Clean up tiered TP tracking
         this.tieredTPManager.onPositionClosed(removedId);
 
-        // Send Telegram notification for closed trade
-        if (telegramNotifier.isEnabled()) {
+        // Send Telegram notification for closed trade (deduplicated)
+        if (telegramNotifier.isEnabled() && !this.notifiedClosePositions.has(removedId)) {
+          this.notifiedClosePositions.add(removedId);
           const openPositions = positions.map(p => ({
             symbol: p.symbol,
             direction: p.type === 'POSITION_TYPE_BUY' ? 'BUY' : 'SELL',
@@ -433,9 +439,6 @@ export class TradingBot {
             openPositions
           );
         }
-
-        // Remove from tracking
-        this.lastKnownPositions.delete(removedId);
       } else {
         console.log(`[Bot] Position ${removedId} removed but no last known state`);
       }
@@ -496,8 +499,14 @@ export class TradingBot {
         // Expire old signals
         await tradeManager.expireOldSignals();
 
-        // Hourly cleanup: delete analysis scans older than 7 days
+        // Periodic cleanup of close notification dedup set (keeps last 5 min)
+        // Safe to clear since MetaAPI won't re-send removals after this long
         this.heartbeatCount++;
+        if (this.heartbeatCount % 5 === 0) {
+          this.notifiedClosePositions.clear();
+        }
+
+        // Hourly cleanup: delete analysis scans older than 7 days
         if (this.heartbeatCount % 60 === 0) {
           const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
           prisma.analysisScan.deleteMany({
