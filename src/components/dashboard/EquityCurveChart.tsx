@@ -63,20 +63,39 @@ export function EquityCurveChart({
   const chartData = useMemo(() => {
     if (!equityCurve || equityCurve.length === 0) return [];
 
-    return equityCurve.map((snapshot) => ({
-      timestamp: new Date(snapshot.timestamp).getTime(),
-      equity: snapshot.equity,
-      balance: snapshot.balance,
-      event: snapshot.event,
-      amount: snapshot.amount,
-      // Separate series for deposit/withdrawal dots
-      depositDot: snapshot.event === 'deposit' ? snapshot.balance : undefined,
-      withdrawalDot: snapshot.event === 'withdrawal' ? snapshot.balance : undefined,
-      date: new Date(snapshot.timestamp).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-      }),
-    }));
+    // Aggregate to one point per day (last snapshot wins for balance/equity)
+    const dayMap = new Map<string, {
+      timestamp: number;
+      equity: number;
+      balance: number;
+      date: string;
+      depositDot?: number;
+      withdrawalDot?: number;
+      event?: string;
+      amount?: number;
+    }>();
+
+    for (const snapshot of equityCurve) {
+      const d = new Date(snapshot.timestamp);
+      const dayKey = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+      const existing = dayMap.get(dayKey);
+      const entry = {
+        timestamp: d.getTime(),
+        equity: snapshot.equity,
+        balance: snapshot.balance,
+        date: dayKey,
+        // Preserve deposit/withdrawal markers from any event that day
+        depositDot: snapshot.event === 'deposit' ? snapshot.balance : existing?.depositDot,
+        withdrawalDot: snapshot.event === 'withdrawal' ? snapshot.balance : existing?.withdrawalDot,
+        event: snapshot.event || existing?.event,
+        amount: snapshot.amount || existing?.amount,
+      };
+
+      dayMap.set(dayKey, entry);
+    }
+
+    return Array.from(dayMap.values());
   }, [equityCurve]);
 
   const { overallPnl, overallPnlPercent, startingCapital, currentCapital, minEquity, maxEquity } =
