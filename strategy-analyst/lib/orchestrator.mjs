@@ -7,6 +7,7 @@ import { validateChanges, validateDiffSize, checkTypeScript, validateModifiedFil
 import { sendReport, sendError, sendNoChanges } from './telegram-notifier.mjs';
 import { persistRun } from './run-reporter.mjs';
 import { execSync } from 'child_process';
+import { existsSync } from 'fs';
 
 const DRY_RUN = process.env.DRY_RUN === 'true';
 const MAX_TSC_RETRIES = 2;
@@ -32,11 +33,18 @@ export async function runAnalysis() {
     repoDir = clone();
 
     // Install dependencies for backtest + tsc
-    // Use --ignore-scripts to skip native module compilation (e.g. better-sqlite3)
-    // which fails in sandboxed environments like DigitalOcean App Platform
+    // Use pre-cached node_modules from Docker build to avoid running npm ci
+    // at runtime (which fails in sandboxed environments like DigitalOcean)
     console.log('\n[2/10] Installing dependencies...');
-    execSync('npm ci --ignore-scripts', { cwd: repoDir, stdio: 'pipe', timeout: 180_000 });
-    execSync('npx prisma generate', { cwd: repoDir, stdio: 'pipe', timeout: 60_000 });
+    const depsCache = '/app-deps-cache/node_modules';
+    if (existsSync(depsCache)) {
+      console.log('[deps] Symlinking pre-cached node_modules...');
+      execSync(`ln -s ${depsCache} node_modules`, { cwd: repoDir, stdio: 'pipe' });
+    } else {
+      console.log('[deps] No cache found, running npm ci...');
+      execSync('npm ci --ignore-scripts', { cwd: repoDir, stdio: 'pipe', timeout: 180_000 });
+      execSync('npx prisma generate', { cwd: repoDir, stdio: 'pipe', timeout: 60_000 });
+    }
 
     // ── Step 2: Baseline backtest ──
     console.log('\n[3/10] Running baseline backtests...');

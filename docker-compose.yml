@@ -88,8 +88,8 @@ services:
   # Strategy Analyst - daily AI-powered strategy optimization
   strategy-analyst:
     build:
-      context: ./strategy-analyst
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: strategy-analyst/Dockerfile
     container_name: mt5-strategy-analyst
     restart: unless-stopped
     env_file:
