@@ -117,12 +117,14 @@ ${JSON.stringify(hardLimits, null, 2)}
 \`\`\`
 
 ## Review Checklist
-1. Do any changes violate the hard limits?
+1. Do any changes EXCEED the hard limits? (e.g. riskPercent > maxRiskPercentPerTrade, dailyDrawdown > maxDailyDrawdown). Note: REDUCING a risk parameter (making it more conservative) is ALWAYS safe and does NOT violate hard limits. A maxDailyDrawdown of 12% does NOT violate a hard limit of 15% — it is stricter.
 2. Are there logic errors or inverted conditions?
 3. Do all signals still include stopLoss and takeProfit?
 4. Are there any dangerous patterns (eval, exec, filesystem access)?
 5. Will the searchBlock strings actually match the current file content?
 6. Are parameter values reasonable for live trading?
+
+IMPORTANT: Only set "approved" to false for genuinely dangerous changes. Reducing risk, tightening filters, or adjusting strategy parameters within hard limits should be APPROVED.
 
 Respond with JSON:
 \`\`\`json
