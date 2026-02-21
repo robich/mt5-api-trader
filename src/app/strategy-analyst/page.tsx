@@ -16,7 +16,29 @@ import {
   ChevronDown,
   ChevronUp,
   RefreshCw,
+  ArrowRightLeft,
 } from 'lucide-react';
+
+interface StrategySwitch {
+  id: string;
+  symbol: string | null;
+  previousProfile: string;
+  newProfile: string;
+  reason: string;
+  source: string;
+  backtestPnl: number | null;
+  backtestWinRate: number | null;
+  backtestPF: number | null;
+  backtestTrades: number | null;
+  backtestMaxDD: number | null;
+  backtestDays: number | null;
+  backtestStart: string | null;
+  backtestEnd: string | null;
+  previousPnl: number | null;
+  previousWinRate: number | null;
+  previousPF: number | null;
+  switchedAt: string;
+}
 
 interface StrategyAnalystRun {
   id: string;
@@ -219,6 +241,140 @@ function RunDetail({ run }: { run: StrategyAnalystRun }) {
   );
 }
 
+function SourceBadge({ source }: { source: string }) {
+  switch (source) {
+    case 'manual':
+      return <Badge variant="outline" className="text-blue-400 border-blue-500/30">Manual</Badge>;
+    case 'analyst':
+      return <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">Analyst</Badge>;
+    case 'daily-reopt':
+      return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">Daily Reopt</Badge>;
+    case 'api':
+      return <Badge variant="outline" className="text-gray-400 border-gray-500/30">API</Badge>;
+    default:
+      return <Badge variant="outline">{source}</Badge>;
+  }
+}
+
+function SwitchCard({ sw }: { sw: StrategySwitch }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasBacktest = sw.backtestWinRate !== null || sw.backtestPnl !== null;
+  const hasPrevious = sw.previousWinRate !== null || sw.previousPnl !== null;
+
+  return (
+    <Card className="transition-colors hover:bg-muted/20">
+      <CardContent className="p-4">
+        <div
+          className="flex items-center gap-3 cursor-pointer"
+          onClick={() => setExpanded(!expanded)}
+        >
+          <ArrowRightLeft className="h-5 w-5 text-orange-500 shrink-0" />
+
+          <div className="shrink-0">
+            <div className="text-sm font-medium">{formatDate(sw.switchedAt)}</div>
+            <div className="text-xs text-muted-foreground">{formatTime(sw.switchedAt)}</div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <SourceBadge source={sw.source} />
+            {sw.symbol && (
+              <Badge variant="outline" className="text-cyan-400 border-cyan-500/30">{sw.symbol}</Badge>
+            )}
+            <span className="text-sm truncate">
+              <span className="text-muted-foreground">{sw.previousProfile}</span>
+              <span className="text-muted-foreground mx-1">&rarr;</span>
+              <span className="font-medium">{sw.newProfile}</span>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3 ml-auto text-sm text-muted-foreground shrink-0">
+            {sw.backtestWinRate !== null && (
+              <span className="text-green-400">{sw.backtestWinRate.toFixed(1)}% WR</span>
+            )}
+            {sw.backtestPF !== null && (
+              <span>PF {sw.backtestPF.toFixed(2)}</span>
+            )}
+            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </div>
+        </div>
+
+        {!expanded && (
+          <p className="text-xs text-muted-foreground mt-2 line-clamp-1 ml-8">
+            {sw.reason}
+          </p>
+        )}
+
+        {expanded && (
+          <div className="space-y-4 pt-3 border-t border-border/50 mt-3">
+            {/* Reason */}
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-1">Reason</h4>
+              <p className="text-sm whitespace-pre-wrap bg-muted/30 rounded p-3">{sw.reason}</p>
+            </div>
+
+            {/* Backtest Results Comparison */}
+            {(hasBacktest || hasPrevious) && (
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground mb-1">Backtest Results</h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left p-2 text-muted-foreground">Profile</th>
+                        <th className="text-right p-2 text-muted-foreground">PnL</th>
+                        <th className="text-right p-2 text-muted-foreground">Win Rate</th>
+                        <th className="text-right p-2 text-muted-foreground">Profit Factor</th>
+                        {sw.backtestTrades !== null && <th className="text-right p-2 text-muted-foreground">Trades</th>}
+                        {sw.backtestMaxDD !== null && <th className="text-right p-2 text-muted-foreground">Max DD</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {hasPrevious && (
+                        <tr className="border-b border-border/50 text-muted-foreground">
+                          <td className="p-2 font-medium">{sw.previousProfile}</td>
+                          <td className="p-2 text-right">{sw.previousPnl !== null ? `$${sw.previousPnl.toFixed(0)}` : '-'}</td>
+                          <td className="p-2 text-right">{sw.previousWinRate !== null ? `${sw.previousWinRate.toFixed(1)}%` : '-'}</td>
+                          <td className="p-2 text-right">{sw.previousPF !== null ? sw.previousPF.toFixed(2) : '-'}</td>
+                          {sw.backtestTrades !== null && <td className="p-2 text-right">-</td>}
+                          {sw.backtestMaxDD !== null && <td className="p-2 text-right">-</td>}
+                        </tr>
+                      )}
+                      {hasBacktest && (
+                        <tr className="border-b border-border/50">
+                          <td className="p-2 font-medium">{sw.newProfile}</td>
+                          <td className={`p-2 text-right ${sw.previousPnl !== null && sw.backtestPnl !== null && sw.backtestPnl > sw.previousPnl ? 'text-green-400' : ''}`}>
+                            {sw.backtestPnl !== null ? `$${sw.backtestPnl.toFixed(0)}` : '-'}
+                          </td>
+                          <td className={`p-2 text-right ${sw.previousWinRate !== null && sw.backtestWinRate !== null && sw.backtestWinRate > sw.previousWinRate ? 'text-green-400' : ''}`}>
+                            {sw.backtestWinRate !== null ? `${sw.backtestWinRate.toFixed(1)}%` : '-'}
+                          </td>
+                          <td className={`p-2 text-right ${sw.previousPF !== null && sw.backtestPF !== null && sw.backtestPF > sw.previousPF ? 'text-green-400' : ''}`}>
+                            {sw.backtestPF !== null ? sw.backtestPF.toFixed(2) : '-'}
+                          </td>
+                          {sw.backtestTrades !== null && <td className="p-2 text-right">{sw.backtestTrades}</td>}
+                          {sw.backtestMaxDD !== null && <td className="p-2 text-right">{sw.backtestMaxDD.toFixed(1)}%</td>}
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                {sw.backtestDays !== null && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {sw.backtestDays}-day backtest
+                    {sw.backtestStart && sw.backtestEnd && (
+                      <> ({formatDate(sw.backtestStart)} - {formatDate(sw.backtestEnd)})</>
+                    )}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function RunCard({ run }: { run: StrategyAnalystRun }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -277,39 +433,54 @@ function RunCard({ run }: { run: StrategyAnalystRun }) {
   );
 }
 
+type ActiveTab = 'runs' | 'switches';
+
 export default function StrategyAnalystPage() {
   const [runs, setRuns] = useState<StrategyAnalystRun[]>([]);
+  const [switches, setSwitches] = useState<StrategySwitch[]>([]);
   const [total, setTotal] = useState(0);
+  const [switchTotal, setSwitchTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<ActiveTab>('switches');
 
-  const fetchRuns = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     try {
-      const res = await fetch('/api/strategy-analyst-runs?limit=50');
-      if (!res.ok) throw new Error('Failed to fetch runs');
-      const data = await res.json();
-      setRuns(data.runs);
-      setTotal(data.total);
+      const [runsRes, switchesRes] = await Promise.all([
+        fetch('/api/strategy-analyst-runs?limit=50'),
+        fetch('/api/strategy-switches?limit=50'),
+      ]);
+      if (!runsRes.ok) throw new Error('Failed to fetch runs');
+      const runsData = await runsRes.json();
+      setRuns(runsData.runs);
+      setTotal(runsData.total);
+
+      if (switchesRes.ok) {
+        const switchesData = await switchesRes.json();
+        setSwitches(switchesData.switches);
+        setSwitchTotal(switchesData.total);
+      }
       setError(null);
     } catch (err) {
-      console.error('Error fetching runs:', err);
-      setError('Failed to load strategy analyst runs.');
+      console.error('Error fetching data:', err);
+      setError('Failed to load strategy analyst data.');
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchRuns();
-    const interval = setInterval(fetchRuns, 60000);
+    fetchData();
+    const interval = setInterval(fetchData, 60000);
     return () => clearInterval(interval);
-  }, [fetchRuns]);
+  }, [fetchData]);
 
   const successCount = runs.filter(r => r.status === 'SUCCESS').length;
   const failedCount = runs.filter(r => r.status === 'FAILED').length;
   const noChangeCount = runs.filter(r => r.status === 'NO_CHANGES').length;
   const totalChangesApplied = runs.reduce((sum, r) => sum + r.changesApplied, 0);
   const lastRun = runs[0] ?? null;
+  const lastSwitch = switches[0] ?? null;
 
   if (isLoading) {
     return (
@@ -333,7 +504,7 @@ export default function StrategyAnalystPage() {
           <Brain className="h-5 w-5 text-primary" />
           <h1 className="text-xl font-bold">Strategy Analyst</h1>
         </div>
-        <Button variant="ghost" size="sm" onClick={fetchRuns} className="ml-auto">
+        <Button variant="ghost" size="sm" onClick={fetchData} className="ml-auto">
           <RefreshCw className="h-4 w-4" />
         </Button>
       </div>
@@ -348,26 +519,41 @@ export default function StrategyAnalystPage() {
       <div className="px-4 md:px-6 grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Total Runs</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground">Strategy Switches</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{total}</div>
+            <div className="text-2xl font-bold">{switchTotal}</div>
+            {lastSwitch && (
+              <div className="text-xs text-muted-foreground">{formatDate(lastSwitch.switchedAt)}</div>
+            )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Last Run</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground">Current Profile</CardTitle>
           </CardHeader>
           <CardContent>
-            {lastRun ? (
+            {lastSwitch ? (
               <div className="space-y-1">
-                <StatusBadge status={lastRun.status} />
-                <div className="text-xs text-muted-foreground">{formatDate(lastRun.startedAt)}</div>
+                <div className="text-sm font-medium">{lastSwitch.newProfile}</div>
+                <SourceBadge source={lastSwitch.source} />
               </div>
             ) : (
-              <div className="text-sm text-muted-foreground">No runs yet</div>
+              <div className="text-sm text-muted-foreground">No switches yet</div>
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Analyst Runs</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{total}</div>
+            <div className="text-xs text-muted-foreground">
+              {successCount} ok / {failedCount} failed
+            </div>
           </CardContent>
         </Card>
 
@@ -379,35 +565,63 @@ export default function StrategyAnalystPage() {
             <div className="text-2xl font-bold">{totalChangesApplied}</div>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Success Rate</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {total > 0 ? ((successCount + noChangeCount) / total * 100).toFixed(0) : 0}%
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {successCount} ok / {failedCount} failed
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
-      {/* Runs List */}
-      <div className="px-4 md:px-6 space-y-3">
-        <h2 className="text-lg font-semibold">Run History</h2>
-        {runs.length === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center text-muted-foreground">
-              No strategy analyst runs recorded yet. Runs are saved automatically when the pipeline executes.
-            </CardContent>
-          </Card>
-        ) : (
-          runs.map(run => <RunCard key={run.id} run={run} />)
-        )}
+      {/* Tab Navigation */}
+      <div className="px-4 md:px-6 flex gap-2 border-b border-border pb-0">
+        <button
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'switches'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+          onClick={() => setActiveTab('switches')}
+        >
+          <ArrowRightLeft className="h-4 w-4 inline mr-1.5 -mt-0.5" />
+          Strategy Switches ({switchTotal})
+        </button>
+        <button
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'runs'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+          onClick={() => setActiveTab('runs')}
+        >
+          <Brain className="h-4 w-4 inline mr-1.5 -mt-0.5" />
+          Analyst Runs ({total})
+        </button>
       </div>
+
+      {/* Strategy Switches Tab */}
+      {activeTab === 'switches' && (
+        <div className="px-4 md:px-6 space-y-3">
+          {switches.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center text-muted-foreground">
+                No strategy switches recorded yet. Switches are logged automatically when the strategy profile is changed.
+              </CardContent>
+            </Card>
+          ) : (
+            switches.map(sw => <SwitchCard key={sw.id} sw={sw} />)
+          )}
+        </div>
+      )}
+
+      {/* Analyst Runs Tab */}
+      {activeTab === 'runs' && (
+        <div className="px-4 md:px-6 space-y-3">
+          {runs.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center text-muted-foreground">
+                No strategy analyst runs recorded yet. Runs are saved automatically when the pipeline executes.
+              </CardContent>
+            </Card>
+          ) : (
+            runs.map(run => <RunCard key={run.id} run={run} />)
+          )}
+        </div>
+      )}
     </div>
   );
 }
