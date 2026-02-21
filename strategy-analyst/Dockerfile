@@ -30,4 +30,4 @@ RUN npm ci --ignore-scripts && npx prisma generate
 WORKDIR /analyst
 ENV NODE_ENV=production
 
-CMD ["node", "run-analysis.mjs"]
+CMD ["node", "--max-old-space-size=256", "run-analysis.mjs"]

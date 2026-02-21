@@ -27,7 +27,7 @@ COPY . .
 # Generate Prisma client
 RUN npx prisma generate
 
-# Build Next.js app (if using the web UI)
+# Build Next.js app
 RUN npm run build
 
 # Environment variables (override at runtime)
