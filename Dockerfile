@@ -27,8 +27,8 @@ COPY . .
 # Generate Prisma client
 RUN npx prisma generate
 
-# Build Next.js app (increase memory for TypeScript compilation)
-RUN NODE_OPTIONS="--max-old-space-size=512" npm run build
+# Build Next.js app
+RUN npm run build
 
 # Environment variables (override at runtime)
 ENV NODE_ENV=production
