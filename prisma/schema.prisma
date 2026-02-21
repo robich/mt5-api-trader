@@ -351,6 +351,32 @@ model StrategyAnalystRun {
   @@index([status])
 }
 
+// Strategy switch log - records every profile change with reason and backtest results
+model StrategySwitch {
+  id               String   @id @default(uuid())
+  symbol           String?  // Null for global switches, or per-symbol
+  previousProfile  String   // Profile ID before switch
+  newProfile       String   // Profile ID after switch
+  reason           String   @db.Text // Why the switch was made
+  source           String   // 'manual' | 'analyst' | 'daily-reopt' | 'api'
+  backtestPnl      Float?   // New profile's backtest PnL
+  backtestWinRate  Float?   // New profile's backtest win rate
+  backtestPF       Float?   // New profile's backtest profit factor
+  backtestTrades   Int?     // Number of trades in backtest
+  backtestMaxDD    Float?   // Max drawdown percentage
+  backtestDays     Int?     // Backtest window length in days
+  backtestStart    DateTime? // Backtest start date
+  backtestEnd      DateTime? // Backtest end date
+  previousPnl      Float?   // Previous profile's backtest PnL (for comparison)
+  previousWinRate  Float?   // Previous profile's backtest win rate
+  previousPF       Float?   // Previous profile's backtest profit factor
+  switchedAt       DateTime @default(now())
+
+  @@index([switchedAt])
+  @@index([symbol])
+  @@index([source])
+}
+
 // Daily market analysis using Claude AI
 model MarketAnalysis {
   id                 String   @id @default(uuid())

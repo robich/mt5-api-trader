@@ -13,6 +13,7 @@ import {
   RiskTier,
 } from '@/lib/strategies/strategy-profiles';
 import { tradingBot } from '@/services/bot';
+import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -89,6 +90,10 @@ export async function GET(request: NextRequest) {
  * - profileId: Strategy profile ID to use
  * - liveTrading: Whether to enable live trading (CAREFUL!)
  * - symbols: Array of symbols to trade with optional overrides
+ * - reason: (optional) Why the strategy was switched
+ * - source: (optional) 'manual' | 'analyst' | 'daily-reopt' | 'api'
+ * - backtest: (optional) { pnl, winRate, profitFactor, trades, maxDD, days, start, end }
+ * - previousBacktest: (optional) { pnl, winRate, profitFactor }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -98,6 +103,10 @@ export async function POST(request: NextRequest) {
       liveTrading,
       symbols,
       symbolOverrides,
+      reason,
+      source,
+      backtest,
+      previousBacktest,
     } = body;
 
     // Validate profile exists
@@ -119,9 +128,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get current profile before switching
+    const botStatus = tradingBot.getStatus();
+    const previousProfile = botStatus.config.strategyProfile || 'BALANCED_STRONG';
+    const newProfileId = profileId || 'BALANCED_STRONG';
+
     // Build new config
     const newConfig = {
-      strategyProfile: profileId || 'BALANCED_STRONG',
+      strategyProfile: newProfileId,
       liveTrading: liveTrading ?? false,
       symbols: symbols || ['XAUUSD.s', 'BTCUSD', 'XAGUSD.s', 'ETHUSD'],
       useKillZones: profile.useKillZones,
@@ -142,11 +156,40 @@ export async function POST(request: NextRequest) {
     // Update bot config
     tradingBot.updateConfig(newConfig);
 
+    // Log strategy switch to database if profile actually changed
+    if (previousProfile !== newProfileId) {
+      try {
+        await prisma.strategySwitch.create({
+          data: {
+            previousProfile,
+            newProfile: newProfileId,
+            reason: reason || `Switched from ${previousProfile} to ${newProfileId}`,
+            source: source || 'manual',
+            backtestPnl: backtest?.pnl ?? null,
+            backtestWinRate: backtest?.winRate ?? null,
+            backtestPF: backtest?.profitFactor ?? null,
+            backtestTrades: backtest?.trades ?? null,
+            backtestMaxDD: backtest?.maxDD ?? null,
+            backtestDays: backtest?.days ?? null,
+            backtestStart: backtest?.start ? new Date(backtest.start) : null,
+            backtestEnd: backtest?.end ? new Date(backtest.end) : null,
+            previousPnl: previousBacktest?.pnl ?? null,
+            previousWinRate: previousBacktest?.winRate ?? null,
+            previousPF: previousBacktest?.profitFactor ?? null,
+          },
+        });
+      } catch (dbError) {
+        console.error('[Strategy Profiles] Failed to log switch to DB:', dbError);
+      }
+    }
+
     // Log the change for safety
     console.log('[Strategy Profiles] Configuration updated:', {
-      profile: profileId,
+      from: previousProfile,
+      to: newProfileId,
       liveTrading: newConfig.liveTrading,
       symbols: newConfig.symbols,
+      reason: reason || 'No reason provided',
     });
 
     // WARNING: If enabling live trading, log extra warning
@@ -160,6 +203,7 @@ export async function POST(request: NextRequest) {
         ? 'Configuration updated - LIVE TRADING ENABLED'
         : 'Configuration updated - Paper mode active',
       config: newConfig,
+      switchLogged: previousProfile !== newProfileId,
       warning: liveTrading
         ? 'Live trading is enabled. Real trades will be executed with real money.'
         : null,
