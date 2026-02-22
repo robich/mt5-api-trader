@@ -46,9 +46,12 @@ function getCommitHash() {
 const commitHash = getCommitHash();
 console.log(`[set-commit-hash] Commit hash: ${commitHash}`);
 
-// Generate build timestamp (ISO format, short version for display)
-const buildTime = new Date().toISOString();
-const buildTimeShort = buildTime.slice(0, 16).replace('T', ' '); // "2026-01-16 12:34"
+// Generate build timestamp in Swiss time (Europe/Zurich)
+const buildTimeShort = new Date().toLocaleString('sv-SE', {
+  timeZone: 'Europe/Zurich',
+  year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit',
+}).replace(',', ''); // "2026-01-16 12:34"
 console.log(`[set-commit-hash] Build time: ${buildTimeShort}`);
 
 // Write to files that next.config.mjs can read
