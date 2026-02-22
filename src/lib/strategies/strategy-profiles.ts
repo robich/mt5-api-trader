@@ -12,7 +12,7 @@
  * 5. ATR2.0 filtering gives highest win rates (83-89%) but fewer trades
  *
  * OPTIMAL STRATEGIES (Feb 2026):
- * - BTCUSD: EVERY-OB ATR1.5|RR2 (scalp) -> $2,071, 70.9% WR, PF 3.35
+ * - BTCUSD: OB40 ATR1.5|RR2 (scalp) -> $2,071, 70.9% WR, PF 3.35
  * - XAUUSD.s: EVERY-OB NoFilter|RR2.5 -> $2,311, 83.1% WR, PF 6.44
  * - XAGUSD.s: TIERED 50@0.5R|30@1R|20@1.5R -> $3,066, 80.5% WR, PF 2.95
  */
@@ -120,13 +120,13 @@ export interface LiveStrategyConfig {
 export const STRATEGY_PROFILES: Record<string, StrategyProfile> = {
   // === OPTIMAL STRATEGIES (Feb 11, 2026 - 20-day backtest Jan 22 - Feb 11) ===
 
-  // BTCUSD Optimal: EVERY-OB ATR1.5|RR2 on Scalp (H1/M15/M1) - 70.9% WR, PF 3.35, $2,071
+  // BTCUSD Optimal: OB40 ATR1.5|RR2 on Scalp (H1/M15/M1) - 70.9% WR, PF 3.35, $2,071
   'BTC_OPTIMAL': {
     name: 'BTC Optimal (Feb 2026)',
-    description: 'ATR1.5|RR2|NoFilter|Scalp - 70.9% WR, PF 3.35, $2,071',
+    description: 'ATR1.5|RR2|OB40|Scalp - 70.9% WR, PF 3.35, $2,071',
     riskTier: 'aggressive',
     strategy: 'ORDER_BLOCK',
-    minOBScore: 0, // NoFilter - take every OB with ATR1.5 quality filtering
+    minOBScore: 40, // OB40 filter + ATR1.5 quality filtering
     useKillZones: false,
     killZones: [],
     maxDailyDrawdown: 8,
@@ -435,9 +435,9 @@ export const SYMBOL_TRADING_LIMITS: Record<string, { minSlPips: number; typicalS
  */
 export const SYMBOL_DEFAULTS: Record<string, SymbolOverrides> = {
   'BTCUSD': {
-    // BTCUSD: EVERY-OB ATR1.5|RR2 (Scalp) - 70.9% WR, PF 3.35, +$2,071
+    // BTCUSD: OB40 ATR1.5|RR2 (Scalp) - 70.9% WR, PF 3.35, +$2,071
     confirmationType: 'none',
-    minOBScore: 0, // NoFilter - ATR1.5 handles quality
+    minOBScore: 40, // OB40 filter + ATR1.5 quality filtering
     maxDailyDrawdown: 8,
     useKillZones: false,
     riskReward: 2.0,
@@ -482,7 +482,7 @@ export const SYMBOL_DEFAULTS: Record<string, SymbolOverrides> = {
 export const DEFAULT_LIVE_CONFIG: LiveStrategyConfig = {
   profile: STRATEGY_PROFILES['UNIVERSAL_NOCONF'],
   symbols: [
-    { symbol: 'BTCUSD', enabled: true, overrides: SYMBOL_DEFAULTS['BTCUSD'] },     // ATR1.5|RR2 NoFilter
+    { symbol: 'BTCUSD', enabled: true, overrides: SYMBOL_DEFAULTS['BTCUSD'] },     // OB40|ATR1.5|RR2
     { symbol: 'XAUUSD.s', enabled: true, overrides: SYMBOL_DEFAULTS['XAUUSD.s'] }, // NoFilter|RR2.5
     { symbol: 'XAGUSD.s', enabled: true, overrides: SYMBOL_DEFAULTS['XAGUSD.s'] }, // Tiered 50@0.5R|30@1R|20@1.5R
     { symbol: 'ETHUSD', enabled: false, overrides: SYMBOL_DEFAULTS['ETHUSD'] },    // DISABLED - not re-tested
