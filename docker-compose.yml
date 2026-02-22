@@ -102,9 +102,6 @@ services:
       - ANALYST_SCHEDULE=0 3 * * *
       - BACKTEST_DAYS=14
       - DEPLOY_METHOD=docker-compose
-      - TRIGGER_PORT=3002
-    expose:
-      - "3002"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     profiles:

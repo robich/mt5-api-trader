@@ -377,6 +377,19 @@ model StrategySwitch {
   @@index([source])
 }
 
+// Manual trigger requests for strategy analyst (DB-based, works across all platforms)
+model StrategyAnalystTrigger {
+  id          String   @id @default(uuid())
+  status      String   @default("PENDING") // PENDING, RUNNING, COMPLETED, FAILED
+  requestedAt DateTime @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  result      String?  @db.Text // JSON result summary
+
+  @@index([status])
+  @@index([requestedAt])
+}
+
 // Daily market analysis using Claude AI
 model MarketAnalysis {
   id                 String   @id @default(uuid())

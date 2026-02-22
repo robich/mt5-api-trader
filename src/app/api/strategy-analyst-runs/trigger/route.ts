@@ -1,40 +1,69 @@
 import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-const ANALYST_URL = process.env.ANALYST_TRIGGER_URL || 'http://strategy-analyst:3002';
-
 export async function POST() {
   try {
-    const res = await fetch(`${ANALYST_URL}/trigger`, {
-      method: 'POST',
-      signal: AbortSignal.timeout(5000),
+    // Check if there's already a PENDING or RUNNING trigger
+    const existing = await prisma.strategyAnalystTrigger.findFirst({
+      where: { status: { in: ['PENDING', 'RUNNING'] } },
+      orderBy: { requestedAt: 'desc' },
     });
-    const data = await res.json();
-    return NextResponse.json(data, { status: res.status });
-  } catch (error: any) {
-    console.error('Error triggering strategy analyst:', error);
-    const message = error?.cause?.code === 'ECONNREFUSED'
-      ? 'Strategy analyst service is not running'
-      : 'Failed to reach strategy analyst service';
+
+    if (existing) {
+      return NextResponse.json(
+        { success: false, error: 'Analysis is already pending or running' },
+        { status: 409 }
+      );
+    }
+
+    // Create a new trigger request
+    const trigger = await prisma.strategyAnalystTrigger.create({
+      data: { status: 'PENDING' },
+    });
+
     return NextResponse.json(
-      { success: false, error: message },
-      { status: 503 }
+      { success: true, message: 'Analysis triggered', triggerId: trigger.id },
+      { status: 202 }
+    );
+  } catch (error) {
+    console.error('Error triggering strategy analyst:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to create trigger' },
+      { status: 500 }
     );
   }
 }
 
 export async function GET() {
   try {
-    const res = await fetch(`${ANALYST_URL}/status`, {
-      signal: AbortSignal.timeout(5000),
+    // Check for any active trigger (PENDING or RUNNING)
+    const active = await prisma.strategyAnalystTrigger.findFirst({
+      where: { status: { in: ['PENDING', 'RUNNING'] } },
+      orderBy: { requestedAt: 'desc' },
     });
-    const data = await res.json();
-    return NextResponse.json(data);
-  } catch (error: any) {
-    console.error('Error fetching analyst status:', error);
+
+    // Get the last completed/failed trigger
+    const last = await prisma.strategyAnalystTrigger.findFirst({
+      where: { status: { in: ['COMPLETED', 'FAILED'] } },
+      orderBy: { requestedAt: 'desc' },
+    });
+
+    return NextResponse.json({
+      isRunning: !!active,
+      activeStatus: active?.status ?? null,
+      lastTrigger: last ? {
+        status: last.status,
+        requestedAt: last.requestedAt,
+        completedAt: last.completedAt,
+        result: last.result,
+      } : null,
+    });
+  } catch (error) {
+    console.error('Error fetching analyst trigger status:', error);
     return NextResponse.json(
-      { isRunning: false, lastTrigger: null, serviceAvailable: false },
+      { isRunning: false, activeStatus: null, lastTrigger: null },
       { status: 200 }
     );
   }

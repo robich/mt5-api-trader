@@ -1,79 +1,115 @@
 import 'dotenv/config';
 import cron from 'node-cron';
-import http from 'node:http';
+import pg from 'pg';
 import { runAnalysis } from './lib/orchestrator.mjs';
 
 const SCHEDULE = process.env.ANALYST_SCHEDULE || '0 3 * * *'; // Default: 3 AM UTC daily
 const RUN_ONCE = process.argv.includes('--once');
-const TRIGGER_PORT = parseInt(process.env.TRIGGER_PORT || '3002', 10);
+const POLL_INTERVAL = parseInt(process.env.TRIGGER_POLL_INTERVAL || '30000', 10); // 30s default
 
-// Track running state for the HTTP trigger
 let isRunning = false;
-let lastTrigger = null;
 
 /**
- * Run analysis with state tracking (used by both cron and HTTP trigger).
+ * Run analysis with state tracking (used by both cron and DB trigger).
  */
 async function executeAnalysis(source = 'scheduled') {
   if (isRunning) {
     return { success: false, reason: 'already-running' };
   }
   isRunning = true;
-  lastTrigger = { source, startedAt: new Date().toISOString(), status: 'running' };
   try {
+    console.log(`\n[${new Date().toISOString()}] Analysis starting (source: ${source})...\n`);
     const result = await runAnalysis();
-    lastTrigger = { ...lastTrigger, status: result.success ? 'completed' : 'failed', completedAt: new Date().toISOString() };
+    console.log(`[${new Date().toISOString()}] Analysis complete:`, result.success ? 'SUCCESS' : 'FAILED');
     return result;
-  } catch (err) {
-    lastTrigger = { ...lastTrigger, status: 'failed', completedAt: new Date().toISOString(), error: err.message };
-    throw err;
   } finally {
     isRunning = false;
   }
 }
 
 /**
- * Start a lightweight HTTP server for manual trigger requests.
+ * Create a short-lived DB client for trigger polling.
  */
-function startTriggerServer() {
-  const server = http.createServer(async (req, res) => {
-    res.setHeader('Content-Type', 'application/json');
+function createClient() {
+  return new pg.Client({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+  });
+}
 
-    if (req.method === 'GET' && req.url === '/status') {
-      res.writeHead(200);
-      res.end(JSON.stringify({ isRunning, lastTrigger }));
-      return;
+/**
+ * Poll the database for PENDING trigger requests.
+ * Claims the trigger by setting status=RUNNING, runs analysis,
+ * then marks it COMPLETED or FAILED.
+ */
+async function pollForTriggers() {
+  if (isRunning) return;
+
+  let client;
+  try {
+    client = createClient();
+    await client.connect();
+
+    // Atomically claim the oldest PENDING trigger
+    const { rows } = await client.query(`
+      UPDATE "StrategyAnalystTrigger"
+      SET "status" = 'RUNNING', "startedAt" = NOW()
+      WHERE "id" = (
+        SELECT "id" FROM "StrategyAnalystTrigger"
+        WHERE "status" = 'PENDING'
+        ORDER BY "requestedAt" ASC
+        LIMIT 1
+        FOR UPDATE SKIP LOCKED
+      )
+      RETURNING "id"
+    `);
+
+    await client.end();
+    client = null;
+
+    if (rows.length === 0) return;
+
+    const triggerId = rows[0].id;
+    console.log(`[trigger] Picked up manual trigger: ${triggerId}`);
+
+    let result;
+    try {
+      result = await executeAnalysis('manual');
+    } catch (err) {
+      result = { success: false, error: err.message };
     }
 
-    if (req.method === 'POST' && req.url === '/trigger') {
-      if (isRunning) {
-        res.writeHead(409);
-        res.end(JSON.stringify({ success: false, error: 'Analysis is already running' }));
-        return;
-      }
-
-      // Respond immediately, run analysis in background
-      res.writeHead(202);
-      res.end(JSON.stringify({ success: true, message: 'Analysis triggered' }));
-
-      console.log(`\n[${new Date().toISOString()}] Manual analysis triggered via HTTP...\n`);
-      try {
-        const result = await executeAnalysis('manual');
-        console.log(`[${new Date().toISOString()}] Manual analysis complete:`, result.success ? 'SUCCESS' : 'FAILED');
-      } catch (err) {
-        console.error(`[${new Date().toISOString()}] Manual analysis fatal error:`, err);
-      }
-      return;
+    // Update trigger with result
+    const done = createClient();
+    await done.connect();
+    await done.query(
+      `UPDATE "StrategyAnalystTrigger"
+       SET "status" = $1, "completedAt" = NOW(), "result" = $2
+       WHERE "id" = $3`,
+      [
+        result.success ? 'COMPLETED' : 'FAILED',
+        JSON.stringify({ success: result.success, reason: result.reason || null }),
+        triggerId,
+      ]
+    );
+    await done.end();
+  } catch (err) {
+    // Don't crash the process on polling errors
+    console.error('[trigger] Poll error:', err.message);
+    if (client) {
+      try { await client.end(); } catch {}
     }
+  }
+}
 
-    res.writeHead(404);
-    res.end(JSON.stringify({ error: 'Not found' }));
-  });
-
-  server.listen(TRIGGER_PORT, '0.0.0.0', () => {
-    console.log(`  Trigger:  http://0.0.0.0:${TRIGGER_PORT}/trigger (POST)`);
-    console.log(`  Status:   http://0.0.0.0:${TRIGGER_PORT}/status (GET)`);
-  });
+/**
+ * Start polling the DB for manual trigger requests.
+ */
+function startTriggerPoller() {
+  console.log(`  Trigger:  DB polling every ${POLL_INTERVAL / 1000}s`);
+  setInterval(pollForTriggers, POLL_INTERVAL);
+  // Also poll immediately on startup to catch any triggers that arrived while offline
+  pollForTriggers();
 }
 
 async function main() {
@@ -107,17 +143,15 @@ async function main() {
     process.exit(1);
   }
 
-  // Start HTTP trigger server
-  startTriggerServer();
+  // Start DB trigger poller
+  startTriggerPoller();
 
   console.log(`  Scheduled. Next run at cron: ${SCHEDULE}`);
   console.log('  Waiting...\n');
 
   cron.schedule(SCHEDULE, async () => {
-    console.log(`\n[${new Date().toISOString()}] Scheduled analysis starting...\n`);
     try {
-      const result = await executeAnalysis('scheduled');
-      console.log(`[${new Date().toISOString()}] Analysis complete:`, result.success ? 'SUCCESS' : 'FAILED');
+      await executeAnalysis('scheduled');
     } catch (err) {
       console.error(`[${new Date().toISOString()}] Fatal error:`, err);
     }
