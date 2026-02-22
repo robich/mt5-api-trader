@@ -296,16 +296,16 @@ export default function Dashboard() {
             <Button variant="ghost" size="sm" onClick={fetchData} className="h-7 px-2">
               <RefreshCw className="h-3.5 w-3.5" />
             </Button>
-            <Link href="/strategy-analyst" className="hidden md:inline-flex">
+            <Link href="/strategy-analyst">
               <Button variant="outline" size="sm">
-                <Brain className="h-4 w-4 mr-2" />
-                Strategy AI
+                <Brain className="h-4 w-4 md:mr-2" />
+                <span className="hidden md:inline">Strategy AI</span>
               </Button>
             </Link>
-            <Link href="/calculator" className="hidden md:inline-flex">
+            <Link href="/calculator">
               <Button variant="outline" size="sm">
-                <Calculator className="h-4 w-4 mr-2" />
-                Calculator
+                <Calculator className="h-4 w-4 md:mr-2" />
+                <span className="hidden md:inline">Calculator</span>
               </Button>
             </Link>
             <div className="text-sm text-muted-foreground text-right hidden sm:block">
