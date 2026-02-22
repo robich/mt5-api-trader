@@ -6,6 +6,7 @@ import { runAnalysis } from './lib/orchestrator.mjs';
 const SCHEDULE = process.env.ANALYST_SCHEDULE || '0 3 * * *'; // Default: 3 AM UTC daily
 const RUN_ONCE = process.argv.includes('--once');
 const POLL_INTERVAL = parseInt(process.env.TRIGGER_POLL_INTERVAL || '30000', 10); // 30s default
+const STALE_TRIGGER_MINUTES = 30;
 
 let isRunning = false;
 
@@ -35,6 +36,34 @@ function createClient() {
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
   });
+}
+
+/**
+ * Expire any PENDING/RUNNING triggers older than STALE_TRIGGER_MINUTES.
+ * Handles the case where the process was killed mid-run (e.g. by a deployment).
+ */
+async function expireStaleTriggers() {
+  let client;
+  try {
+    client = createClient();
+    await client.connect();
+    const { rowCount } = await client.query(
+      `UPDATE "StrategyAnalystTrigger"
+       SET "status" = 'FAILED', "completedAt" = NOW(),
+           "result" = '{"success":false,"reason":"expired-stale-trigger"}'
+       WHERE "status" IN ('PENDING', 'RUNNING')
+         AND "requestedAt" < NOW() - INTERVAL '${STALE_TRIGGER_MINUTES} minutes'`
+    );
+    await client.end();
+    if (rowCount > 0) {
+      console.log(`[trigger] Expired ${rowCount} stale trigger(s) older than ${STALE_TRIGGER_MINUTES}m`);
+    }
+  } catch (err) {
+    console.error('[trigger] Error expiring stale triggers:', err.message);
+    if (client) {
+      try { await client.end(); } catch {}
+    }
+  }
 }
 
 /**
@@ -105,8 +134,10 @@ async function pollForTriggers() {
 /**
  * Start polling the DB for manual trigger requests.
  */
-function startTriggerPoller() {
+async function startTriggerPoller() {
   console.log(`  Trigger:  DB polling every ${POLL_INTERVAL / 1000}s`);
+  // On startup, expire any stale triggers left over from a previous crash/deployment
+  await expireStaleTriggers();
   setInterval(pollForTriggers, POLL_INTERVAL);
   // Also poll immediately on startup to catch any triggers that arrived while offline
   pollForTriggers();
@@ -143,8 +174,8 @@ async function main() {
     process.exit(1);
   }
 
-  // Start DB trigger poller
-  startTriggerPoller();
+  // Start DB trigger poller (also expires stale triggers from previous runs)
+  await startTriggerPoller();
 
   console.log(`  Scheduled. Next run at cron: ${SCHEDULE}`);
   console.log('  Waiting...\n');

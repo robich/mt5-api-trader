@@ -3,8 +3,38 @@ import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
+// Triggers older than this are considered stale (e.g. killed by a redeployment)
+const STALE_TRIGGER_MINUTES = 30;
+
+/**
+ * Expire any PENDING/RUNNING triggers that are older than STALE_TRIGGER_MINUTES.
+ * This handles the case where the analyst process was killed mid-run (e.g. by a
+ * deployment) and the trigger record was never updated to COMPLETED/FAILED.
+ */
+async function expireStaleTriggers(): Promise<number> {
+  const cutoff = new Date(Date.now() - STALE_TRIGGER_MINUTES * 60 * 1000);
+  const { count } = await prisma.strategyAnalystTrigger.updateMany({
+    where: {
+      status: { in: ['PENDING', 'RUNNING'] },
+      requestedAt: { lt: cutoff },
+    },
+    data: {
+      status: 'FAILED',
+      completedAt: new Date(),
+      result: JSON.stringify({ success: false, reason: 'expired-stale-trigger' }),
+    },
+  });
+  if (count > 0) {
+    console.log(`[trigger] Expired ${count} stale trigger(s) older than ${STALE_TRIGGER_MINUTES}m`);
+  }
+  return count;
+}
+
 export async function POST() {
   try {
+    // Clean up any stale triggers that got stuck from a previous deployment
+    await expireStaleTriggers();
+
     // Check if there's already a PENDING or RUNNING trigger
     const existing = await prisma.strategyAnalystTrigger.findFirst({
       where: { status: { in: ['PENDING', 'RUNNING'] } },
@@ -38,6 +68,9 @@ export async function POST() {
 
 export async function GET() {
   try {
+    // Clean up any stale triggers so the UI doesn't show a perpetual spinner
+    await expireStaleTriggers();
+
     // Check for any active trigger (PENDING or RUNNING)
     const active = await prisma.strategyAnalystTrigger.findFirst({
       where: { status: { in: ['PENDING', 'RUNNING'] } },
