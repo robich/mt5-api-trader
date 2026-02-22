@@ -6,8 +6,10 @@ import { runAnalysis } from './lib/orchestrator.mjs';
 const SCHEDULE = process.env.ANALYST_SCHEDULE || '0 3 * * *'; // Default: 3 AM UTC daily
 const RUN_ONCE = process.argv.includes('--once');
 const POLL_INTERVAL = parseInt(process.env.TRIGGER_POLL_INTERVAL || '30000', 10); // 30s default
+const STALE_TRIGGER_MINUTES = 30;
 
 let isRunning = false;
+let activeTriggerId = null;
 
 /**
  * Run analysis with state tracking (used by both cron and DB trigger).
@@ -35,6 +37,34 @@ function createClient() {
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
   });
+}
+
+/**
+ * Expire any PENDING/RUNNING triggers older than STALE_TRIGGER_MINUTES.
+ * Handles the case where the process was killed mid-run (e.g. by a deployment).
+ */
+async function expireStaleTriggers() {
+  let client;
+  try {
+    client = createClient();
+    await client.connect();
+    const { rowCount } = await client.query(
+      `UPDATE "StrategyAnalystTrigger"
+       SET "status" = 'FAILED', "completedAt" = NOW(),
+           "result" = '{"success":false,"reason":"expired-stale-trigger"}'
+       WHERE "status" IN ('PENDING', 'RUNNING')
+         AND "requestedAt" < NOW() - INTERVAL '${STALE_TRIGGER_MINUTES} minutes'`
+    );
+    await client.end();
+    if (rowCount > 0) {
+      console.log(`[trigger] Expired ${rowCount} stale trigger(s) older than ${STALE_TRIGGER_MINUTES}m`);
+    }
+  } catch (err) {
+    console.error('[trigger] Error expiring stale triggers:', err.message);
+    if (client) {
+      try { await client.end(); } catch {}
+    }
+  }
 }
 
 /**
@@ -70,6 +100,7 @@ async function pollForTriggers() {
     if (rows.length === 0) return;
 
     const triggerId = rows[0].id;
+    activeTriggerId = triggerId;
     console.log(`[trigger] Picked up manual trigger: ${triggerId}`);
 
     let result;
@@ -78,6 +109,8 @@ async function pollForTriggers() {
     } catch (err) {
       result = { success: false, error: err.message };
     }
+
+    activeTriggerId = null;
 
     // Update trigger with result
     const done = createClient();
@@ -105,8 +138,10 @@ async function pollForTriggers() {
 /**
  * Start polling the DB for manual trigger requests.
  */
-function startTriggerPoller() {
+async function startTriggerPoller() {
   console.log(`  Trigger:  DB polling every ${POLL_INTERVAL / 1000}s`);
+  // On startup, expire any stale triggers left over from a previous crash/deployment
+  await expireStaleTriggers();
   setInterval(pollForTriggers, POLL_INTERVAL);
   // Also poll immediately on startup to catch any triggers that arrived while offline
   pollForTriggers();
@@ -143,8 +178,8 @@ async function main() {
     process.exit(1);
   }
 
-  // Start DB trigger poller
-  startTriggerPoller();
+  // Start DB trigger poller (also expires stale triggers from previous runs)
+  await startTriggerPoller();
 
   console.log(`  Scheduled. Next run at cron: ${SCHEDULE}`);
   console.log('  Waiting...\n');
@@ -159,16 +194,32 @@ async function main() {
     timezone: 'UTC',
   });
 
-  // Keep process alive
-  process.on('SIGINT', () => {
-    console.log('\nShutting down Strategy Analyst...');
+  // Graceful shutdown: mark any in-flight trigger as FAILED so it doesn't hang
+  async function gracefulShutdown(signal) {
+    console.log(`\n[${signal}] Shutting down Strategy Analyst...`);
+    if (activeTriggerId) {
+      console.log(`[${signal}] Marking active trigger ${activeTriggerId} as FAILED...`);
+      try {
+        const client = createClient();
+        await client.connect();
+        await client.query(
+          `UPDATE "StrategyAnalystTrigger"
+           SET "status" = 'FAILED', "completedAt" = NOW(),
+               "result" = '{"success":false,"reason":"process-shutdown"}'
+           WHERE "id" = $1 AND "status" IN ('PENDING', 'RUNNING')`,
+          [activeTriggerId]
+        );
+        await client.end();
+        console.log(`[${signal}] Trigger marked as FAILED`);
+      } catch (err) {
+        console.error(`[${signal}] Failed to update trigger:`, err.message);
+      }
+    }
     process.exit(0);
-  });
+  }
 
-  process.on('SIGTERM', () => {
-    console.log('\nShutting down Strategy Analyst...');
-    process.exit(0);
-  });
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 }
 
 main().catch(err => {
