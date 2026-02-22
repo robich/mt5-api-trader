@@ -19,7 +19,10 @@
     "backtest:compare": "node scripts/quick-backtest.mjs --compare-all",
     "backtest:ts": "npx ts-node --transpile-only scripts/cli-backtest.ts",
     "backtest:ts:optimize": "npx ts-node --transpile-only scripts/cli-backtest.ts --optimize",
-    "telegram:auth": "node scripts/telegram-auth.mjs"
+    "telegram:auth": "node scripts/telegram-auth.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
@@ -65,6 +68,7 @@
     "tailwindcss": "^3.4.1",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.0.18"
   }
 }

@@ -27,6 +27,9 @@ COPY . .
 # Generate Prisma client
 RUN npx prisma generate
 
+# Run unit tests - deployment fails if tests don't pass
+RUN npm test
+
 # Build Next.js app
 RUN npm run build
 
