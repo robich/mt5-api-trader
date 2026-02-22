@@ -9,6 +9,7 @@ import {
 } from '../types';
 import { candleCache } from '../cache/candle-cache';
 import { TradingBotSyncListener } from './sync-listener';
+import { getSymbolPipInfo } from '../risk/position-sizing';
 
 // Dynamic import to avoid 'window is not defined' error during SSR
 let MetaApi: any = null;
@@ -219,11 +220,15 @@ class MetaAPIClient {
       throw new Error(`Symbol ${symbol} not found`);
     }
 
+    // Use correct pip size for known symbols (MT5 digits gives tick/point size, not pip size)
+    // e.g., XAGUSD digits=3 → Math.pow(10,-3)=0.001 (tick), but pip=0.01
+    const pipInfo = getSymbolPipInfo(spec.symbol);
+
     return {
       symbol: spec.symbol,
       description: spec.description || '',
       digits: spec.digits,
-      pipSize: Math.pow(10, -spec.digits),
+      pipSize: pipInfo.pipSize,
       contractSize: spec.contractSize || 100000,
       minVolume: spec.minVolume || 0.01,
       maxVolume: spec.maxVolume || 100,
