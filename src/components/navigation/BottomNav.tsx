@@ -18,7 +18,7 @@ export function BottomNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:hidden">
       <div className="text-center pt-1">
-        <span className="text-[10px] text-muted-foreground">v{process.env.NEXT_PUBLIC_VERSION || '0.0.0'}</span>
+        <span className="text-[10px] text-muted-foreground">v{process.env.NEXT_PUBLIC_VERSION || '0.0.0'} · Built: {process.env.NEXT_PUBLIC_BUILD_TIME || 'dev'}</span>
       </div>
       <div className="flex h-14 items-center justify-around">
         {navItems.map((item) => {
