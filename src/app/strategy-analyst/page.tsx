@@ -263,43 +263,80 @@ function SwitchCard({ sw }: { sw: StrategySwitch }) {
 
   return (
     <Card className="transition-colors hover:bg-muted/20">
-      <CardContent className="p-4">
+      <CardContent className="p-3 sm:p-4">
         <div
-          className="flex items-center gap-3 cursor-pointer"
+          className="cursor-pointer"
           onClick={() => setExpanded(!expanded)}
         >
-          <ArrowRightLeft className="h-5 w-5 text-orange-500 shrink-0" />
-
-          <div className="shrink-0">
-            <div className="text-sm font-medium">{formatDate(sw.switchedAt)}</div>
-            <div className="text-xs text-muted-foreground">{formatTime(sw.switchedAt)}</div>
+          {/* Mobile: stacked layout */}
+          <div className="flex items-start gap-2 sm:hidden">
+            <ArrowRightLeft className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <SourceBadge source={sw.source} />
+                  {sw.symbol && (
+                    <Badge variant="outline" className="text-cyan-400 border-cyan-500/30 text-xs">{sw.symbol}</Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="text-xs text-muted-foreground">{formatDate(sw.switchedAt)}</span>
+                  {expanded ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+                </div>
+              </div>
+              <div className="text-sm">
+                <span className="text-muted-foreground">{sw.previousProfile}</span>
+                <span className="text-muted-foreground mx-1">&rarr;</span>
+                <span className="font-medium">{sw.newProfile}</span>
+              </div>
+              {(sw.backtestWinRate !== null || sw.backtestPF !== null) && (
+                <div className="flex items-center gap-2 text-xs">
+                  {sw.backtestWinRate !== null && (
+                    <span className="text-green-400">{sw.backtestWinRate.toFixed(1)}% WR</span>
+                  )}
+                  {sw.backtestPF !== null && (
+                    <span className="text-muted-foreground">PF {sw.backtestPF.toFixed(2)}</span>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap min-w-0">
-            <SourceBadge source={sw.source} />
-            {sw.symbol && (
-              <Badge variant="outline" className="text-cyan-400 border-cyan-500/30">{sw.symbol}</Badge>
-            )}
-            <span className="text-sm truncate">
-              <span className="text-muted-foreground">{sw.previousProfile}</span>
-              <span className="text-muted-foreground mx-1">&rarr;</span>
-              <span className="font-medium">{sw.newProfile}</span>
-            </span>
-          </div>
+          {/* Desktop: horizontal layout */}
+          <div className="hidden sm:flex items-center gap-3">
+            <ArrowRightLeft className="h-5 w-5 text-orange-500 shrink-0" />
 
-          <div className="flex items-center gap-3 ml-auto text-sm text-muted-foreground shrink-0">
-            {sw.backtestWinRate !== null && (
-              <span className="text-green-400">{sw.backtestWinRate.toFixed(1)}% WR</span>
-            )}
-            {sw.backtestPF !== null && (
-              <span>PF {sw.backtestPF.toFixed(2)}</span>
-            )}
-            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            <div className="shrink-0">
+              <div className="text-sm font-medium">{formatDate(sw.switchedAt)}</div>
+              <div className="text-xs text-muted-foreground">{formatTime(sw.switchedAt)}</div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap min-w-0">
+              <SourceBadge source={sw.source} />
+              {sw.symbol && (
+                <Badge variant="outline" className="text-cyan-400 border-cyan-500/30">{sw.symbol}</Badge>
+              )}
+              <span className="text-sm truncate">
+                <span className="text-muted-foreground">{sw.previousProfile}</span>
+                <span className="text-muted-foreground mx-1">&rarr;</span>
+                <span className="font-medium">{sw.newProfile}</span>
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3 ml-auto text-sm text-muted-foreground shrink-0">
+              {sw.backtestWinRate !== null && (
+                <span className="text-green-400">{sw.backtestWinRate.toFixed(1)}% WR</span>
+              )}
+              {sw.backtestPF !== null && (
+                <span>PF {sw.backtestPF.toFixed(2)}</span>
+              )}
+              {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </div>
           </div>
         </div>
 
         {!expanded && (
-          <p className="text-xs text-muted-foreground mt-2 line-clamp-1 ml-8">
+          <p className="text-xs text-muted-foreground mt-2 line-clamp-1 ml-6 sm:ml-8">
             {sw.reason}
           </p>
         )}
@@ -380,48 +417,85 @@ function RunCard({ run }: { run: StrategyAnalystRun }) {
 
   return (
     <Card className="transition-colors hover:bg-muted/20">
-      <CardContent className="p-4">
+      <CardContent className="p-3 sm:p-4">
         <div
-          className="flex items-center gap-3 cursor-pointer"
+          className="cursor-pointer"
           onClick={() => setExpanded(!expanded)}
         >
-          {/* Status Icon */}
-          {run.status === 'SUCCESS' && <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />}
-          {run.status === 'NO_CHANGES' && <MinusCircle className="h-5 w-5 text-blue-500 shrink-0" />}
-          {run.status === 'FAILED' && <XCircle className="h-5 w-5 text-red-500 shrink-0" />}
+          {/* Mobile: stacked layout */}
+          <div className="flex items-start gap-2 sm:hidden">
+            {/* Status Icon */}
+            {run.status === 'SUCCESS' && <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />}
+            {run.status === 'NO_CHANGES' && <MinusCircle className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />}
+            {run.status === 'FAILED' && <XCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />}
 
-          {/* Date + Time */}
-          <div className="shrink-0">
-            <div className="text-sm font-medium">{formatDate(run.startedAt)}</div>
-            <div className="text-xs text-muted-foreground">{formatTime(run.startedAt)}</div>
-          </div>
-
-          {/* Badges */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <StatusBadge status={run.status} />
-            {run.dryRun && <Badge variant="outline" className="text-yellow-400 border-yellow-500/30">DRY RUN</Badge>}
-            <RiskBadge risk={run.riskAssessment} />
-          </div>
-
-          {/* Changes summary */}
-          <div className="flex items-center gap-3 ml-auto text-sm text-muted-foreground">
-            {run.codeChanged && (
-              <span className="text-green-400">{run.changesApplied} applied</span>
-            )}
-            {run.changesFailed > 0 && (
-              <span className="text-red-400">{run.changesFailed} failed</span>
-            )}
-            <div className="flex items-center gap-1">
-              <Clock className="h-3.5 w-3.5" />
-              {formatDuration(run.durationSeconds)}
+            <div className="flex-1 min-w-0 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <StatusBadge status={run.status} />
+                  {run.dryRun && <Badge variant="outline" className="text-yellow-400 border-yellow-500/30 text-xs">DRY RUN</Badge>}
+                  <RiskBadge risk={run.riskAssessment} />
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="text-xs text-muted-foreground">{formatDate(run.startedAt)}</span>
+                  {expanded ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                {run.codeChanged && (
+                  <span className="text-green-400">{run.changesApplied} applied</span>
+                )}
+                {run.changesFailed > 0 && (
+                  <span className="text-red-400">{run.changesFailed} failed</span>
+                )}
+                <div className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  {formatDuration(run.durationSeconds)}
+                </div>
+              </div>
             </div>
-            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </div>
+
+          {/* Desktop: horizontal layout */}
+          <div className="hidden sm:flex items-center gap-3">
+            {/* Status Icon */}
+            {run.status === 'SUCCESS' && <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />}
+            {run.status === 'NO_CHANGES' && <MinusCircle className="h-5 w-5 text-blue-500 shrink-0" />}
+            {run.status === 'FAILED' && <XCircle className="h-5 w-5 text-red-500 shrink-0" />}
+
+            {/* Date + Time */}
+            <div className="shrink-0">
+              <div className="text-sm font-medium">{formatDate(run.startedAt)}</div>
+              <div className="text-xs text-muted-foreground">{formatTime(run.startedAt)}</div>
+            </div>
+
+            {/* Badges */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <StatusBadge status={run.status} />
+              {run.dryRun && <Badge variant="outline" className="text-yellow-400 border-yellow-500/30">DRY RUN</Badge>}
+              <RiskBadge risk={run.riskAssessment} />
+            </div>
+
+            {/* Changes summary */}
+            <div className="flex items-center gap-3 ml-auto text-sm text-muted-foreground">
+              {run.codeChanged && (
+                <span className="text-green-400">{run.changesApplied} applied</span>
+              )}
+              {run.changesFailed > 0 && (
+                <span className="text-red-400">{run.changesFailed} failed</span>
+              )}
+              <div className="flex items-center gap-1">
+                <Clock className="h-3.5 w-3.5" />
+                {formatDuration(run.durationSeconds)}
+              </div>
+              {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </div>
           </div>
         </div>
 
         {/* Market Assessment Preview (collapsed) */}
         {!expanded && run.marketAssessment && (
-          <p className="text-xs text-muted-foreground mt-2 line-clamp-1 ml-8">
+          <p className="text-xs text-muted-foreground mt-2 line-clamp-1 ml-6 sm:ml-8">
             {run.marketAssessment}
           </p>
         )}
@@ -491,18 +565,18 @@ export default function StrategyAnalystPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background py-6 space-y-6">
+    <div className="min-h-screen bg-background py-4 sm:py-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="px-4 md:px-6 flex items-center gap-4">
+      <div className="px-4 md:px-6 flex items-center gap-2 sm:gap-4">
         <Link href="/">
           <Button variant="ghost" size="sm">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Dashboard
+            <ArrowLeft className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Dashboard</span>
           </Button>
         </Link>
         <div className="flex items-center gap-2">
           <Brain className="h-5 w-5 text-primary" />
-          <h1 className="text-xl font-bold">Strategy Analyst</h1>
+          <h1 className="text-lg sm:text-xl font-bold">Strategy Analyst</h1>
         </div>
         <Button variant="ghost" size="sm" onClick={fetchData} className="ml-auto">
           <RefreshCw className="h-4 w-4" />
@@ -516,7 +590,7 @@ export default function StrategyAnalystPage() {
       )}
 
       {/* Summary Cards */}
-      <div className="px-4 md:px-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="px-4 md:px-6 grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Strategy Switches</CardTitle>
@@ -568,27 +642,27 @@ export default function StrategyAnalystPage() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="px-4 md:px-6 flex gap-2 border-b border-border pb-0">
+      <div className="px-4 md:px-6 flex gap-1 sm:gap-2 border-b border-border pb-0">
         <button
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+          className={`px-2.5 sm:px-4 py-2 text-xs sm:text-sm font-medium border-b-2 transition-colors ${
             activeTab === 'switches'
               ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
           onClick={() => setActiveTab('switches')}
         >
-          <ArrowRightLeft className="h-4 w-4 inline mr-1.5 -mt-0.5" />
-          Strategy Switches ({switchTotal})
+          <ArrowRightLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4 inline mr-1 sm:mr-1.5 -mt-0.5" />
+          Switches ({switchTotal})
         </button>
         <button
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+          className={`px-2.5 sm:px-4 py-2 text-xs sm:text-sm font-medium border-b-2 transition-colors ${
             activeTab === 'runs'
               ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
           onClick={() => setActiveTab('runs')}
         >
-          <Brain className="h-4 w-4 inline mr-1.5 -mt-0.5" />
+          <Brain className="h-3.5 w-3.5 sm:h-4 sm:w-4 inline mr-1 sm:mr-1.5 -mt-0.5" />
           Analyst Runs ({total})
         </button>
       </div>

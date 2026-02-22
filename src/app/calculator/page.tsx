@@ -12,10 +12,11 @@ export default function CalculatorPage() {
         {/* Header with back button */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link href="/" className="hidden md:inline-flex">
+            <Link href="/">
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Dashboard
+                <span className="hidden sm:inline">Back to Dashboard</span>
+                <span className="sm:hidden">Back</span>
               </Button>
             </Link>
             <div>

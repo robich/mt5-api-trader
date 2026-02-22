@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Radio, LineChart, Calculator } from 'lucide-react';
+import { LayoutDashboard, Radio, LineChart, Calculator, Brain } from 'lucide-react';
 
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/' },
   { label: 'Signals', icon: Radio, href: '/#signals' },
   { label: 'Chart', icon: LineChart, href: '/#chart' },
+  { label: 'Strategy', icon: Brain, href: '/strategy-analyst' },
   { label: 'Calculator', icon: Calculator, href: '/calculator' },
 ];
 
@@ -21,21 +22,23 @@ export function BottomNav() {
           const isActive =
             item.href === '/calculator'
               ? pathname === '/calculator'
-              : item.href === '/'
-                ? pathname === '/' && !item.href.includes('#')
-                : false;
+              : item.href === '/strategy-analyst'
+                ? pathname === '/strategy-analyst'
+                : item.href === '/'
+                  ? pathname === '/' && !item.href.includes('#')
+                  : false;
 
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-col items-center justify-center gap-1 px-3 py-2 text-xs transition-colors ${
+              className={`flex flex-col items-center justify-center gap-0.5 px-1.5 py-2 text-[10px] transition-colors ${
                 isActive
                   ? 'text-primary'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <item.icon className="h-5 w-5" />
+              <item.icon className="h-[18px] w-[18px]" />
               <span>{item.label}</span>
             </Link>
           );
