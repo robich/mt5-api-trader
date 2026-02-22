@@ -127,49 +127,93 @@ function BacktestTable({ baseline, validation }: { baseline: any; validation: an
     : null;
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border">
-            <th className="text-left p-2 text-muted-foreground">Symbol</th>
-            <th className="text-right p-2 text-muted-foreground">PnL (Before)</th>
-            {validationData && <th className="text-right p-2 text-muted-foreground">PnL (After)</th>}
-            <th className="text-right p-2 text-muted-foreground">WR (Before)</th>
-            {validationData && <th className="text-right p-2 text-muted-foreground">WR (After)</th>}
-            <th className="text-right p-2 text-muted-foreground">PF (Before)</th>
-            {validationData && <th className="text-right p-2 text-muted-foreground">PF (After)</th>}
-          </tr>
-        </thead>
-        <tbody>
-          {baselineData.map((b: any, i: number) => {
-            const v = validationData?.find((vd: any) => vd.symbol === b.symbol);
-            return (
-              <tr key={i} className="border-b border-border/50">
-                <td className="p-2 font-medium">{b.symbol}</td>
-                <td className="p-2 text-right">${b.totalPnl?.toFixed(0) ?? b.pnl?.toFixed(0) ?? '-'}</td>
-                {validationData && (
-                  <td className={`p-2 text-right ${v && (v.totalPnl ?? v.pnl) > (b.totalPnl ?? b.pnl) ? 'text-green-400' : v && (v.totalPnl ?? v.pnl) < (b.totalPnl ?? b.pnl) ? 'text-red-400' : ''}`}>
-                    ${v?.totalPnl?.toFixed(0) ?? v?.pnl?.toFixed(0) ?? '-'}
-                  </td>
-                )}
-                <td className="p-2 text-right">{b.winRate?.toFixed(1) ?? '-'}%</td>
-                {validationData && (
-                  <td className={`p-2 text-right ${v && v.winRate > b.winRate ? 'text-green-400' : v && v.winRate < b.winRate ? 'text-red-400' : ''}`}>
-                    {v?.winRate?.toFixed(1) ?? '-'}%
-                  </td>
-                )}
-                <td className="p-2 text-right">{b.profitFactor?.toFixed(2) ?? '-'}</td>
-                {validationData && (
-                  <td className={`p-2 text-right ${v && v.profitFactor > b.profitFactor ? 'text-green-400' : v && v.profitFactor < b.profitFactor ? 'text-red-400' : ''}`}>
-                    {v?.profitFactor?.toFixed(2) ?? '-'}
-                  </td>
-                )}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+    <>
+      {/* Mobile: stacked cards */}
+      <div className="space-y-3 sm:hidden">
+        {baselineData.map((b: any, i: number) => {
+          const v = validationData?.find((vd: any) => vd.symbol === b.symbol);
+          return (
+            <div key={i} className="bg-muted/30 rounded p-3 space-y-2">
+              <div className="font-medium text-sm">{b.symbol}</div>
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <div>
+                  <div className="text-muted-foreground">PnL</div>
+                  <div>${b.totalPnl?.toFixed(0) ?? b.pnl?.toFixed(0) ?? '-'}</div>
+                  {v && (
+                    <div className={`${(v.totalPnl ?? v.pnl) > (b.totalPnl ?? b.pnl) ? 'text-green-400' : (v.totalPnl ?? v.pnl) < (b.totalPnl ?? b.pnl) ? 'text-red-400' : ''}`}>
+                      &rarr; ${v?.totalPnl?.toFixed(0) ?? v?.pnl?.toFixed(0) ?? '-'}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Win Rate</div>
+                  <div>{b.winRate?.toFixed(1) ?? '-'}%</div>
+                  {v && (
+                    <div className={`${v.winRate > b.winRate ? 'text-green-400' : v.winRate < b.winRate ? 'text-red-400' : ''}`}>
+                      &rarr; {v?.winRate?.toFixed(1) ?? '-'}%
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <div className="text-muted-foreground">PF</div>
+                  <div>{b.profitFactor?.toFixed(2) ?? '-'}</div>
+                  {v && (
+                    <div className={`${v.profitFactor > b.profitFactor ? 'text-green-400' : v.profitFactor < b.profitFactor ? 'text-red-400' : ''}`}>
+                      &rarr; {v?.profitFactor?.toFixed(2) ?? '-'}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="overflow-x-auto hidden sm:block">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border">
+              <th className="text-left p-2 text-muted-foreground">Symbol</th>
+              <th className="text-right p-2 text-muted-foreground">PnL (Before)</th>
+              {validationData && <th className="text-right p-2 text-muted-foreground">PnL (After)</th>}
+              <th className="text-right p-2 text-muted-foreground">WR (Before)</th>
+              {validationData && <th className="text-right p-2 text-muted-foreground">WR (After)</th>}
+              <th className="text-right p-2 text-muted-foreground">PF (Before)</th>
+              {validationData && <th className="text-right p-2 text-muted-foreground">PF (After)</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {baselineData.map((b: any, i: number) => {
+              const v = validationData?.find((vd: any) => vd.symbol === b.symbol);
+              return (
+                <tr key={i} className="border-b border-border/50">
+                  <td className="p-2 font-medium">{b.symbol}</td>
+                  <td className="p-2 text-right">${b.totalPnl?.toFixed(0) ?? b.pnl?.toFixed(0) ?? '-'}</td>
+                  {validationData && (
+                    <td className={`p-2 text-right ${v && (v.totalPnl ?? v.pnl) > (b.totalPnl ?? b.pnl) ? 'text-green-400' : v && (v.totalPnl ?? v.pnl) < (b.totalPnl ?? b.pnl) ? 'text-red-400' : ''}`}>
+                      ${v?.totalPnl?.toFixed(0) ?? v?.pnl?.toFixed(0) ?? '-'}
+                    </td>
+                  )}
+                  <td className="p-2 text-right">{b.winRate?.toFixed(1) ?? '-'}%</td>
+                  {validationData && (
+                    <td className={`p-2 text-right ${v && v.winRate > b.winRate ? 'text-green-400' : v && v.winRate < b.winRate ? 'text-red-400' : ''}`}>
+                      {v?.winRate?.toFixed(1) ?? '-'}%
+                    </td>
+                  )}
+                  <td className="p-2 text-right">{b.profitFactor?.toFixed(2) ?? '-'}</td>
+                  {validationData && (
+                    <td className={`p-2 text-right ${v && v.profitFactor > b.profitFactor ? 'text-green-400' : v && v.profitFactor < b.profitFactor ? 'text-red-400' : ''}`}>
+                      {v?.profitFactor?.toFixed(2) ?? '-'}
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 
@@ -200,11 +244,11 @@ function RunDetail({ run }: { run: StrategyAnalystRun }) {
       {changesDetail && changesDetail.length > 0 && (
         <div>
           <h4 className="text-sm font-medium text-muted-foreground mb-1">Changes Applied</h4>
-          <ul className="space-y-1">
+          <ul className="space-y-2">
             {changesDetail.map((c: any, i: number) => (
-              <li key={i} className="text-sm flex items-start gap-2">
-                <span className="text-muted-foreground font-mono shrink-0">{c.file}</span>
-                <span>{c.description}</span>
+              <li key={i} className="text-sm">
+                <span className="text-muted-foreground font-mono text-xs break-all block sm:inline">{c.file}</span>
+                <span className="block sm:inline sm:ml-2">{c.description}</span>
               </li>
             ))}
           </ul>
@@ -355,7 +399,63 @@ function SwitchCard({ sw }: { sw: StrategySwitch }) {
             {(hasBacktest || hasPrevious) && (
               <div>
                 <h4 className="text-sm font-medium text-muted-foreground mb-1">Backtest Results</h4>
-                <div className="overflow-x-auto">
+
+                {/* Mobile: stacked cards */}
+                <div className="space-y-2 sm:hidden">
+                  {hasPrevious && (
+                    <div className="bg-muted/30 rounded p-3">
+                      <div className="text-xs text-muted-foreground mb-1.5">Previous: {sw.previousProfile}</div>
+                      <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
+                        <div>
+                          <div className="text-muted-foreground/60">PnL</div>
+                          <div>{sw.previousPnl !== null ? `$${sw.previousPnl.toFixed(0)}` : '-'}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground/60">WR</div>
+                          <div>{sw.previousWinRate !== null ? `${sw.previousWinRate.toFixed(1)}%` : '-'}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground/60">PF</div>
+                          <div>{sw.previousPF !== null ? sw.previousPF.toFixed(2) : '-'}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {hasBacktest && (
+                    <div className="bg-muted/30 rounded p-3">
+                      <div className="text-xs font-medium mb-1.5">New: {sw.newProfile}</div>
+                      <div className="grid grid-cols-3 gap-2 text-xs">
+                        <div>
+                          <div className="text-muted-foreground">PnL</div>
+                          <div className={sw.previousPnl !== null && sw.backtestPnl !== null && sw.backtestPnl > sw.previousPnl ? 'text-green-400' : ''}>
+                            {sw.backtestPnl !== null ? `$${sw.backtestPnl.toFixed(0)}` : '-'}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">WR</div>
+                          <div className={sw.previousWinRate !== null && sw.backtestWinRate !== null && sw.backtestWinRate > sw.previousWinRate ? 'text-green-400' : ''}>
+                            {sw.backtestWinRate !== null ? `${sw.backtestWinRate.toFixed(1)}%` : '-'}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">PF</div>
+                          <div className={sw.previousPF !== null && sw.backtestPF !== null && sw.backtestPF > sw.previousPF ? 'text-green-400' : ''}>
+                            {sw.backtestPF !== null ? sw.backtestPF.toFixed(2) : '-'}
+                          </div>
+                        </div>
+                      </div>
+                      {(sw.backtestTrades !== null || sw.backtestMaxDD !== null) && (
+                        <div className="flex gap-3 mt-1.5 text-xs text-muted-foreground">
+                          {sw.backtestTrades !== null && <span>{sw.backtestTrades} trades</span>}
+                          {sw.backtestMaxDD !== null && <span>{sw.backtestMaxDD.toFixed(1)}% DD</span>}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Desktop: table */}
+                <div className="overflow-x-auto hidden sm:block">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border">
@@ -609,46 +709,54 @@ export default function StrategyAnalystPage() {
   return (
     <div className="min-h-screen bg-background py-4 sm:py-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="px-4 md:px-6 flex items-center gap-2 sm:gap-4">
-        <Link href="/">
-          <Button variant="ghost" size="sm">
-            <ArrowLeft className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Dashboard</span>
-          </Button>
-        </Link>
-        <div className="flex items-center gap-2">
-          <Brain className="h-5 w-5 text-primary" />
-          <h1 className="text-lg sm:text-xl font-bold">Strategy Analyst</h1>
-        </div>
-        <div className="ml-auto flex items-center gap-1 sm:gap-2">
-          {triggerMessage && (
-            <span className={`text-xs ${triggerMessage.includes('successfully') ? 'text-green-400' : 'text-red-400'}`}>
-              {triggerMessage}
-            </span>
-          )}
-          {analysisRunning && (
-            <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 animate-pulse">
-              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-              Running
-            </Badge>
-          )}
-          <Button
-            variant="default"
-            size="sm"
-            onClick={triggerAnalysis}
-            disabled={isTriggering || analysisRunning}
-          >
-            {isTriggering ? (
-              <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
-            ) : (
-              <Play className="h-4 w-4 sm:mr-2" />
+      <div className="px-4 md:px-6">
+        <div className="flex items-center gap-2 sm:gap-4">
+          <Link href="/">
+            <Button variant="ghost" size="sm">
+              <ArrowLeft className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Dashboard</span>
+            </Button>
+          </Link>
+          <div className="flex items-center gap-2 min-w-0">
+            <Brain className="h-5 w-5 text-primary shrink-0" />
+            <h1 className="text-lg sm:text-xl font-bold truncate">Strategy Analyst</h1>
+          </div>
+          <div className="ml-auto flex items-center gap-1 sm:gap-2 shrink-0">
+            {triggerMessage && (
+              <span className={`text-xs hidden sm:inline ${triggerMessage.includes('successfully') ? 'text-green-400' : 'text-red-400'}`}>
+                {triggerMessage}
+              </span>
             )}
-            <span className="hidden sm:inline">Run Analysis</span>
-          </Button>
-          <Button variant="ghost" size="sm" onClick={fetchData}>
-            <RefreshCw className="h-4 w-4" />
-          </Button>
+            {analysisRunning && (
+              <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 animate-pulse text-xs">
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                <span className="hidden sm:inline">Running</span>
+              </Badge>
+            )}
+            <Button
+              variant="default"
+              size="sm"
+              onClick={triggerAnalysis}
+              disabled={isTriggering || analysisRunning}
+            >
+              {isTriggering ? (
+                <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
+              ) : (
+                <Play className="h-4 w-4 sm:mr-2" />
+              )}
+              <span className="hidden sm:inline">Run Analysis</span>
+            </Button>
+            <Button variant="ghost" size="sm" onClick={fetchData}>
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
+        {/* Mobile trigger message - shown below header */}
+        {triggerMessage && (
+          <div className={`text-xs text-center mt-2 sm:hidden ${triggerMessage.includes('successfully') ? 'text-green-400' : 'text-red-400'}`}>
+            {triggerMessage}
+          </div>
+        )}
       </div>
 
       {error && (
@@ -660,11 +768,11 @@ export default function StrategyAnalystPage() {
       {/* Summary Cards */}
       <div className="px-4 md:px-6 grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Strategy Switches</CardTitle>
+          <CardHeader className="p-3 pb-1 sm:p-6 sm:pb-2">
+            <CardTitle className="text-xs sm:text-sm text-muted-foreground">Strategy Switches</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{switchTotal}</div>
+          <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+            <div className="text-xl sm:text-2xl font-bold">{switchTotal}</div>
             {lastSwitch && (
               <div className="text-xs text-muted-foreground">{formatDate(lastSwitch.switchedAt)}</div>
             )}
@@ -672,27 +780,27 @@ export default function StrategyAnalystPage() {
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Current Profile</CardTitle>
+          <CardHeader className="p-3 pb-1 sm:p-6 sm:pb-2">
+            <CardTitle className="text-xs sm:text-sm text-muted-foreground">Current Profile</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
             {lastSwitch ? (
               <div className="space-y-1">
-                <div className="text-sm font-medium">{lastSwitch.newProfile}</div>
+                <div className="text-xs sm:text-sm font-medium truncate">{lastSwitch.newProfile}</div>
                 <SourceBadge source={lastSwitch.source} />
               </div>
             ) : (
-              <div className="text-sm text-muted-foreground">No switches yet</div>
+              <div className="text-xs sm:text-sm text-muted-foreground">No switches yet</div>
             )}
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Analyst Runs</CardTitle>
+          <CardHeader className="p-3 pb-1 sm:p-6 sm:pb-2">
+            <CardTitle className="text-xs sm:text-sm text-muted-foreground">Analyst Runs</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{total}</div>
+          <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+            <div className="text-xl sm:text-2xl font-bold">{total}</div>
             <div className="text-xs text-muted-foreground">
               {successCount} ok / {failedCount} failed
             </div>
@@ -700,11 +808,11 @@ export default function StrategyAnalystPage() {
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Changes Applied</CardTitle>
+          <CardHeader className="p-3 pb-1 sm:p-6 sm:pb-2">
+            <CardTitle className="text-xs sm:text-sm text-muted-foreground">Changes Applied</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalChangesApplied}</div>
+          <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+            <div className="text-xl sm:text-2xl font-bold">{totalChangesApplied}</div>
           </CardContent>
         </Card>
       </div>
