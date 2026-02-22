@@ -164,7 +164,7 @@ export function checkTypeScript(repoDir) {
       encoding: 'utf-8',
       timeout: 120_000,
       stdio: 'pipe',
-      env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=256' },
+      env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=512' },
     });
     console.log('[safety] TypeScript compilation: PASSED');
     return { passed: true, errors: [] };
