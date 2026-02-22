@@ -17,6 +17,8 @@ import {
   ChevronUp,
   RefreshCw,
   ArrowRightLeft,
+  Play,
+  Loader2,
 } from 'lucide-react';
 
 interface StrategySwitch {
@@ -517,6 +519,9 @@ export default function StrategyAnalystPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>('switches');
+  const [isTriggering, setIsTriggering] = useState(false);
+  const [analysisRunning, setAnalysisRunning] = useState(false);
+  const [triggerMessage, setTriggerMessage] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -543,11 +548,48 @@ export default function StrategyAnalystPage() {
     }
   }, []);
 
+  const fetchAnalystStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/strategy-analyst-runs/trigger');
+      if (res.ok) {
+        const data = await res.json();
+        setAnalysisRunning(data.isRunning ?? false);
+      }
+    } catch {
+      // Silently fail - service may not be available
+    }
+  }, []);
+
+  const triggerAnalysis = useCallback(async () => {
+    setIsTriggering(true);
+    setTriggerMessage(null);
+    try {
+      const res = await fetch('/api/strategy-analyst-runs/trigger', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setTriggerMessage('Analysis triggered successfully');
+        setAnalysisRunning(true);
+      } else {
+        setTriggerMessage(data.error || 'Failed to trigger analysis');
+      }
+    } catch {
+      setTriggerMessage('Failed to reach analyst service');
+    } finally {
+      setIsTriggering(false);
+      setTimeout(() => setTriggerMessage(null), 5000);
+    }
+  }, []);
+
   useEffect(() => {
     fetchData();
+    fetchAnalystStatus();
     const interval = setInterval(fetchData, 60000);
-    return () => clearInterval(interval);
-  }, [fetchData]);
+    const statusInterval = setInterval(fetchAnalystStatus, 15000);
+    return () => {
+      clearInterval(interval);
+      clearInterval(statusInterval);
+    };
+  }, [fetchData, fetchAnalystStatus]);
 
   const successCount = runs.filter(r => r.status === 'SUCCESS').length;
   const failedCount = runs.filter(r => r.status === 'FAILED').length;
@@ -578,9 +620,35 @@ export default function StrategyAnalystPage() {
           <Brain className="h-5 w-5 text-primary" />
           <h1 className="text-lg sm:text-xl font-bold">Strategy Analyst</h1>
         </div>
-        <Button variant="ghost" size="sm" onClick={fetchData} className="ml-auto">
-          <RefreshCw className="h-4 w-4" />
-        </Button>
+        <div className="ml-auto flex items-center gap-1 sm:gap-2">
+          {triggerMessage && (
+            <span className={`text-xs ${triggerMessage.includes('successfully') ? 'text-green-400' : 'text-red-400'}`}>
+              {triggerMessage}
+            </span>
+          )}
+          {analysisRunning && (
+            <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 animate-pulse">
+              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              Running
+            </Badge>
+          )}
+          <Button
+            variant="default"
+            size="sm"
+            onClick={triggerAnalysis}
+            disabled={isTriggering || analysisRunning}
+          >
+            {isTriggering ? (
+              <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
+            ) : (
+              <Play className="h-4 w-4 sm:mr-2" />
+            )}
+            <span className="hidden sm:inline">Run Analysis</span>
+          </Button>
+          <Button variant="ghost" size="sm" onClick={fetchData}>
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {error && (
