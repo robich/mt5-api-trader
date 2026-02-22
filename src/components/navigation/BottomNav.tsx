@@ -17,6 +17,9 @@ export function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:hidden">
+      <div className="absolute top-0 left-0 right-0 flex justify-center -translate-y-0.5">
+        <span className="text-[9px] text-muted-foreground/50">v{process.env.NEXT_PUBLIC_VERSION || '0.0.0'}</span>
+      </div>
       <div className="flex h-16 items-center justify-around">
         {navItems.map((item) => {
           const isActive =
