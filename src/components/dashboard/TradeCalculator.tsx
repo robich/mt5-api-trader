@@ -246,7 +246,7 @@ export default function TradeCalculator() {
   const [stopLoss, setStopLoss] = useState('');
   const [takeProfit, setTakeProfit] = useState('');
   const [customLeverage, setCustomLeverage] = useState('1000');
-  const [customBalance, setCustomBalance] = useState('');
+  const [customBalance, setCustomBalance] = useState('2000');
   const [currentMarketPrice, setCurrentMarketPrice] = useState<number | null>(null);
 
   // Multiple TP levels
@@ -766,28 +766,30 @@ export default function TradeCalculator() {
               )}
             </div>
 
-            {/* Calculated Lot Size (Read-only) */}
+            {/* Lot Size */}
             <div className="space-y-2">
               <Label htmlFor="lotSize">
-                Calculated Lot Size
+                Lot Size
                 {!entryPrice || !stopLoss ? (
                   <span className="text-xs text-muted-foreground ml-2">
-                    (Enter entry & SL first)
+                    (Enter entry & SL to auto-calculate)
                   </span>
                 ) : null}
               </Label>
               <Input
                 id="lotSize"
-                type="text"
+                type="number"
+                step="0.01"
+                min="0.01"
                 value={lotSize}
-                readOnly
-                className="bg-muted font-semibold"
-                placeholder="Auto-calculated"
+                onChange={(e) => setLotSize(e.target.value)}
+                className="font-semibold"
+                placeholder="0.01"
               />
               <p className="text-xs text-muted-foreground">
                 {riskMode === 'percent'
-                  ? `Based on ${riskPercent.toFixed(1)}% account risk`
-                  : `Based on $${riskAmount || '0'} risk amount`}
+                  ? `Auto-calculated from ${riskPercent.toFixed(1)}% risk — or edit manually`
+                  : `Auto-calculated from $${riskAmount || '0'} risk — or edit manually`}
               </p>
             </div>
 
