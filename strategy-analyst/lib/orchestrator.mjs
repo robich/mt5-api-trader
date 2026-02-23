@@ -53,27 +53,22 @@ export async function runAnalysis() {
     const baselineFormatted = formatResultsForPrompt(baseline);
     console.log('[baseline]', baselineFormatted.substring(0, 300) + '...');
 
-    // ── Step 2b: Evaluate baseline performance — pause bot if poor ──
+    // ── Step 2b: Evaluate baseline performance ──
+    // Flag poor performance but don't pause yet — let the analyst try to optimize first.
+    // The bot is only paused at the end if no better strategy was found.
+    let baselinePoor = false;
     let botPaused = false;
     let pauseReason = null;
     if (hardLimits.pauseThresholds) {
       const perfEval = evaluateBaselinePerformance(baseline, hardLimits.pauseThresholds);
       if (perfEval.shouldPause) {
+        baselinePoor = true;
         pauseReason = perfEval.reasons.join('; ');
-        console.warn(`\n[PAUSE] Strategy performance is poor — ${perfEval.failingSymbols.length} symbol(s) failing:`);
+        console.warn(`\n[WARN] Strategy performance is poor — ${perfEval.failingSymbols.length} symbol(s) failing:`);
         for (const reason of perfEval.reasons) {
           console.warn(`  • ${reason}`);
         }
-
-        if (!DRY_RUN) {
-          botPaused = await pauseBot();
-          await sendBotPaused(perfEval.reasons);
-        } else {
-          console.log('[dry-run] Would pause bot due to poor performance.');
-          botPaused = true; // Track intent even in dry run
-        }
-
-        console.log('[PAUSE] Continuing analysis to attempt strategy optimization...');
+        console.log('[WARN] Will pause bot if no improved strategy is found.');
       } else {
         console.log('[baseline] Performance within acceptable thresholds.');
       }
@@ -94,6 +89,12 @@ export async function runAnalysis() {
     // Check if no changes recommended
     if (analysis.noChangeRecommended || !analysis.changes || analysis.changes.length === 0) {
       console.log('\n[result] No changes recommended.');
+
+      // Pause the bot if baseline was poor and analyst found nothing better
+      if (baselinePoor) {
+        botPaused = await pauseBotIfPoor(pauseReason, DRY_RUN);
+      }
+
       await sendNoChanges(analysis.marketAssessment);
       logDuration(startTime);
       await persistRun({
@@ -122,6 +123,7 @@ export async function runAnalysis() {
 
     if (!review.approved) {
       console.error('[review] Changes REJECTED by reviewer:', review.issues);
+      if (baselinePoor) botPaused = await pauseBotIfPoor(pauseReason, DRY_RUN);
       await sendError(`Safety review rejected: ${review.issues.join('; ')}`, 'safety-review');
       logDuration(startTime);
       await persistRun({
@@ -140,6 +142,7 @@ export async function runAnalysis() {
     const preValidation = validateChanges(analysis.changes, repoDir);
     if (!preValidation.passed) {
       console.error('[validate] Pre-apply validation FAILED:', preValidation.errors);
+      if (baselinePoor) botPaused = await pauseBotIfPoor(pauseReason, DRY_RUN);
       await sendError(`Validation failed: ${preValidation.errors.join('; ')}`, 'pre-validation');
       logDuration(startTime);
       await persistRun({
@@ -159,6 +162,7 @@ export async function runAnalysis() {
 
     if (applied.length === 0) {
       console.error('[apply] No changes could be applied.');
+      if (baselinePoor) botPaused = await pauseBotIfPoor(pauseReason, DRY_RUN);
       await sendError(`All ${failed.length} changes failed to apply`, 'apply');
       logDuration(startTime);
       await persistRun({
@@ -179,6 +183,7 @@ export async function runAnalysis() {
     if (!diffCheck.passed) {
       console.error('[validate] Diff too large:', diffCheck.errors);
       rollback();
+      if (baselinePoor) botPaused = await pauseBotIfPoor(pauseReason, DRY_RUN);
       await sendError(diffCheck.errors.join('; '), 'diff-size');
       logDuration(startTime);
       await persistRun({
@@ -199,6 +204,7 @@ export async function runAnalysis() {
     if (!fileCheck.passed) {
       console.error('[validate] Modified files contain dangerous patterns:', fileCheck.errors);
       rollback();
+      if (baselinePoor) botPaused = await pauseBotIfPoor(pauseReason, DRY_RUN);
       await sendError(fileCheck.errors.join('; '), 'file-validation');
       logDuration(startTime);
       await persistRun({
@@ -248,6 +254,7 @@ export async function runAnalysis() {
     if (!tscResult.passed) {
       console.error('[tsc] TypeScript compilation FAILED after retries. Rolling back.');
       rollback();
+      if (baselinePoor) botPaused = await pauseBotIfPoor(pauseReason, DRY_RUN);
       await sendError(`TypeScript compilation failed:\n${tscResult.errors[0]?.substring(0, 300)}`, 'tsc');
       logDuration(startTime);
       await persistRun({
@@ -277,6 +284,7 @@ export async function runAnalysis() {
         }
       }
       rollback();
+      if (baselinePoor) botPaused = await pauseBotIfPoor(pauseReason, DRY_RUN);
       await sendReport({
         date,
         marketAssessment: analysis.marketAssessment,
@@ -306,8 +314,9 @@ export async function runAnalysis() {
     }
 
     // ── Step 10: Commit & push ──
+    // Optimization succeeded — baseline was poor but a better strategy was found.
+    // No need to pause the bot; the improved strategy will be deployed.
     let commit = null;
-    let botResumed = false;
     if (!DRY_RUN) {
       console.log('\n[commit] Committing and pushing...');
       const branch = createBranch();
@@ -317,16 +326,11 @@ export async function runAnalysis() {
       // Trigger redeploy if configured
       await triggerRedeploy();
 
-      // Resume bot if it was paused due to poor performance and optimization succeeded
-      if (botPaused) {
-        console.log('\n[resume] Bot was paused — resuming after successful optimization...');
-        botResumed = await resumeBot();
+      if (baselinePoor) {
+        console.log('[OK] Baseline was poor but optimization succeeded — bot keeps running with improved strategy.');
       }
     } else {
       console.log('\n[dry-run] Skipping commit/push.');
-      if (botPaused) {
-        console.log('[dry-run] Would resume bot after successful optimization.');
-      }
     }
 
     // ── Notify ──
@@ -362,9 +366,8 @@ export async function runAnalysis() {
       branch: commit?.branch ?? null,
       botPaused,
       pauseReason,
-      botResumed,
     }).catch(e => console.error('[reporter] Failed to persist run:', e.message));
-    return { success: true, applied, commit, comparison, botPaused, botResumed };
+    return { success: true, applied, commit, comparison };
 
   } catch (err) {
     console.error('\n[FATAL]', err);
@@ -443,10 +446,25 @@ function logDuration(startTime) {
 }
 
 /**
- * Pause (stop) the trading bot via its API.
- * @returns {boolean} true if the bot was successfully paused
+ * Pause the trading bot because baseline performance is poor and no better
+ * strategy was found. Handles dry-run mode and Telegram notification.
+ *
+ * @param {string} reason - Why the bot is being paused
+ * @param {boolean} dryRun - Whether this is a dry run
+ * @returns {boolean} true if the bot was paused (or would be in dry-run)
  */
-async function pauseBot() {
+async function pauseBotIfPoor(reason, dryRun) {
+  console.warn('\n[PAUSE] No improved strategy found — pausing bot due to poor baseline performance.');
+
+  if (dryRun) {
+    console.log('[dry-run] Would pause bot.');
+    return true;
+  }
+
+  // Send Telegram notification
+  const reasons = reason ? reason.split('; ') : ['Poor baseline performance'];
+  await sendBotPaused(reasons);
+
   if (!BOT_API_URL) {
     console.log('[pause] BOT_API_URL not set — cannot pause bot remotely.');
     return false;
@@ -471,39 +489,6 @@ async function pauseBot() {
     }
   } catch (err) {
     console.error('[pause] Error stopping bot:', err.message);
-    return false;
-  }
-}
-
-/**
- * Resume (start) the trading bot via its API.
- * @returns {boolean} true if the bot was successfully resumed
- */
-async function resumeBot() {
-  if (!BOT_API_URL) {
-    console.log('[resume] BOT_API_URL not set — cannot resume bot remotely.');
-    return false;
-  }
-
-  try {
-    const url = `${BOT_API_URL}/api/bot`;
-    console.log(`[resume] Starting bot via ${url}...`);
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'start' }),
-    });
-
-    if (res.ok) {
-      console.log('[resume] Bot started successfully.');
-      return true;
-    } else {
-      const body = await res.text();
-      console.error(`[resume] Failed to start bot (${res.status}): ${body}`);
-      return false;
-    }
-  } catch (err) {
-    console.error('[resume] Error starting bot:', err.message);
     return false;
   }
 }
