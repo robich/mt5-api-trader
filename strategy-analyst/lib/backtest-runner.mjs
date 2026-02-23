@@ -189,6 +189,59 @@ export function compareResults(baseline, validation, gates) {
 }
 
 /**
+ * Evaluate baseline backtest performance against pause thresholds.
+ * Determines if the current strategy is performing poorly enough to warrant pausing the bot.
+ *
+ * @param {Object} results - Backtest results keyed by symbol
+ * @param {Object} thresholds - Pause thresholds from hard-limits.json
+ * @returns {{ shouldPause: boolean, failingSymbols: string[], reasons: string[] }}
+ */
+export function evaluateBaselinePerformance(results, thresholds) {
+  const failingSymbols = [];
+  const reasons = [];
+
+  for (const [symbol, data] of Object.entries(results)) {
+    if (data.error || !data.summary || data.strategies.length === 0) {
+      // Backtest errored or produced no results — treat as failing
+      failingSymbols.push(symbol);
+      reasons.push(`${symbol}: backtest failed or no strategies produced results`);
+      continue;
+    }
+
+    const { bestWinRate, bestPnl } = data.summary;
+
+    // Find the best strategy's profit factor
+    const bestStrategy = data.strategies.reduce((a, b) =>
+      a.totalPnl > b.totalPnl ? a : b
+    );
+    const bestPF = bestStrategy.profitFactor;
+
+    const symbolFailures = [];
+
+    if (bestWinRate < thresholds.minWinRate) {
+      symbolFailures.push(`WR ${bestWinRate.toFixed(1)}% < ${thresholds.minWinRate}%`);
+    }
+
+    if (bestPF < thresholds.minProfitFactor) {
+      symbolFailures.push(`PF ${bestPF.toFixed(2)} < ${thresholds.minProfitFactor}`);
+    }
+
+    if (bestPnl < thresholds.maxNegativePnl) {
+      symbolFailures.push(`PnL $${bestPnl.toFixed(0)} < $${thresholds.maxNegativePnl}`);
+    }
+
+    if (symbolFailures.length > 0) {
+      failingSymbols.push(symbol);
+      reasons.push(`${symbol}: ${symbolFailures.join(', ')}`);
+    }
+  }
+
+  const shouldPause = failingSymbols.length >= thresholds.minSymbolsFailing;
+
+  return { shouldPause, failingSymbols, reasons };
+}
+
+/**
  * Format backtest results as a concise summary string for Claude context.
  */
 export function formatResultsForPrompt(results) {

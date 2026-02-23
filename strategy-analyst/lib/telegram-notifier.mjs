@@ -31,6 +31,27 @@ export async function sendError(error, step) {
 }
 
 /**
+ * Send a "bot paused" notification when strategy performance is poor.
+ */
+export async function sendBotPaused(reasons, assessment) {
+  if (!BOT_TOKEN || !CHAT_ID) return;
+
+  const message = [
+    `<b>🛑 Bot Paused — Poor Strategy Performance</b>`,
+    `<b>Date:</b> ${new Date().toISOString().split('T')[0]}`,
+    ``,
+    `<b>Failing symbols:</b>`,
+    ...reasons.map(r => `  • ${escapeHtml(r)}`),
+    ``,
+    assessment ? `<b>Assessment:</b> ${escapeHtml(assessment)}` : '',
+    ``,
+    `The bot has been stopped. The strategy analyst will continue analyzing and attempt to find improved parameters. If successful, the bot will be restarted automatically.`,
+  ].filter(Boolean).join('\n');
+
+  await sendMessage(message);
+}
+
+/**
  * Send a "no changes" notification.
  */
 export async function sendNoChanges(assessment) {

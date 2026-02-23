@@ -1,16 +1,17 @@
 import { clone, createBranch, commitAndPush, rollback, getWorkDir, countChangedLines } from './git-manager.mjs';
-import { runBacktests, compareResults, formatResultsForPrompt } from './backtest-runner.mjs';
+import { runBacktests, compareResults, formatResultsForPrompt, evaluateBaselinePerformance } from './backtest-runner.mjs';
 import { fetchMarketNews } from './news-fetcher.mjs';
 import { analyzeStrategies, reviewChanges, fixCompilationErrors } from './claude-analyst.mjs';
 import { applyChanges } from './code-applier.mjs';
 import { validateChanges, validateDiffSize, checkTypeScript, validateModifiedFiles, hardLimits } from './safety-validator.mjs';
-import { sendReport, sendError, sendNoChanges } from './telegram-notifier.mjs';
+import { sendReport, sendError, sendNoChanges, sendBotPaused } from './telegram-notifier.mjs';
 import { persistRun } from './run-reporter.mjs';
 import { execSync } from 'child_process';
 import { existsSync } from 'fs';
 
 const DRY_RUN = process.env.DRY_RUN === 'true';
 const MAX_TSC_RETRIES = 2;
+const BOT_API_URL = process.env.BOT_API_URL; // e.g. http://trading-bot:3000
 
 /**
  * Run the full strategy analysis pipeline.
@@ -52,6 +53,32 @@ export async function runAnalysis() {
     const baselineFormatted = formatResultsForPrompt(baseline);
     console.log('[baseline]', baselineFormatted.substring(0, 300) + '...');
 
+    // ── Step 2b: Evaluate baseline performance — pause bot if poor ──
+    let botPaused = false;
+    let pauseReason = null;
+    if (hardLimits.pauseThresholds) {
+      const perfEval = evaluateBaselinePerformance(baseline, hardLimits.pauseThresholds);
+      if (perfEval.shouldPause) {
+        pauseReason = perfEval.reasons.join('; ');
+        console.warn(`\n[PAUSE] Strategy performance is poor — ${perfEval.failingSymbols.length} symbol(s) failing:`);
+        for (const reason of perfEval.reasons) {
+          console.warn(`  • ${reason}`);
+        }
+
+        if (!DRY_RUN) {
+          botPaused = await pauseBot();
+          await sendBotPaused(perfEval.reasons);
+        } else {
+          console.log('[dry-run] Would pause bot due to poor performance.');
+          botPaused = true; // Track intent even in dry run
+        }
+
+        console.log('[PAUSE] Continuing analysis to attempt strategy optimization...');
+      } else {
+        console.log('[baseline] Performance within acceptable thresholds.');
+      }
+    }
+
     // ── Step 3: Fetch news ──
     console.log('\n[4/10] Fetching market news...');
     const news = await fetchMarketNews();
@@ -78,8 +105,10 @@ export async function runAnalysis() {
         riskAssessment: analysis.riskAssessment,
         reasoning: analysis.reasoning,
         backtestBaseline: baseline,
+        botPaused,
+        pauseReason,
       }).catch(e => console.error('[reporter] Failed to persist run:', e.message));
-      return { success: true, noChanges: true };
+      return { success: true, noChanges: true, botPaused };
     }
 
     console.log(`\n[analysis] ${analysis.changes.length} change(s) proposed.`);
@@ -101,7 +130,7 @@ export async function runAnalysis() {
         failureReason: review.issues.join('; '),
         marketAssessment: analysis.marketAssessment, riskAssessment: analysis.riskAssessment,
         reasoning: analysis.reasoning, changesProposed: analysis.changes.length,
-        backtestBaseline: baseline,
+        backtestBaseline: baseline, botPaused, pauseReason,
       }).catch(e => console.error('[reporter] Failed to persist run:', e.message));
       return { success: false, reason: 'review-rejected', issues: review.issues };
     }
@@ -119,7 +148,7 @@ export async function runAnalysis() {
         failureReason: preValidation.errors.join('; '),
         marketAssessment: analysis.marketAssessment, riskAssessment: analysis.riskAssessment,
         reasoning: analysis.reasoning, changesProposed: analysis.changes.length,
-        backtestBaseline: baseline,
+        backtestBaseline: baseline, botPaused, pauseReason,
       }).catch(e => console.error('[reporter] Failed to persist run:', e.message));
       return { success: false, reason: 'validation-failed', errors: preValidation.errors };
     }
@@ -139,6 +168,7 @@ export async function runAnalysis() {
         marketAssessment: analysis.marketAssessment, riskAssessment: analysis.riskAssessment,
         reasoning: analysis.reasoning, changesProposed: analysis.changes.length,
         changesFailed: failed.length, backtestBaseline: baseline,
+        botPaused, pauseReason,
       }).catch(e => console.error('[reporter] Failed to persist run:', e.message));
       return { success: false, reason: 'apply-failed', failed };
     }
@@ -159,7 +189,7 @@ export async function runAnalysis() {
         reasoning: analysis.reasoning, changesProposed: analysis.changes.length,
         changesApplied: applied.length, changesFailed: failed.length,
         changesDetail: applied.map(a => ({ file: a.file, description: a.description })),
-        backtestBaseline: baseline,
+        backtestBaseline: baseline, botPaused, pauseReason,
       }).catch(e => console.error('[reporter] Failed to persist run:', e.message));
       return { success: false, reason: 'diff-too-large', errors: diffCheck.errors };
     }
@@ -179,7 +209,7 @@ export async function runAnalysis() {
         reasoning: analysis.reasoning, changesProposed: analysis.changes.length,
         changesApplied: applied.length, changesFailed: failed.length,
         changesDetail: applied.map(a => ({ file: a.file, description: a.description })),
-        backtestBaseline: baseline,
+        backtestBaseline: baseline, botPaused, pauseReason,
       }).catch(e => console.error('[reporter] Failed to persist run:', e.message));
       return { success: false, reason: 'file-validation-failed', errors: fileCheck.errors };
     }
@@ -229,7 +259,7 @@ export async function runAnalysis() {
         changesProposed: analysis.changes.length, changesApplied: applied.length,
         changesFailed: failed.length,
         changesDetail: applied.map(a => ({ file: a.file, description: a.description })),
-        backtestBaseline: baseline,
+        backtestBaseline: baseline, botPaused, pauseReason,
       }).catch(e => console.error('[reporter] Failed to persist run:', e.message));
       return { success: false, reason: 'tsc-failed', errors: tscResult.errors };
     }
@@ -270,13 +300,14 @@ export async function runAnalysis() {
         changesFailed: failed.length,
         changesDetail: applied.map(a => ({ file: a.file, description: a.description })),
         backtestBaseline: baseline, backtestValidation: validation,
-        backtestPassed: false,
+        backtestPassed: false, botPaused, pauseReason,
       }).catch(e => console.error('[reporter] Failed to persist run:', e.message));
       return { success: false, reason: 'backtest-gate-failed', comparison };
     }
 
     // ── Step 10: Commit & push ──
     let commit = null;
+    let botResumed = false;
     if (!DRY_RUN) {
       console.log('\n[commit] Committing and pushing...');
       const branch = createBranch();
@@ -285,8 +316,17 @@ export async function runAnalysis() {
 
       // Trigger redeploy if configured
       await triggerRedeploy();
+
+      // Resume bot if it was paused due to poor performance and optimization succeeded
+      if (botPaused) {
+        console.log('\n[resume] Bot was paused — resuming after successful optimization...');
+        botResumed = await resumeBot();
+      }
     } else {
       console.log('\n[dry-run] Skipping commit/push.');
+      if (botPaused) {
+        console.log('[dry-run] Would resume bot after successful optimization.');
+      }
     }
 
     // ── Notify ──
@@ -320,8 +360,11 @@ export async function runAnalysis() {
       backtestPassed: comparison.allPassed,
       commitHash: commit?.hash ?? null,
       branch: commit?.branch ?? null,
+      botPaused,
+      pauseReason,
+      botResumed,
     }).catch(e => console.error('[reporter] Failed to persist run:', e.message));
-    return { success: true, applied, commit, comparison };
+    return { success: true, applied, commit, comparison, botPaused, botResumed };
 
   } catch (err) {
     console.error('\n[FATAL]', err);
@@ -397,4 +440,70 @@ async function triggerRedeploy() {
 function logDuration(startTime) {
   const duration = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log(`\n[done] Total duration: ${duration}s`);
+}
+
+/**
+ * Pause (stop) the trading bot via its API.
+ * @returns {boolean} true if the bot was successfully paused
+ */
+async function pauseBot() {
+  if (!BOT_API_URL) {
+    console.log('[pause] BOT_API_URL not set — cannot pause bot remotely.');
+    return false;
+  }
+
+  try {
+    const url = `${BOT_API_URL}/api/bot`;
+    console.log(`[pause] Stopping bot via ${url}...`);
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'stop' }),
+    });
+
+    if (res.ok) {
+      console.log('[pause] Bot stopped successfully.');
+      return true;
+    } else {
+      const body = await res.text();
+      console.error(`[pause] Failed to stop bot (${res.status}): ${body}`);
+      return false;
+    }
+  } catch (err) {
+    console.error('[pause] Error stopping bot:', err.message);
+    return false;
+  }
+}
+
+/**
+ * Resume (start) the trading bot via its API.
+ * @returns {boolean} true if the bot was successfully resumed
+ */
+async function resumeBot() {
+  if (!BOT_API_URL) {
+    console.log('[resume] BOT_API_URL not set — cannot resume bot remotely.');
+    return false;
+  }
+
+  try {
+    const url = `${BOT_API_URL}/api/bot`;
+    console.log(`[resume] Starting bot via ${url}...`);
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'start' }),
+    });
+
+    if (res.ok) {
+      console.log('[resume] Bot started successfully.');
+      return true;
+    } else {
+      const body = await res.text();
+      console.error(`[resume] Failed to start bot (${res.status}): ${body}`);
+      return false;
+    }
+  } catch (err) {
+    console.error('[resume] Error starting bot:', err.message);
+    return false;
+  }
 }

@@ -47,13 +47,13 @@ export async function persistRun(runData) {
         "failureStep", "failureReason", "marketAssessment", "riskAssessment",
         "reasoning", "codeChanged", "changesProposed", "changesApplied",
         "changesFailed", "changesDetail", "backtestBaseline", "backtestValidation",
-        "backtestPassed", "commitHash", "branch"
+        "backtestPassed", "commitHash", "branch", "botPaused", "pauseReason"
       ) VALUES (
         $1, $2, $3, $4, $5, $6,
         $7, $8, $9, $10,
         $11, $12, $13, $14,
         $15, $16, $17, $18,
-        $19, $20, $21
+        $19, $20, $21, $22, $23
       )
     `;
 
@@ -79,6 +79,8 @@ export async function persistRun(runData) {
       runData.backtestPassed ?? null,
       runData.commitHash ?? null,
       runData.branch ?? null,
+      runData.botPaused ?? false,
+      runData.pauseReason ?? null,
     ];
 
     await client.query(query, values);

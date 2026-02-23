@@ -346,6 +346,8 @@ model StrategyAnalystRun {
   backtestPassed     Boolean?
   commitHash         String?
   branch             String?
+  botPaused          Boolean  @default(false) // Whether the bot was paused due to poor strategy performance
+  pauseReason        String?  @db.Text        // Reason for pausing the bot
 
   @@index([startedAt])
   @@index([status])

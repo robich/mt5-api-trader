@@ -19,6 +19,7 @@ import {
   ArrowRightLeft,
   Play,
   Loader2,
+  PauseCircle,
 } from 'lucide-react';
 
 interface StrategySwitch {
@@ -64,6 +65,8 @@ interface StrategyAnalystRun {
   backtestPassed: boolean | null;
   commitHash: string | null;
   branch: string | null;
+  botPaused: boolean;
+  pauseReason: string | null;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -224,6 +227,17 @@ function RunDetail({ run }: { run: StrategyAnalystRun }) {
 
   return (
     <div className="space-y-4 pt-3 border-t border-border/50">
+      {/* Bot Paused Warning */}
+      {run.botPaused && run.pauseReason && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded p-3">
+          <h4 className="text-sm font-medium text-red-400 mb-1 flex items-center gap-1.5">
+            <PauseCircle className="h-4 w-4" />
+            Bot Paused — Poor Strategy Performance
+          </h4>
+          <p className="text-sm text-red-300 whitespace-pre-wrap">{run.pauseReason}</p>
+        </div>
+      )}
+
       {/* Reasoning */}
       {run.reasoning && (
         <div>
@@ -537,6 +551,11 @@ function RunCard({ run }: { run: StrategyAnalystRun }) {
                   <StatusBadge status={run.status} />
                   {run.dryRun && <Badge variant="outline" className="text-yellow-400 border-yellow-500/30 text-xs">DRY RUN</Badge>}
                   <RiskBadge risk={run.riskAssessment} />
+                  {run.botPaused && (
+                    <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-xs">
+                      <PauseCircle className="h-3 w-3 mr-0.5" />BOT PAUSED
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <span className="text-xs text-muted-foreground">{formatDate(run.startedAt)}</span>
@@ -576,6 +595,11 @@ function RunCard({ run }: { run: StrategyAnalystRun }) {
               <StatusBadge status={run.status} />
               {run.dryRun && <Badge variant="outline" className="text-yellow-400 border-yellow-500/30">DRY RUN</Badge>}
               <RiskBadge risk={run.riskAssessment} />
+              {run.botPaused && (
+                <Badge className="bg-red-500/20 text-red-400 border-red-500/30">
+                  <PauseCircle className="h-3.5 w-3.5 mr-1" />BOT PAUSED
+                </Badge>
+              )}
             </div>
 
             {/* Changes summary */}

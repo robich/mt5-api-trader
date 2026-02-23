@@ -10,5 +10,11 @@
     "maxWinRateDecrease": 10,
     "maxDrawdownIncrease": 5,
     "minProfitFactor": 1.0
+  },
+  "pauseThresholds": {
+    "minWinRate": 40,
+    "minProfitFactor": 0.8,
+    "maxNegativePnl": -500,
+    "minSymbolsFailing": 2
   }
 }
