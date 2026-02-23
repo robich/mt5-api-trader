@@ -4,7 +4,7 @@ import { fetchMarketNews } from './news-fetcher.mjs';
 import { analyzeStrategies, reviewChanges, fixCompilationErrors } from './claude-analyst.mjs';
 import { applyChanges } from './code-applier.mjs';
 import { validateChanges, validateDiffSize, checkTypeScript, validateModifiedFiles, hardLimits } from './safety-validator.mjs';
-import { sendReport, sendError, sendNoChanges, sendBotPaused, sendBotResumed } from './telegram-notifier.mjs';
+import { sendReport, sendError, sendValidationFailed, sendNoChanges, sendBotPaused, sendBotResumed } from './telegram-notifier.mjs';
 import { persistRun, wasBotPreviouslyPaused, setBotPausedFlag } from './run-reporter.mjs';
 import { execSync } from 'child_process';
 import { existsSync } from 'fs';
@@ -133,7 +133,7 @@ export async function runAnalysis() {
     if (!review.approved) {
       console.error('[review] Changes REJECTED by reviewer:', review.issues);
       if (baselinePoor) botPaused = await pauseBotIfPoor(pauseReason, DRY_RUN);
-      await sendError(`Safety review rejected: ${review.issues.join('; ')}`, 'safety-review');
+      await sendValidationFailed(`Safety review rejected: ${review.issues.join('; ')}`, 'safety-review');
       logDuration(startTime);
       await persistRun({
         startedAt, durationSeconds: (Date.now() - startTime) / 1000,
@@ -152,7 +152,7 @@ export async function runAnalysis() {
     if (!preValidation.passed) {
       console.error('[validate] Pre-apply validation FAILED:', preValidation.errors);
       if (baselinePoor) botPaused = await pauseBotIfPoor(pauseReason, DRY_RUN);
-      await sendError(`Validation failed: ${preValidation.errors.join('; ')}`, 'pre-validation');
+      await sendValidationFailed(`Validation failed: ${preValidation.errors.join('; ')}`, 'pre-validation');
       logDuration(startTime);
       await persistRun({
         startedAt, durationSeconds: (Date.now() - startTime) / 1000,
@@ -172,7 +172,7 @@ export async function runAnalysis() {
     if (applied.length === 0) {
       console.error('[apply] No changes could be applied.');
       if (baselinePoor) botPaused = await pauseBotIfPoor(pauseReason, DRY_RUN);
-      await sendError(`All ${failed.length} changes failed to apply`, 'apply');
+      await sendValidationFailed(`All ${failed.length} changes failed to apply`, 'apply');
       logDuration(startTime);
       await persistRun({
         startedAt, durationSeconds: (Date.now() - startTime) / 1000,
@@ -193,7 +193,7 @@ export async function runAnalysis() {
       console.error('[validate] Diff too large:', diffCheck.errors);
       rollback();
       if (baselinePoor) botPaused = await pauseBotIfPoor(pauseReason, DRY_RUN);
-      await sendError(diffCheck.errors.join('; '), 'diff-size');
+      await sendValidationFailed(diffCheck.errors.join('; '), 'diff-size');
       logDuration(startTime);
       await persistRun({
         startedAt, durationSeconds: (Date.now() - startTime) / 1000,
@@ -214,7 +214,7 @@ export async function runAnalysis() {
       console.error('[validate] Modified files contain dangerous patterns:', fileCheck.errors);
       rollback();
       if (baselinePoor) botPaused = await pauseBotIfPoor(pauseReason, DRY_RUN);
-      await sendError(fileCheck.errors.join('; '), 'file-validation');
+      await sendValidationFailed(fileCheck.errors.join('; '), 'file-validation');
       logDuration(startTime);
       await persistRun({
         startedAt, durationSeconds: (Date.now() - startTime) / 1000,
@@ -264,7 +264,7 @@ export async function runAnalysis() {
       console.error('[tsc] TypeScript compilation FAILED after retries. Rolling back.');
       rollback();
       if (baselinePoor) botPaused = await pauseBotIfPoor(pauseReason, DRY_RUN);
-      await sendError(`TypeScript compilation failed:\n${tscResult.errors[0]?.substring(0, 300)}`, 'tsc');
+      await sendValidationFailed(`TypeScript compilation failed:\n${tscResult.errors[0]?.substring(0, 300)}`, 'tsc');
       logDuration(startTime);
       await persistRun({
         startedAt, durationSeconds: (Date.now() - startTime) / 1000,

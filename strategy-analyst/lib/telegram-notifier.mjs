@@ -15,16 +15,32 @@ export async function sendReport(report) {
 }
 
 /**
- * Send an error notification.
+ * Send an error notification for unexpected software issues.
  */
 export async function sendError(error, step) {
   if (!BOT_TOKEN || !CHAT_ID) return;
 
   const message = [
-    `<b>⚠️ Strategy Analyst Error</b>`,
+    `<b>🔴 Strategy Analyst Error</b>`,
     `<b>Date:</b> ${new Date().toISOString().split('T')[0]}`,
     `<b>Step:</b> ${step}`,
     `<b>Error:</b> <code>${escapeHtml(String(error).substring(0, 500))}</code>`,
+  ].join('\n');
+
+  await sendMessage(message);
+}
+
+/**
+ * Send a validation-failed notification for strategy sanity checks.
+ */
+export async function sendValidationFailed(reason, step) {
+  if (!BOT_TOKEN || !CHAT_ID) return;
+
+  const message = [
+    `<b>⚠️ Strategy Analyst — Validation Failed</b>`,
+    `<b>Date:</b> ${new Date().toISOString().split('T')[0]}`,
+    `<b>Step:</b> ${step}`,
+    `<b>Reason:</b> ${escapeHtml(String(reason).substring(0, 500))}`,
   ].join('\n');
 
   await sendMessage(message);
