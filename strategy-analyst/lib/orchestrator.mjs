@@ -4,8 +4,8 @@ import { fetchMarketNews } from './news-fetcher.mjs';
 import { analyzeStrategies, reviewChanges, fixCompilationErrors } from './claude-analyst.mjs';
 import { applyChanges } from './code-applier.mjs';
 import { validateChanges, validateDiffSize, checkTypeScript, validateModifiedFiles, hardLimits } from './safety-validator.mjs';
-import { sendReport, sendError, sendNoChanges, sendBotPaused } from './telegram-notifier.mjs';
-import { persistRun } from './run-reporter.mjs';
+import { sendReport, sendError, sendNoChanges, sendBotPaused, sendBotResumed } from './telegram-notifier.mjs';
+import { persistRun, wasBotPreviouslyPaused } from './run-reporter.mjs';
 import { execSync } from 'child_process';
 import { existsSync } from 'fs';
 
@@ -27,6 +27,15 @@ export async function runAnalysis() {
   console.log('═'.repeat(60));
 
   let repoDir;
+
+  // Check if the bot was paused by a previous run (e.g. yesterday).
+  // If so, we'll restart it when this run finds a good strategy.
+  let previouslyPaused = false;
+  try {
+    previouslyPaused = await wasBotPreviouslyPaused();
+  } catch (err) {
+    console.warn('[init] Could not check previous pause status:', err.message);
+  }
 
   try {
     // ── Step 1: Clone repository ──
@@ -314,8 +323,6 @@ export async function runAnalysis() {
     }
 
     // ── Step 10: Commit & push ──
-    // Optimization succeeded — baseline was poor but a better strategy was found.
-    // No need to pause the bot; the improved strategy will be deployed.
     let commit = null;
     if (!DRY_RUN) {
       console.log('\n[commit] Committing and pushing...');
@@ -326,7 +333,12 @@ export async function runAnalysis() {
       // Trigger redeploy if configured
       await triggerRedeploy();
 
-      if (baselinePoor) {
+      // Resume bot if it was paused by a previous run (or this run's baseline flagged poor
+      // but the optimization succeeded, so no pause was triggered).
+      if (previouslyPaused) {
+        console.log('\n[resume] Bot was paused by a previous run — restarting with improved strategy...');
+        await resumeBot();
+      } else if (baselinePoor) {
         console.log('[OK] Baseline was poor but optimization succeeded — bot keeps running with improved strategy.');
       }
     } else {
@@ -443,6 +455,40 @@ async function triggerRedeploy() {
 function logDuration(startTime) {
   const duration = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log(`\n[done] Total duration: ${duration}s`);
+}
+
+/**
+ * Resume (start) the trading bot via its API after finding an improved strategy.
+ * @returns {boolean} true if the bot was successfully resumed
+ */
+async function resumeBot() {
+  if (!BOT_API_URL) {
+    console.log('[resume] BOT_API_URL not set — cannot resume bot remotely.');
+    return false;
+  }
+
+  try {
+    const url = `${BOT_API_URL}/api/bot`;
+    console.log(`[resume] Starting bot via ${url}...`);
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'start' }),
+    });
+
+    if (res.ok) {
+      console.log('[resume] Bot started successfully.');
+      await sendBotResumed();
+      return true;
+    } else {
+      const body = await res.text();
+      console.error(`[resume] Failed to start bot (${res.status}): ${body}`);
+      return false;
+    }
+  } catch (err) {
+    console.error('[resume] Error starting bot:', err.message);
+    return false;
+  }
 }
 
 /**

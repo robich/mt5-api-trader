@@ -52,6 +52,22 @@ export async function sendBotPaused(reasons, assessment) {
 }
 
 /**
+ * Send a "bot resumed" notification when an improved strategy was found.
+ */
+export async function sendBotResumed() {
+  if (!BOT_TOKEN || !CHAT_ID) return;
+
+  const message = [
+    `<b>✅ Bot Resumed — Improved Strategy Found</b>`,
+    `<b>Date:</b> ${new Date().toISOString().split('T')[0]}`,
+    ``,
+    `The bot was previously paused due to poor strategy performance. A new optimized strategy has been deployed and the bot has been restarted.`,
+  ].join('\n');
+
+  await sendMessage(message);
+}
+
+/**
  * Send a "no changes" notification.
  */
 export async function sendNoChanges(assessment) {

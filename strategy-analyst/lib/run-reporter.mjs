@@ -27,6 +27,37 @@ import { randomUUID } from 'crypto';
  * @param {string}  [runData.commitHash]
  * @param {string}  [runData.branch]
  */
+/**
+ * Check if the most recent analyst run paused the bot.
+ * @returns {boolean} true if the last run had botPaused = true
+ */
+export async function wasBotPreviouslyPaused() {
+  const connStr = process.env.DATABASE_URL;
+  if (!connStr) return false;
+
+  const client = new pg.Client({
+    connectionString: connStr,
+    ssl: { rejectUnauthorized: false },
+  });
+
+  try {
+    await client.connect();
+    const result = await client.query(
+      `SELECT "botPaused" FROM "StrategyAnalystRun" ORDER BY "startedAt" DESC LIMIT 1`
+    );
+    const paused = result.rows.length > 0 && result.rows[0].botPaused === true;
+    if (paused) {
+      console.log('[reporter] Previous run had paused the bot.');
+    }
+    return paused;
+  } catch (err) {
+    console.error('[reporter] Failed to check previous pause status:', err.message);
+    return false;
+  } finally {
+    await client.end();
+  }
+}
+
 export async function persistRun(runData) {
   const connStr = process.env.DATABASE_URL;
   if (!connStr) {
