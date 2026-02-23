@@ -28,8 +28,8 @@ import { randomUUID } from 'crypto';
  * @param {string}  [runData.branch]
  */
 /**
- * Check if the most recent analyst run paused the bot.
- * @returns {boolean} true if the last run had botPaused = true
+ * Check if the bot is currently paused by the strategy analyst (via BotState flag).
+ * @returns {boolean} true if BotState.pausedByAnalyst is true
  */
 export async function wasBotPreviouslyPaused() {
   const connStr = process.env.DATABASE_URL;
@@ -43,16 +43,47 @@ export async function wasBotPreviouslyPaused() {
   try {
     await client.connect();
     const result = await client.query(
-      `SELECT "botPaused" FROM "StrategyAnalystRun" ORDER BY "startedAt" DESC LIMIT 1`
+      `SELECT "pausedByAnalyst" FROM "BotState" WHERE id = 'singleton' LIMIT 1`
     );
-    const paused = result.rows.length > 0 && result.rows[0].botPaused === true;
+    const paused = result.rows.length > 0 && result.rows[0].pausedByAnalyst === true;
     if (paused) {
-      console.log('[reporter] Previous run had paused the bot.');
+      console.log('[reporter] Bot is currently paused by analyst.');
     }
     return paused;
   } catch (err) {
-    console.error('[reporter] Failed to check previous pause status:', err.message);
+    console.error('[reporter] Failed to check pause status:', err.message);
     return false;
+  } finally {
+    await client.end();
+  }
+}
+
+/**
+ * Set or clear the pausedByAnalyst flag on BotState.
+ * @param {boolean} paused - Whether to pause or unpause
+ * @param {string|null} reason - Reason for pausing (null to clear)
+ */
+export async function setBotPausedFlag(paused, reason) {
+  const connStr = process.env.DATABASE_URL;
+  if (!connStr) {
+    console.warn('[reporter] DATABASE_URL not set — cannot update BotState pause flag.');
+    return;
+  }
+
+  const client = new pg.Client({
+    connectionString: connStr,
+    ssl: { rejectUnauthorized: false },
+  });
+
+  try {
+    await client.connect();
+    await client.query(
+      `UPDATE "BotState" SET "pausedByAnalyst" = $1, "pauseReason" = $2 WHERE id = 'singleton'`,
+      [paused, reason]
+    );
+    console.log(`[reporter] BotState.pausedByAnalyst set to ${paused}.`);
+  } catch (err) {
+    console.error('[reporter] Failed to update BotState pause flag:', err.message);
   } finally {
     await client.end();
   }

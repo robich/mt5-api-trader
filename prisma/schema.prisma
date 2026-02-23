@@ -131,13 +131,15 @@ model AccountSnapshot {
 
 // Bot configuration and state
 model BotState {
-  id            String   @id @default("singleton")
-  isRunning     Boolean  @default(false)
-  startedAt     DateTime?
-  lastHeartbeat DateTime?
-  activeSymbols String   // Comma-separated list
-  config        String   // JSON config
-  updatedAt     DateTime @updatedAt
+  id               String   @id @default("singleton")
+  isRunning        Boolean  @default(false)
+  startedAt        DateTime?
+  lastHeartbeat    DateTime?
+  activeSymbols    String   // Comma-separated list
+  config           String   // JSON config
+  pausedByAnalyst  Boolean  @default(false) // Strategy analyst paused the bot due to poor performance
+  pauseReason      String?  @db.Text        // Why the analyst paused the bot
+  updatedAt        DateTime @updatedAt
 }
 
 // Order blocks identified by the analysis engine

@@ -10,31 +10,36 @@ let autoStartTriggered = false;
 
 export async function GET() {
   try {
-    // Auto-start bot on first status check if enabled
+    const botState = await prisma.botState.findUnique({
+      where: { id: 'singleton' },
+    });
+
+    // Auto-start bot on first status check if enabled — but not if paused by analyst
     if (!autoStartTriggered && process.env.BOT_AUTO_START !== 'false') {
       autoStartTriggered = true;
       const status = tradingBot.getStatus();
       if (!status.isRunning) {
-        console.log('[Auto-Start] Bot not running — starting automatically...');
-        // Fire-and-forget so the status response isn't delayed
-        tradingBot.start().then(() => {
-          console.log('[Auto-Start] Trading bot started successfully');
-        }).catch((err) => {
-          console.error('[Auto-Start] Failed to start trading bot:', err);
-        });
+        if (botState?.pausedByAnalyst) {
+          console.log('[Auto-Start] Skipped — bot paused by strategy analyst:', botState.pauseReason);
+        } else {
+          console.log('[Auto-Start] Bot not running — starting automatically...');
+          tradingBot.start().then(() => {
+            console.log('[Auto-Start] Trading bot started successfully');
+          }).catch((err) => {
+            console.error('[Auto-Start] Failed to start trading bot:', err);
+          });
+        }
       }
     }
 
     const status = tradingBot.getStatus();
 
-    const botState = await prisma.botState.findUnique({
-      where: { id: 'singleton' },
-    });
-
     return NextResponse.json({
       ...status,
       startedAt: botState?.startedAt,
       lastHeartbeat: botState?.lastHeartbeat,
+      pausedByAnalyst: botState?.pausedByAnalyst ?? false,
+      pauseReason: botState?.pauseReason ?? null,
     });
   } catch (error) {
     console.error('Bot status API error:', error);
@@ -52,6 +57,11 @@ export async function POST(request: NextRequest) {
 
     switch (action) {
       case 'start':
+        // Clear analyst pause flag — manual start overrides the pause
+        await prisma.botState.updateMany({
+          where: { pausedByAnalyst: true },
+          data: { pausedByAnalyst: false, pauseReason: null },
+        });
         await tradingBot.start();
         return NextResponse.json({ message: 'Bot started', status: 'running' });
 

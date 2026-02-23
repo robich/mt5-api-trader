@@ -30,6 +30,8 @@ interface AccountData {
     isRunning: boolean;
     symbols: string[];
     startedAt: string | null;
+    pausedByAnalyst?: boolean;
+    pauseReason?: string | null;
   };
   stats: {
     todayPnl: number;
@@ -319,6 +321,19 @@ export default function Dashboard() {
       {error && (
         <div className="mx-4 md:mx-6 bg-red-500/10 border border-red-500 text-red-500 p-4 rounded-lg">
           {error}
+        </div>
+      )}
+
+      {accountData?.botStatus.pausedByAnalyst && (
+        <div className="mx-4 md:mx-6 bg-red-500/10 border border-red-500/30 text-red-400 p-4 rounded-lg flex items-start gap-3">
+          <span className="text-lg">&#x1F6D1;</span>
+          <div>
+            <div className="font-medium">Bot paused by Strategy Analyst</div>
+            {accountData.botStatus.pauseReason && (
+              <div className="text-sm text-red-400/80 mt-1">{accountData.botStatus.pauseReason}</div>
+            )}
+            <div className="text-sm text-muted-foreground mt-1">Click &quot;Start&quot; to manually override, or wait for the analyst to find an improved strategy.</div>
+          </div>
         </div>
       )}
 

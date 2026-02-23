@@ -5,7 +5,7 @@ import { analyzeStrategies, reviewChanges, fixCompilationErrors } from './claude
 import { applyChanges } from './code-applier.mjs';
 import { validateChanges, validateDiffSize, checkTypeScript, validateModifiedFiles, hardLimits } from './safety-validator.mjs';
 import { sendReport, sendError, sendNoChanges, sendBotPaused, sendBotResumed } from './telegram-notifier.mjs';
-import { persistRun, wasBotPreviouslyPaused } from './run-reporter.mjs';
+import { persistRun, wasBotPreviouslyPaused, setBotPausedFlag } from './run-reporter.mjs';
 import { execSync } from 'child_process';
 import { existsSync } from 'fs';
 
@@ -462,9 +462,13 @@ function logDuration(startTime) {
  * @returns {boolean} true if the bot was successfully resumed
  */
 async function resumeBot() {
+  // Clear the DB flag so the bot can auto-start again
+  await setBotPausedFlag(false, null);
+
   if (!BOT_API_URL) {
-    console.log('[resume] BOT_API_URL not set — cannot resume bot remotely.');
-    return false;
+    console.log('[resume] BOT_API_URL not set — DB flag cleared, bot will auto-start on next restart.');
+    await sendBotResumed();
+    return true;
   }
 
   try {
@@ -507,34 +511,35 @@ async function pauseBotIfPoor(reason, dryRun) {
     return true;
   }
 
+  // Set the DB flag so the bot won't auto-restart on container restart
+  await setBotPausedFlag(true, reason);
+
   // Send Telegram notification
   const reasons = reason ? reason.split('; ') : ['Poor baseline performance'];
   await sendBotPaused(reasons);
 
-  if (!BOT_API_URL) {
-    console.log('[pause] BOT_API_URL not set — cannot pause bot remotely.');
-    return false;
-  }
-
-  try {
-    const url = `${BOT_API_URL}/api/bot`;
-    console.log(`[pause] Stopping bot via ${url}...`);
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'stop' }),
-    });
-
-    if (res.ok) {
-      console.log('[pause] Bot stopped successfully.');
-      return true;
-    } else {
-      const body = await res.text();
-      console.error(`[pause] Failed to stop bot (${res.status}): ${body}`);
-      return false;
+  // Also call the API to stop the bot immediately (if running)
+  if (BOT_API_URL) {
+    try {
+      const url = `${BOT_API_URL}/api/bot`;
+      console.log(`[pause] Stopping bot via ${url}...`);
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'stop' }),
+      });
+      if (res.ok) {
+        console.log('[pause] Bot stopped successfully.');
+      } else {
+        const body = await res.text();
+        console.error(`[pause] Failed to stop bot (${res.status}): ${body}`);
+      }
+    } catch (err) {
+      console.error('[pause] Error stopping bot:', err.message);
     }
-  } catch (err) {
-    console.error('[pause] Error stopping bot:', err.message);
-    return false;
+  } else {
+    console.log('[pause] BOT_API_URL not set — DB flag set, bot will not auto-start.');
   }
+
+  return true;
 }
