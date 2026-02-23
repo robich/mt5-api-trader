@@ -440,7 +440,9 @@ export default function Dashboard() {
                             );
                             return {
                               ...trade,
-                              currentPnl: position?.profit ?? trade.currentPnl ?? null,
+                              currentPnl: position
+                                ? (position.profit ?? 0) + (position.swap ?? 0)
+                                : (trade.currentPnl ?? null),
                               currentPrice: position?.currentPrice ?? trade.currentPrice ?? null,
                             };
                           });
