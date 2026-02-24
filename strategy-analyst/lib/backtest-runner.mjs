@@ -2,7 +2,7 @@ import { execSync } from 'child_process';
 import { join } from 'path';
 
 const SYMBOLS = (process.env.BACKTEST_SYMBOLS || 'BTCUSD,XAUUSD.s,XAGUSD.s').split(',');
-const BACKTEST_DAYS = parseInt(process.env.BACKTEST_DAYS || '14');
+const BACKTEST_DAYS = parseInt(process.env.BACKTEST_DAYS || '30');
 
 // Limit backtest variations for low-memory environments (0 = all variations)
 const BACKTEST_TOP_N = parseInt(process.env.BACKTEST_TOP_N || '30');
