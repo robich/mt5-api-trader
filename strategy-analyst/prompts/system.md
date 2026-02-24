@@ -43,6 +43,8 @@ You MUST respond with valid JSON matching this exact schema:
 {
   "marketAssessment": "Brief assessment of current market conditions and how they affect strategy",
   "noChangeRecommended": false,
+  "pauseTrading": false,
+  "pauseReason": null,
   "riskAssessment": "LOW",
   "changes": [
     {
@@ -62,6 +64,7 @@ Rules for changes:
 - Include enough context in searchBlock to be unique (3-5 lines minimum)
 - If no changes are needed, set `noChangeRecommended: true` and `changes: []`
 - `riskAssessment` must be "LOW", "MEDIUM", or "HIGH"
+- `pauseTrading`: set to `true` when ALL strategies are underperforming (negative PnL, poor win rate, high drawdown) and no parameter adjustment can reasonably fix it — this pauses the live bot from opening new trades until conditions improve. Set `pauseReason` to a short explanation. When the bot is already paused and you find a viable strategy, set `pauseTrading` to `false` to resume trading.
 
 # Decision Framework
 
@@ -71,3 +74,4 @@ Rules for changes:
 4. **News-driven moves expected?** → Enable kill zones, tighten drawdown limits
 5. **Strategy consistently profitable?** → Make minimal changes ("if it ain't broke, don't fix it")
 6. **One symbol underperforming?** → Adjust that symbol's overrides, not the global profile
+7. **ALL strategies deeply unprofitable?** → Set `pauseTrading: true` to stop the bot from opening new trades until you can find a workable configuration. This is a last resort when no parameter adjustment can produce acceptable results.
