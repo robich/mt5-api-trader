@@ -330,6 +330,142 @@ export const STRATEGY_PROFILES: Record<string, StrategyProfile> = {
     breakeven: { enabled: true, triggerR: 1.0, bufferPips: 5 },
   },
 
+  // === NEW INSTITUTIONAL STRATEGIES (Feb 24, 2026) ===
+
+  // Judas Swing / ICT Silver Bullet - Session open fake move reversal
+  // Targets the fake move at London/NY open that sweeps Asian range before reversing
+  'JUDAS_SWING_LONDON': {
+    name: 'Judas Swing London (Feb 2026)',
+    description: 'ICT Silver Bullet|London SB|RR2.5|Scalp - Session open reversal',
+    riskTier: 'balanced',
+    strategy: 'JUDAS_SWING',
+    minOBScore: 0, // Uses session logic, not OB scoring
+    useKillZones: false, // Strategy has its own time windows
+    killZones: [],
+    maxDailyDrawdown: 8,
+    confirmationType: 'none',
+    riskReward: 2.5,
+    riskPercent: 2,
+    atrMultiplier: 1.0,
+    maxConcurrentTrades: 2,
+    recommendedSymbols: ['XAUUSD.s', 'BTCUSD'],
+    breakeven: { enabled: true, triggerR: 0.75, bufferPips: 3 },
+  },
+
+  'JUDAS_SWING_NY': {
+    name: 'Judas Swing NY (Feb 2026)',
+    description: 'ICT Silver Bullet|NY AM SB|RR2.5|Scalp - NY session reversal',
+    riskTier: 'balanced',
+    strategy: 'JUDAS_SWING',
+    minOBScore: 0,
+    useKillZones: false,
+    killZones: [],
+    maxDailyDrawdown: 8,
+    confirmationType: 'none',
+    riskReward: 2.5,
+    riskPercent: 2,
+    atrMultiplier: 1.0,
+    maxConcurrentTrades: 2,
+    recommendedSymbols: ['XAUUSD.s', 'BTCUSD', 'XAGUSD.s'],
+    breakeven: { enabled: true, triggerR: 0.75, bufferPips: 3 },
+  },
+
+  // FVG Entry - Standalone Fair Value Gap fill entries
+  // Price returns to fill institutional imbalances with high probability
+  'FVG_FILL_AGGRESSIVE': {
+    name: 'FVG Fill Aggressive (Feb 2026)',
+    description: 'FVG_ENTRY|NoFilter|RR2.5|Scalp - Trade every FVG fill in bias direction',
+    riskTier: 'aggressive',
+    strategy: 'FVG_ENTRY',
+    minOBScore: 0,
+    useKillZones: false,
+    killZones: [],
+    maxDailyDrawdown: 10,
+    confirmationType: 'none',
+    riskReward: 2.5,
+    riskPercent: 2,
+    atrMultiplier: 1.0,
+    maxConcurrentTrades: 3,
+    recommendedSymbols: ['XAUUSD.s', 'BTCUSD', 'XAGUSD.s'],
+    breakeven: { enabled: false, triggerR: 1.0, bufferPips: 3 },
+  },
+
+  'FVG_FILL_SAFE': {
+    name: 'FVG Fill Safe (Feb 2026)',
+    description: 'FVG_ENTRY|KZ|RR3|BE0.75R - FVG fills during kill zones only',
+    riskTier: 'conservative',
+    strategy: 'FVG_ENTRY',
+    minOBScore: 0,
+    useKillZones: true,
+    killZones: ['LONDON_OPEN', 'NY_OPEN', 'LONDON_NY_OVERLAP'],
+    maxDailyDrawdown: 6,
+    confirmationType: 'none',
+    riskReward: 3.0,
+    riskPercent: 1.5,
+    atrMultiplier: 1.0,
+    maxConcurrentTrades: 2,
+    recommendedSymbols: ['XAUUSD.s', 'XAGUSD.s'],
+    breakeven: { enabled: true, triggerR: 0.75, bufferPips: 3 },
+  },
+
+  // Breaker Block - Mitigated OB polarity flip
+  // When OBs get broken, they become powerful reversal zones
+  'BREAKER_BLOCK_TREND': {
+    name: 'Breaker Block Trend (Feb 2026)',
+    description: 'BREAKER_BLOCK|RR2.5|BE0.75R|Scalp - Trend continuation via breakers',
+    riskTier: 'balanced',
+    strategy: 'BREAKER_BLOCK',
+    minOBScore: 0,
+    useKillZones: false,
+    killZones: [],
+    maxDailyDrawdown: 8,
+    confirmationType: 'none',
+    riskReward: 2.5,
+    riskPercent: 2,
+    atrMultiplier: 1.0,
+    maxConcurrentTrades: 2,
+    recommendedSymbols: ['XAUUSD.s', 'BTCUSD', 'XAGUSD.s'],
+    breakeven: { enabled: true, triggerR: 0.75, bufferPips: 3 },
+  },
+
+  // PDH/PDL Sweep - Previous Day High/Low sweep reversal
+  // Daily level sweeps are among the highest-probability institutional setups
+  'PDH_PDL_AGGRESSIVE': {
+    name: 'PDH/PDL Sweep Aggressive (Feb 2026)',
+    description: 'PDH_PDL_SWEEP|RR2.5|BE0.75R|Scalp - Daily level sweep reversals',
+    riskTier: 'aggressive',
+    strategy: 'PDH_PDL_SWEEP',
+    minOBScore: 0,
+    useKillZones: false,
+    killZones: [],
+    maxDailyDrawdown: 10,
+    confirmationType: 'none',
+    riskReward: 2.5,
+    riskPercent: 2,
+    atrMultiplier: 1.0,
+    maxConcurrentTrades: 2,
+    recommendedSymbols: ['XAUUSD.s', 'BTCUSD'],
+    breakeven: { enabled: true, triggerR: 0.75, bufferPips: 3 },
+  },
+
+  'PDH_PDL_SAFE': {
+    name: 'PDH/PDL Sweep Safe (Feb 2026)',
+    description: 'PDH_PDL_SWEEP|KZ|RR3|BE0.75R|DD5% - PDH/PDL for prop firms',
+    riskTier: 'conservative',
+    strategy: 'PDH_PDL_SWEEP',
+    minOBScore: 0,
+    useKillZones: true,
+    killZones: ['LONDON_OPEN', 'NY_OPEN', 'LONDON_NY_OVERLAP'],
+    maxDailyDrawdown: 5,
+    confirmationType: 'none',
+    riskReward: 3.0,
+    riskPercent: 1,
+    atrMultiplier: 1.0,
+    maxConcurrentTrades: 1,
+    recommendedSymbols: ['XAUUSD.s', 'BTCUSD'],
+    breakeven: { enabled: true, triggerR: 0.75, bufferPips: 3 },
+  },
+
   // === LEGACY STRATEGIES (kept for backwards compatibility) ===
   'AGGRESSIVE_ENGULF': {
     name: 'Aggressive Engulfing (Legacy)',
@@ -373,10 +509,10 @@ export const STRATEGY_PROFILES: Record<string, StrategyProfile> = {
  * All symbols now use ORDER_BLOCK on Scalp (H1/M15/M1) timeframe
  */
 export const SYMBOL_RECOMMENDED_PROFILES: Record<string, string[]> = {
-  'BTCUSD': ['BTC_OPTIMAL', 'BTC_HIGH_WR', 'UNIVERSAL_NOCONF'],
-  'XAUUSD.s': ['XAU_OPTIMAL', 'XAU_SAFE', 'UNIVERSAL_NOCONF'],
-  'XAGUSD.s': ['XAG_OPTIMAL', 'UNIVERSAL_NOCONF', 'SAFE_KZ'],
-  'ETHUSD': ['ETH_OPTIMAL', 'SAFE_KZ'],
+  'BTCUSD': ['BTC_OPTIMAL', 'BTC_HIGH_WR', 'JUDAS_SWING_NY', 'PDH_PDL_AGGRESSIVE', 'BREAKER_BLOCK_TREND', 'FVG_FILL_AGGRESSIVE', 'UNIVERSAL_NOCONF'],
+  'XAUUSD.s': ['XAU_OPTIMAL', 'XAU_SAFE', 'JUDAS_SWING_LONDON', 'PDH_PDL_AGGRESSIVE', 'FVG_FILL_SAFE', 'BREAKER_BLOCK_TREND', 'UNIVERSAL_NOCONF'],
+  'XAGUSD.s': ['XAG_OPTIMAL', 'JUDAS_SWING_NY', 'FVG_FILL_AGGRESSIVE', 'BREAKER_BLOCK_TREND', 'UNIVERSAL_NOCONF', 'SAFE_KZ'],
+  'ETHUSD': ['ETH_OPTIMAL', 'FVG_FILL_SAFE', 'SAFE_KZ'],
 };
 
 /**

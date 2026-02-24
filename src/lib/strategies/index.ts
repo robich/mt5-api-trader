@@ -6,6 +6,10 @@ import { FBOClassicStrategy, fboClassicStrategy } from './fbo-classic';
 import { FBOSweepStrategy, fboSweepStrategy } from './fbo-sweep';
 import { FBOStructureStrategy, fboStructureStrategy } from './fbo-structure';
 import { M1TrendStrategy, m1TrendStrategy } from './m1-trend';
+import { JudasSwingStrategy, judasSwingStrategy } from './judas-swing';
+import { FVGEntryStrategy, fvgEntryStrategy } from './fvg-entry';
+import { BreakerBlockStrategy, breakerBlockStrategy } from './breaker-block';
+import { PDHPDLSweepStrategy, pdhPdlSweepStrategy } from './pdh-pdl-sweep';
 import { StrategyType, Signal } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { buildSignal } from './base';
@@ -19,6 +23,10 @@ export { FBOClassicStrategy, fboClassicStrategy } from './fbo-classic';
 export { FBOSweepStrategy, fboSweepStrategy } from './fbo-sweep';
 export { FBOStructureStrategy, fboStructureStrategy } from './fbo-structure';
 export { M1TrendStrategy, m1TrendStrategy } from './m1-trend';
+export { JudasSwingStrategy, judasSwingStrategy } from './judas-swing';
+export { FVGEntryStrategy, fvgEntryStrategy } from './fvg-entry';
+export { BreakerBlockStrategy, breakerBlockStrategy } from './breaker-block';
+export { PDHPDLSweepStrategy, pdhPdlSweepStrategy } from './pdh-pdl-sweep';
 
 // Strategy profiles - backtest-optimized configurations (Jan 2026 optimization)
 export {
@@ -52,6 +60,10 @@ export const strategies = new Map<StrategyType, BaseStrategy>([
   ['FBO_SWEEP', fboSweepStrategy],
   ['FBO_STRUCTURE', fboStructureStrategy],
   ['M1_TREND', m1TrendStrategy],
+  ['JUDAS_SWING', judasSwingStrategy],
+  ['FVG_ENTRY', fvgEntryStrategy],
+  ['BREAKER_BLOCK', breakerBlockStrategy],
+  ['PDH_PDL_SWEEP', pdhPdlSweepStrategy],
 ]);
 
 /**
