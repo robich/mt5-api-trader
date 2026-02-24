@@ -390,6 +390,17 @@ model StrategyAnalystTrigger {
   @@index([requestedAt])
 }
 
+// Bot pause state (singleton) — allows the analyst to pause trading when no strategy performs well
+model BotPauseState {
+  id         String   @id @default("singleton")
+  isPaused   Boolean  @default(false)
+  reason     String?  @db.Text // Why the bot was paused
+  pausedBy   String?  // 'analyst' | 'manual' | 'api'
+  pausedAt   DateTime?
+  resumedAt  DateTime?
+  updatedAt  DateTime @updatedAt
+}
+
 // Daily market analysis using Claude AI
 model MarketAnalysis {
   id                 String   @id @default(uuid())

@@ -47,6 +47,36 @@ export async function sendNoChanges(assessment) {
 }
 
 /**
+ * Send a pause/resume notification.
+ */
+export async function sendPauseNotification(isPaused, reason, marketAssessment) {
+  if (!BOT_TOKEN || !CHAT_ID) return;
+
+  const icon = isPaused ? '⏸️' : '▶️';
+  const action = isPaused ? 'Trading Paused' : 'Trading Resumed';
+
+  const lines = [
+    `<b>${icon} ${action} — Strategy Analyst</b>`,
+    '',
+  ];
+
+  if (reason) {
+    lines.push(`<b>Reason:</b> ${escapeHtml(reason)}`);
+  }
+
+  if (marketAssessment) {
+    lines.push(`<b>Market:</b> ${escapeHtml(marketAssessment)}`);
+  }
+
+  if (isPaused) {
+    lines.push('');
+    lines.push('<i>The bot will continue running but will not open new trades until conditions improve.</i>');
+  }
+
+  await sendMessage(lines.join('\n'));
+}
+
+/**
  * Format a full report with changes and backtest comparison.
  */
 function formatReport(report) {

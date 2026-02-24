@@ -4,8 +4,9 @@ import { fetchMarketNews } from './news-fetcher.mjs';
 import { analyzeStrategies, reviewChanges, fixCompilationErrors } from './claude-analyst.mjs';
 import { applyChanges } from './code-applier.mjs';
 import { validateChanges, validateDiffSize, checkTypeScript, validateModifiedFiles, hardLimits } from './safety-validator.mjs';
-import { sendReport, sendError, sendNoChanges } from './telegram-notifier.mjs';
+import { sendReport, sendError, sendNoChanges, sendPauseNotification } from './telegram-notifier.mjs';
 import { persistRun } from './run-reporter.mjs';
+import { setBotPauseState, getBotPauseState } from './pause-manager.mjs';
 import { execSync } from 'child_process';
 import { existsSync } from 'fs';
 
@@ -63,6 +64,29 @@ export async function runAnalysis() {
       newsSummary: news.summary,
       repoDir,
     });
+
+    // ── Handle pause/resume trading flag ──
+    if (analysis.pauseTrading === true) {
+      console.log('\n[pause] Analyst recommends PAUSING trading:', analysis.pauseReason || 'no reason');
+      if (!DRY_RUN) {
+        await setBotPauseState(true, analysis.pauseReason || 'Analyst: no viable strategy').catch(
+          e => console.error('[pause] Failed to set pause state:', e.message)
+        );
+      }
+      await sendPauseNotification(true, analysis.pauseReason, analysis.marketAssessment);
+    } else if (analysis.pauseTrading === false) {
+      // Analyst explicitly says resume — check if bot is currently paused
+      const currentState = await getBotPauseState().catch(() => null);
+      if (currentState?.isPaused) {
+        console.log('\n[pause] Analyst recommends RESUMING trading');
+        if (!DRY_RUN) {
+          await setBotPauseState(false, null).catch(
+            e => console.error('[pause] Failed to clear pause state:', e.message)
+          );
+        }
+        await sendPauseNotification(false, null, analysis.marketAssessment);
+      }
+    }
 
     // Check if no changes recommended
     if (analysis.noChangeRecommended || !analysis.changes || analysis.changes.length === 0) {
@@ -282,6 +306,16 @@ export async function runAnalysis() {
       const branch = createBranch();
       const message = buildCommitMessage(analysis, applied, comparison);
       commit = commitAndPush(modifiedFiles, message);
+
+      // Auto-resume trading if bot was paused and we just deployed a passing strategy
+      const currentPause = await getBotPauseState().catch(() => null);
+      if (currentPause?.isPaused) {
+        console.log('[pause] Bot was paused — auto-resuming after successful strategy deployment');
+        await setBotPauseState(false, null).catch(
+          e => console.error('[pause] Failed to auto-resume:', e.message)
+        );
+        await sendPauseNotification(false, 'Auto-resumed: new strategy passed backtests', analysis.marketAssessment);
+      }
 
       // Trigger redeploy if configured
       await triggerRedeploy();

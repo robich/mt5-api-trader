@@ -58,6 +58,11 @@ export class TradingBot {
   private breakevenManager: BreakevenManager;
   private tieredTPManager: TieredTPManager;
   private heartbeatCount = 0;
+  private pauseStateCache: { isPaused: boolean; reason: string | null; checkedAt: number } = {
+    isPaused: false,
+    reason: null,
+    checkedAt: 0,
+  };
 
   private constructor(config?: Partial<BotConfig>) {
     this.config = { ...DEFAULT_BOT_CONFIG, ...config };
@@ -615,6 +620,67 @@ export class TradingBot {
     });
   }
 
+  /**
+   * Check if trading is paused via the DB flag.
+   * Caches the result for 30 seconds to avoid excessive DB reads.
+   */
+  async isTradingPaused(): Promise<{ isPaused: boolean; reason: string | null }> {
+    const CACHE_TTL = 30_000; // 30 seconds
+    if (Date.now() - this.pauseStateCache.checkedAt < CACHE_TTL) {
+      return { isPaused: this.pauseStateCache.isPaused, reason: this.pauseStateCache.reason };
+    }
+
+    try {
+      const state = await prisma.botPauseState.findUnique({ where: { id: 'singleton' } });
+      const isPaused = state?.isPaused ?? false;
+      const reason = state?.reason ?? null;
+      this.pauseStateCache = { isPaused, reason, checkedAt: Date.now() };
+      return { isPaused, reason };
+    } catch (error) {
+      console.error('[Bot] Error checking pause state:', error);
+      return { isPaused: this.pauseStateCache.isPaused, reason: this.pauseStateCache.reason };
+    }
+  }
+
+  /**
+   * Set the bot pause state. Called by the analyst or API.
+   */
+  async setPauseState(isPaused: boolean, reason?: string, pausedBy?: string): Promise<void> {
+    const now = new Date();
+    await prisma.botPauseState.upsert({
+      where: { id: 'singleton' },
+      update: {
+        isPaused,
+        reason: isPaused ? (reason ?? null) : null,
+        pausedBy: isPaused ? (pausedBy ?? null) : null,
+        pausedAt: isPaused ? now : undefined,
+        resumedAt: isPaused ? undefined : now,
+      },
+      create: {
+        id: 'singleton',
+        isPaused,
+        reason: isPaused ? (reason ?? null) : null,
+        pausedBy: isPaused ? (pausedBy ?? null) : null,
+        pausedAt: isPaused ? now : null,
+        resumedAt: isPaused ? null : now,
+      },
+    });
+
+    // Invalidate cache immediately
+    this.pauseStateCache = { isPaused, reason: isPaused ? (reason ?? null) : null, checkedAt: Date.now() };
+
+    const action = isPaused ? 'PAUSED' : 'RESUMED';
+    console.log(`[Bot] Trading ${action}${reason ? `: ${reason}` : ''} (by ${pausedBy ?? 'unknown'})`);
+
+    // Send Telegram notification
+    if (telegramNotifier.isEnabled()) {
+      const message = isPaused
+        ? `⏸️ <b>Trading Paused</b>\n\nReason: ${reason || 'No reason given'}\nBy: ${pausedBy || 'unknown'}\n\n<i>The bot is still running but will not open new trades.</i>`
+        : `▶️ <b>Trading Resumed</b>\n\nBy: ${pausedBy || 'unknown'}\n\n<i>The bot will now open new trades again.</i>`;
+      await telegramNotifier.sendMessage(message);
+    }
+  }
+
   private async analyzeAllSymbols(): Promise<void> {
     for (const symbol of this.config.symbols) {
       await this.analyzeSymbol(symbol);
@@ -720,8 +786,14 @@ export class TradingBot {
       }).catch((err) => console.error('[Bot] Failed to persist analysis scan:', err));
 
       if (signal) {
-        console.log(`[Bot] Signal generated for ${symbol}: ${signal.direction} via ${signal.strategy}`);
-        await this.processSignal(signal, price.bid, price.ask);
+        // Check if trading is paused before processing the signal
+        const pauseState = await this.isTradingPaused();
+        if (pauseState.isPaused) {
+          console.log(`[Bot] Signal for ${symbol} suppressed (trading paused: ${pauseState.reason || 'no reason'})`);
+        } else {
+          console.log(`[Bot] Signal generated for ${symbol}: ${signal.direction} via ${signal.strategy}`);
+          await this.processSignal(signal, price.bid, price.ask);
+        }
       }
 
     } catch (error) {

@@ -27,14 +27,19 @@ export async function GET() {
 
     const status = tradingBot.getStatus();
 
-    const botState = await prisma.botState.findUnique({
-      where: { id: 'singleton' },
-    });
+    const [botState, pauseState] = await Promise.all([
+      prisma.botState.findUnique({ where: { id: 'singleton' } }),
+      prisma.botPauseState.findUnique({ where: { id: 'singleton' } }),
+    ]);
 
     return NextResponse.json({
       ...status,
       startedAt: botState?.startedAt,
       lastHeartbeat: botState?.lastHeartbeat,
+      tradingPaused: pauseState?.isPaused ?? false,
+      tradingPausedReason: pauseState?.reason ?? null,
+      tradingPausedBy: pauseState?.pausedBy ?? null,
+      tradingPausedAt: pauseState?.pausedAt ?? null,
     });
   } catch (error) {
     console.error('Bot status API error:', error);
