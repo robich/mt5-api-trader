@@ -14,6 +14,23 @@ const DRY_RUN = process.env.DRY_RUN === 'true';
 const MAX_TSC_RETRIES = 2;
 
 /**
+ * Check if baseline backtests show no profitable strategy across ALL symbols.
+ * Returns true if every symbol's best PnL is <= 0 (i.e. nothing is profitable).
+ */
+function isBaselineUnprofitable(baseline) {
+  const symbols = Object.keys(baseline);
+  if (symbols.length === 0) return false; // no data, can't judge
+
+  for (const symbol of symbols) {
+    const data = baseline[symbol];
+    if (data.error || !data.summary) continue; // skip errored symbols
+    if (data.summary.bestPnl > 0) return false; // at least one profitable strategy
+  }
+
+  return true; // all symbols unprofitable (or errored)
+}
+
+/**
  * Run the full strategy analysis pipeline.
  */
 export async function runAnalysis() {
@@ -52,6 +69,24 @@ export async function runAnalysis() {
     const baseline = await runBacktests(repoDir);
     const baselineFormatted = formatResultsForPrompt(baseline);
     console.log('[baseline]', baselineFormatted.substring(0, 300) + '...');
+
+    // ── Deterministic profitability check ──
+    // If ALL symbols show no profitable strategy, auto-pause the bot as a safety net.
+    // This is independent of the analyst's AI judgment and acts as a hard guardrail.
+    const baselineUnprofitable = isBaselineUnprofitable(baseline);
+    if (baselineUnprofitable) {
+      console.log('\n[safety] ALL baseline strategies are unprofitable — auto-pausing bot');
+      if (!DRY_RUN) {
+        await setBotPauseState(true, 'Auto-pause: no profitable strategy found in baseline backtests').catch(
+          e => console.error('[pause] Failed to set pause state:', e.message)
+        );
+      }
+      await sendPauseNotification(
+        true,
+        'Auto-pause: no profitable strategy found in baseline backtests',
+        `All ${Object.keys(baseline).length} symbols show negative or zero PnL in ${Object.keys(baseline).join(', ')}`
+      );
+    }
 
     // ── Step 3: Fetch news ──
     console.log('\n[4/10] Fetching market news...');
@@ -118,6 +153,7 @@ export async function runAnalysis() {
     if (!review.approved) {
       console.error('[review] Changes REJECTED by reviewer:', review.issues);
       await sendError(`Safety review rejected: ${review.issues.join('; ')}`, 'safety-review');
+      await ensurePausedIfUnprofitable(baselineUnprofitable, 'safety-review');
       logDuration(startTime);
       await persistRun({
         startedAt, durationSeconds: (Date.now() - startTime) / 1000,
@@ -136,6 +172,7 @@ export async function runAnalysis() {
     if (!preValidation.passed) {
       console.error('[validate] Pre-apply validation FAILED:', preValidation.errors);
       await sendError(`Validation failed: ${preValidation.errors.join('; ')}`, 'pre-validation');
+      await ensurePausedIfUnprofitable(baselineUnprofitable, 'pre-validation');
       logDuration(startTime);
       await persistRun({
         startedAt, durationSeconds: (Date.now() - startTime) / 1000,
@@ -155,6 +192,7 @@ export async function runAnalysis() {
     if (applied.length === 0) {
       console.error('[apply] No changes could be applied.');
       await sendError(`All ${failed.length} changes failed to apply`, 'apply');
+      await ensurePausedIfUnprofitable(baselineUnprofitable, 'apply');
       logDuration(startTime);
       await persistRun({
         startedAt, durationSeconds: (Date.now() - startTime) / 1000,
@@ -174,6 +212,7 @@ export async function runAnalysis() {
       console.error('[validate] Diff too large:', diffCheck.errors);
       rollback();
       await sendError(diffCheck.errors.join('; '), 'diff-size');
+      await ensurePausedIfUnprofitable(baselineUnprofitable, 'diff-size');
       logDuration(startTime);
       await persistRun({
         startedAt, durationSeconds: (Date.now() - startTime) / 1000,
@@ -194,6 +233,7 @@ export async function runAnalysis() {
       console.error('[validate] Modified files contain dangerous patterns:', fileCheck.errors);
       rollback();
       await sendError(fileCheck.errors.join('; '), 'file-validation');
+      await ensurePausedIfUnprofitable(baselineUnprofitable, 'file-validation');
       logDuration(startTime);
       await persistRun({
         startedAt, durationSeconds: (Date.now() - startTime) / 1000,
@@ -243,6 +283,7 @@ export async function runAnalysis() {
       console.error('[tsc] TypeScript compilation FAILED after retries. Rolling back.');
       rollback();
       await sendError(`TypeScript compilation failed:\n${tscResult.errors[0]?.substring(0, 300)}`, 'tsc');
+      await ensurePausedIfUnprofitable(baselineUnprofitable, 'tsc');
       logDuration(startTime);
       await persistRun({
         startedAt, durationSeconds: (Date.now() - startTime) / 1000,
@@ -271,6 +312,7 @@ export async function runAnalysis() {
         }
       }
       rollback();
+      await ensurePausedIfUnprofitable(baselineUnprofitable, 'backtest-validation');
       await sendReport({
         date,
         marketAssessment: analysis.marketAssessment,
@@ -374,6 +416,28 @@ export async function runAnalysis() {
     }).catch(e => console.error('[reporter] Failed to persist run:', e.message));
     return { success: false, reason: 'fatal', error: err.message };
   }
+}
+
+/**
+ * Ensure bot is paused when the pipeline fails and baseline strategies are unprofitable.
+ * Called on failure paths where changes couldn't be deployed.
+ */
+async function ensurePausedIfUnprofitable(baselineUnprofitable, failureStep) {
+  if (!baselineUnprofitable || DRY_RUN) return;
+
+  const currentState = await getBotPauseState().catch(() => null);
+  if (currentState?.isPaused) return; // already paused
+
+  console.log(`[safety] Pipeline failed at ${failureStep} with unprofitable baseline — auto-pausing bot`);
+  await setBotPauseState(
+    true,
+    `Auto-pause: baseline unprofitable and strategy update failed (${failureStep})`
+  ).catch(e => console.error('[pause] Failed to set pause state:', e.message));
+  await sendPauseNotification(
+    true,
+    `Auto-pause: strategy update failed at ${failureStep}, no profitable baseline to fall back on`,
+    null
+  );
 }
 
 /**
