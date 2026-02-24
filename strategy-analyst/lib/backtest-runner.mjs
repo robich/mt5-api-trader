@@ -4,6 +4,12 @@ import { join } from 'path';
 const SYMBOLS = (process.env.BACKTEST_SYMBOLS || 'BTCUSD,XAUUSD.s,XAGUSD.s').split(',');
 const BACKTEST_DAYS = parseInt(process.env.BACKTEST_DAYS || '14');
 
+// Limit backtest variations for low-memory environments (0 = all variations)
+const BACKTEST_TOP_N = parseInt(process.env.BACKTEST_TOP_N || '30');
+
+// Memory limit for backtest subprocess (must fit alongside parent in container RAM)
+const BACKTEST_MAX_MEMORY = process.env.BACKTEST_MAX_MEMORY || '256';
+
 /**
  * Run backtests for all configured symbols and return structured results.
  * @param {string} repoDir - Path to the cloned repository
@@ -16,22 +22,24 @@ export async function runBacktests(repoDir) {
   const backtestScript = join(repoDir, 'scripts', 'quick-backtest.mjs');
   const results = {};
 
+  const topFlag = BACKTEST_TOP_N > 0 ? ` --top ${BACKTEST_TOP_N}` : '';
+
   for (const symbol of SYMBOLS) {
-    console.log(`[backtest] Running ${symbol} (${startDate} to ${endDate})...`);
+    console.log(`[backtest] Running ${symbol} (${startDate} to ${endDate}, top ${BACKTEST_TOP_N || 'all'} variations)...`);
     try {
       const output = execSync(
-        `node "${backtestScript}" --compare-all --symbol ${symbol} --start ${startDate} --end ${endDate}`,
+        `node --max-old-space-size=${BACKTEST_MAX_MEMORY} "${backtestScript}" --compare-all --tf scalp --symbol ${symbol} --start ${startDate} --end ${endDate}${topFlag}`,
         {
           cwd: repoDir,
           encoding: 'utf-8',
-          timeout: 600_000, // 10 min per symbol
+          timeout: 300_000, // 5 min per symbol (reduced from 10 — fewer variations)
           env: { ...process.env, NODE_ENV: 'production' },
-          maxBuffer: 10 * 1024 * 1024,
+          maxBuffer: 5 * 1024 * 1024, // 5MB (reduced from 10MB — fewer variations = less output)
         }
       );
       results[symbol] = parseBacktestOutput(output, symbol);
     } catch (err) {
-      console.error(`[backtest] ${symbol} failed:`, err.message);
+      console.error(`[backtest] ${symbol} failed:`, err.message?.substring(0, 300));
       // Include stderr/stdout from the failed command if available
       if (err.stdout) {
         results[symbol] = parseBacktestOutput(err.stdout, symbol);

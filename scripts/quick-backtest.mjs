@@ -60,6 +60,7 @@ const options = {
   help: false,
   clearCache: false,
   debug: false,
+  topN: 0, // 0 = all variations, >0 = limit to top N (for low-memory environments)
 };
 
 for (let i = 0; i < args.length; i++) {
@@ -121,6 +122,9 @@ for (let i = 0; i < args.length; i++) {
     case '-t':
       options.compareTimeframes = true;
       break;
+    case '--top':
+      options.topN = parseInt(args[++i]) || 0;
+      break;
   }
 }
 
@@ -154,6 +158,7 @@ Options:
   --compare-all, -c         Compare all strategy variations
   --compare-timeframes, -t  Compare all timeframe presets
   --timeframe, --tf <name>  Timeframe preset (see below)
+  --top <N>                 Limit to N variations (0 = all, for low-memory envs)
   --clear-cache             Clear cached candle data and re-fetch
   --verbose, -v             Show detailed output
   --help, -h                Show this help
@@ -2756,12 +2761,17 @@ async function main() {
         }
 
         console.log(`Using timeframe: ${tfPreset.name}`);
-        console.log(`Testing ${VARIATIONS.length} variations...\n`);
+
+        // Support --top N to limit variations (for low-memory environments)
+        const activeVariations = options.topN > 0
+          ? VARIATIONS.slice(0, options.topN)
+          : VARIATIONS;
+        console.log(`Testing ${activeVariations.length} variations${options.topN > 0 ? ` (limited from ${VARIATIONS.length})` : ''}...\n`);
 
         const symbolResults = [];
-        for (let i = 0; i < VARIATIONS.length; i++) {
-          const v = VARIATIONS[i];
-          process.stdout.write(`  [${i + 1}/${VARIATIONS.length}] ${v.name.substring(0, 30).padEnd(30)}  `);
+        for (let i = 0; i < activeVariations.length; i++) {
+          const v = activeVariations[i];
+          process.stdout.write(`  [${i + 1}/${activeVariations.length}] ${v.name.substring(0, 30).padEnd(30)}  `);
 
           const config = {
             symbol,

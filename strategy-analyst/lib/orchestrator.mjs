@@ -60,8 +60,14 @@ export async function runAnalysis() {
       execSync(`ln -s ${depsCache} node_modules`, { cwd: repoDir, stdio: 'pipe' });
     } else {
       console.log('[deps] No cache found, running npm ci...');
-      execSync('npm ci --ignore-scripts', { cwd: repoDir, stdio: 'pipe', timeout: 180_000 });
-      execSync('npx prisma generate', { cwd: repoDir, stdio: 'pipe', timeout: 60_000 });
+      execSync('npm ci --ignore-scripts', {
+        cwd: repoDir, stdio: 'pipe', timeout: 180_000,
+        env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=256' },
+      });
+      execSync('npx prisma generate', {
+        cwd: repoDir, stdio: 'pipe', timeout: 60_000,
+        env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=256' },
+      });
     }
 
     // ── Step 2: Baseline backtest ──

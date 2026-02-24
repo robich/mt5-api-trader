@@ -101,6 +101,8 @@ services:
       - GIT_TOKEN=${GIT_TOKEN}
       - ANALYST_SCHEDULE=0 3 * * *
       - BACKTEST_DAYS=14
+      - BACKTEST_TOP_N=30
+      - BACKTEST_MAX_MEMORY=256
       - DEPLOY_METHOD=docker-compose
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
