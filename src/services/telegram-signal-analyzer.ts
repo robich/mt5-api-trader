@@ -15,6 +15,9 @@ export interface SignalAnalysis {
   entryPrice: number | null;
   stopLoss: number | null;
   takeProfit: number | null;
+  tp1: number | null;
+  tp2: number | null;
+  tp3: number | null;
   confidence: number;
   reasoning: string;
   linkedSignalId: string | null;
@@ -131,11 +134,17 @@ IMPORTANT RULES:
 - Only classify as SIGNAL if there is a CLEAR, ACTIONABLE trade instruction with explicit direction (BUY/SELL/LONG/SHORT/ACHAT/VENTE) and a specific price level
 - TP_UPDATE: message provides a new take-profit price for a recently executed signal
 - SL_UPDATE: message provides a new stop-loss price for a recently executed signal
-- CLOSE_SIGNAL: message explicitly says to close/exit a position (full or partial). Extract the TP level and set closePercent:
-  - "CLOSE TP1" or "fermer TP1" → closePercent: 50
-  - "CLOSE TP2" or "fermer TP2" → closePercent: 30
-  - "CLOSE TP3" or "fermer TP3" → closePercent: 20
-  - "CLOSE ALL" / "CLOSE" / no TP level → closePercent: 100
+- CLOSE_SIGNAL: message indicates a TP level was reached or a position should be (partially) closed. This includes:
+  - Explicit close commands: "CLOSE TP1", "fermer TP1", "close half"
+  - TP hit/reached notifications: "TP1 Manuel", "TP1 ✅", "TP1 atteint", "TP1 touché", "TP1 pris", "TP1 done", "TP1 hit", "TP1 reached", "TP1 sécurisé"
+  - Combined messages like "TP1 Manuel TP2 still open" → only the HIGHEST TP level that was HIT counts (here TP1, so closePercent: 50)
+  - Set closePercent based on the TP level HIT (not the one still open):
+    - TP1 hit/taken/reached → closePercent: 50
+    - TP2 hit/taken/reached → closePercent: 30
+    - TP3 hit/taken/reached → closePercent: 20
+    - "CLOSE ALL" / full close → closePercent: 100
+  - IMPORTANT: "TP2 still open", "TP2 toujours ouvert", "TP2 en cours" means TP2 is NOT hit yet - these are informational. If combined with "TP1 hit", classify as CLOSE_SIGNAL with closePercent 50 (for TP1 only)
+  - If the message ONLY says something like "TP2 still open" or "trade en cours" with NO TP level hit, classify as OTHER
 - MOVE_TO_BE: message says to move stop-loss to breakeven / entry price. Trigger phrases: "déplacer à BE", "move to breakeven", "sécuriser", "secure entry", "mettre à BE", "BE activé"
 
 Symbol mapping (use the mapped name):
@@ -152,6 +161,11 @@ MESSAGE TO ANALYZE:
 ${text}
 """
 
+IMPORTANT: For SIGNAL category, extract ALL take-profit levels mentioned (TP1, TP2, TP3).
+- If the signal has "TP1 2920 TP2 2940 TP3 2960", set tp1=2920, tp2=2940, tp3=2960, takeProfit=2920
+- If the signal has only one TP (e.g. "TP 2920"), set tp1=2920, tp2=null, tp3=null, takeProfit=2920
+- takeProfit should always equal tp1 (the first/closest target)
+
 Respond with ONLY a valid JSON object (no markdown, no explanation outside JSON):
 {
   "category": "SIGNAL" | "TP_UPDATE" | "SL_UPDATE" | "CLOSE_SIGNAL" | "MOVE_TO_BE" | "OTHER",
@@ -160,6 +174,9 @@ Respond with ONLY a valid JSON object (no markdown, no explanation outside JSON)
   "entryPrice": number | null,
   "stopLoss": number | null,
   "takeProfit": number | null,
+  "tp1": number | null,
+  "tp2": number | null,
+  "tp3": number | null,
   "confidence": 0.0-1.0,
   "reasoning": "brief explanation",
   "linkedSignalId": "id from recent signals" | null,
@@ -195,13 +212,21 @@ Respond with ONLY a valid JSON object (no markdown, no explanation outside JSON)
         if (!['BUY', 'SELL'].includes(direction)) direction = null;
       }
 
+      const takeProfit = typeof parsed.takeProfit === 'number' ? parsed.takeProfit : null;
+      const tp1 = typeof parsed.tp1 === 'number' ? parsed.tp1 : takeProfit;
+      const tp2 = typeof parsed.tp2 === 'number' ? parsed.tp2 : null;
+      const tp3 = typeof parsed.tp3 === 'number' ? parsed.tp3 : null;
+
       return {
         category,
         symbol: symbol || null,
         direction: direction || null,
         entryPrice: typeof parsed.entryPrice === 'number' ? parsed.entryPrice : null,
         stopLoss: typeof parsed.stopLoss === 'number' ? parsed.stopLoss : null,
-        takeProfit: typeof parsed.takeProfit === 'number' ? parsed.takeProfit : null,
+        takeProfit,
+        tp1,
+        tp2,
+        tp3,
         confidence: typeof parsed.confidence === 'number' ? Math.max(0, Math.min(1, parsed.confidence)) : 0.5,
         reasoning: parsed.reasoning || 'No reasoning provided',
         linkedSignalId: parsed.linkedSignalId || null,
@@ -221,6 +246,9 @@ Respond with ONLY a valid JSON object (no markdown, no explanation outside JSON)
       entryPrice: null,
       stopLoss: null,
       takeProfit: null,
+      tp1: null,
+      tp2: null,
+      tp3: null,
       confidence: 0,
       reasoning,
       linkedSignalId: null,

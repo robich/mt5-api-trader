@@ -314,6 +314,7 @@ export class TradeManager {
         riskAmount: trade.riskAmount,
         riskRewardRatio: trade.riskRewardRatio,
         signalId: trade.signalId,
+        notes: trade.notes,
       },
     });
 

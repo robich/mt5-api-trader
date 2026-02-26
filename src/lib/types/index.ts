@@ -124,6 +124,7 @@ export interface Trade {
   mt5PositionId?: string;
   riskAmount: number;
   riskRewardRatio: number;
+  notes?: string;
 }
 
 export interface AccountInfo {
@@ -466,6 +467,9 @@ export interface BotConfig {
   breakeven?: BreakevenConfig;
   /** Tiered take-profit configuration */
   tieredTP?: TieredTPConfig;
+  /** Whether automated SMC signal analysis and execution is enabled (default: true).
+   *  When false, the bot still runs for position monitoring, BE, tiered TP, and Telegram trade execution. */
+  autoTrading?: boolean;
 }
 
 export const DEFAULT_BOT_CONFIG: BotConfig = {
@@ -503,6 +507,7 @@ export const DEFAULT_BOT_CONFIG: BotConfig = {
     beBufferPips: 5,
     moveSlOnTP2: true,
   },
+  autoTrading: true,
 };
 
 // MetaAPI timeframe mapping

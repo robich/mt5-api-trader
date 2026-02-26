@@ -26,6 +26,7 @@ import { analysisScheduler } from './analysis-scheduler';
 import { telegramListener } from './telegram-listener';
 import { telegramSignalAnalyzer } from './telegram-signal-analyzer';
 import { telegramTradeExecutor } from './telegram-trade-executor';
+import { telegramTPMonitor } from './telegram-tp-monitor';
 import { v4 as uuidv4 } from 'uuid';
 import {
   TradingBotSyncListener,
@@ -267,6 +268,10 @@ export class TradingBot {
         console.log(`[Bot] Tiered TP manager initialized`);
       }
 
+      // Initialize Telegram TP monitor from Trade.notes for EXTERNAL positions
+      await telegramTPMonitor.initializeFromPositions(positionUpdates);
+      console.log(`[Bot] Telegram TP monitor initialized`);
+
     } catch (error) {
       console.error('[Bot] Error syncing positions on startup:', error);
       // Don't throw - allow bot to start even if sync fails
@@ -421,6 +426,9 @@ export class TradingBot {
         // Clean up tiered TP tracking
         this.tieredTPManager.onPositionClosed(removedId);
 
+        // Clean up Telegram TP monitor tracking
+        telegramTPMonitor.onPositionClosed(removedId);
+
         // Send Telegram notification for closed trade (deduplicated)
         if (telegramNotifier.isEnabled() && !this.notifiedClosePositions.has(removedId)) {
           this.notifiedClosePositions.add(removedId);
@@ -468,6 +476,11 @@ export class TradingBot {
           console.log(`[Bot] ${pos.symbol} tiered TP executed: ${result.tpHit} - ${result.reason}`);
         }
       }
+    }
+
+    // Check Telegram TP monitor for proactive partial closes
+    for (const pos of positions) {
+      await telegramTPMonitor.checkAndExecuteTP(pos);
     }
 
     // Convert to our Position format and sync with trade manager
@@ -807,6 +820,13 @@ export class TradingBot {
     ask: number
   ): Promise<void> {
     try {
+      // Gate on autoTrading config — when disabled, skip signal processing
+      // (position monitoring, BE, tiered TP, and Telegram trade execution still run)
+      if (this.config.autoTrading === false) {
+        console.log(`[Bot] Auto-trading disabled, skipping signal for ${signal.symbol} ${signal.direction} via ${signal.strategy}`);
+        return;
+      }
+
       // Record the signal
       await tradeManager.recordSignal(signal);
 
@@ -1114,12 +1134,14 @@ export class TradingBot {
     isRunning: boolean;
     config: BotConfig;
     symbols: string[];
+    autoTrading: boolean;
     telegramListener: { enabled: boolean; listening: boolean };
   } {
     return {
       isRunning: this.isRunning,
       config: this.config,
       symbols: this.config.symbols,
+      autoTrading: this.config.autoTrading !== false,
       telegramListener: {
         enabled: telegramListener.isEnabled(),
         listening: telegramListener.isListening(),

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Calculator, Bot, Radio, RefreshCw, Brain } from 'lucide-react';
+import { Calculator, Bot, Radio, RefreshCw, Brain, Zap, ZapOff } from 'lucide-react';
 import { KPICards } from '@/components/dashboard/KPICards';
 import { TradeTable } from '@/components/dashboard/TradeTable';
 import { SignalsList } from '@/components/dashboard/SignalsList';
@@ -30,6 +30,7 @@ interface AccountData {
     isRunning: boolean;
     symbols: string[];
     startedAt: string | null;
+    autoTrading: boolean;
   };
   stats: {
     todayPnl: number;
@@ -150,6 +151,7 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isBotToggling, setIsBotToggling] = useState(false);
   const [isTelegramToggling, setIsTelegramToggling] = useState(false);
+  const [isAutoToggling, setIsAutoToggling] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -245,6 +247,25 @@ export default function Dashboard() {
     }
   };
 
+  const handleToggleAutoTrading = async () => {
+    const currentAuto = accountData?.botStatus.autoTrading ?? true;
+    setIsAutoToggling(true);
+    try {
+      const res = await fetch('/api/bot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'updateConfig', config: { autoTrading: !currentAuto } }),
+      });
+      if (!res.ok) throw new Error('Failed to toggle auto-trading');
+      await fetchData();
+    } catch (err) {
+      console.error('Error toggling auto-trading:', err);
+      setError('Failed to toggle auto-trading. Please try again.');
+    } finally {
+      setIsAutoToggling(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -274,6 +295,27 @@ export default function Dashboard() {
             >
               {isBotToggling ? '...' : accountData?.botStatus.isRunning ? 'Stop' : 'Start'}
             </Button>
+            {accountData?.botStatus.isRunning && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleToggleAutoTrading}
+                disabled={isAutoToggling}
+                className={`h-7 px-2 text-xs gap-1 ${
+                  accountData?.botStatus.autoTrading
+                    ? 'text-green-600 hover:text-green-700'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                title={accountData?.botStatus.autoTrading ? 'Auto-trading ON — click to disable' : 'Auto-trading OFF — click to enable'}
+              >
+                {isAutoToggling ? '...' : (
+                  <>
+                    {accountData?.botStatus.autoTrading ? <Zap className="h-3 w-3" /> : <ZapOff className="h-3 w-3" />}
+                    Auto
+                  </>
+                )}
+              </Button>
+            )}
           </div>
           <div className="flex items-center gap-1">
             <ServiceStatus

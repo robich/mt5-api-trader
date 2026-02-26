@@ -149,21 +149,64 @@ const STRATEGY_INFO: Record<string, {
     ],
   },
   EXTERNAL: {
-    name: 'External Trade',
-    description: 'Trade opened externally (manually on MT5 or by another system) and imported into the dashboard.',
+    name: 'Telegram Signal',
+    description: 'Trade executed from a Telegram signal channel. Analyzed by AI and automatically placed with risk management.',
     parameters: [
-      { name: 'Source', value: 'MT5', description: 'Position opened directly on MetaTrader 5' },
-      { name: 'Sync', value: 'Auto', description: 'Automatically imported on bot startup' },
+      { name: 'Source', value: 'Telegram', description: 'Signal received from Telegram channel' },
+      { name: 'Analysis', value: 'AI', description: 'Signal analyzed and validated by AI before execution' },
+      { name: 'Execution', value: 'Auto', description: 'Automatically executed with position sizing and SL/TP' },
     ],
     howItWorks: [
-      '1. Position opened manually on MT5 platform',
-      '2. Bot detects position during startup sync',
-      '3. Imported into dashboard for tracking',
-      '4. SL/TP and PnL tracked if set on MT5',
-      '5. Close detected when position removed from MT5',
+      '1. Signal received from Telegram trading channel',
+      '2. AI analyzes signal quality, direction, and levels',
+      '3. Risk management calculates position size',
+      '4. Trade executed on MT5 with SL/TP',
+      '5. Monitored with tiered TP and breakeven management',
     ],
   },
 };
+
+// Whether a strategy is a Telegram/external signal trade
+const isTelegramTrade = (strategy: string) => strategy === 'EXTERNAL';
+
+// Small icon for trade source (inline SVG to avoid extra dependencies)
+function TradeSourceIcon({ strategy }: { strategy: string }) {
+  if (isTelegramTrade(strategy)) {
+    // Signal/antenna icon for Telegram trades
+    return (
+      <svg className="h-3 w-3 text-indigo-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M2 12 L7 2" /><path d="M7 2 L12 12" /><path d="M12 12 L17 2" /><path d="M17 2 L22 12" /><line x1="12" y1="12" x2="12" y2="22" />
+      </svg>
+    );
+  }
+  // Bot/cog icon for automated SMC trades
+  return (
+    <svg className="h-3 w-3 text-muted-foreground shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="11" width="18" height="10" rx="2" /><circle cx="12" cy="5" r="3" /><line x1="12" y1="8" x2="12" y2="11" /><line x1="8" y1="16" x2="8" y2="16.01" /><line x1="16" y1="16" x2="16" y2="16.01" />
+    </svg>
+  );
+}
+
+// Strategy badge with source-specific styling
+function StrategyBadge({ strategy, onClick }: { strategy: string; onClick: () => void }) {
+  const telegram = isTelegramTrade(strategy);
+  const label = telegram ? 'Telegram Signal' : strategy.replace(/_/g, ' ');
+
+  return (
+    <div className="flex items-center gap-1">
+      <TradeSourceIcon strategy={strategy} />
+      <Badge
+        variant={telegram ? 'default' : 'outline'}
+        className={`text-xs cursor-pointer hover:bg-accent ${
+          telegram ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : ''
+        }`}
+        onClick={onClick}
+      >
+        {label}
+      </Badge>
+    </div>
+  );
+}
 
 export function TradeTable({ trades, type, currency = 'USD' }: TradeTableProps) {
   const [selectedStrategy, setSelectedStrategy] = useState<string | null>(null);
@@ -334,13 +377,10 @@ export function TradeTable({ trades, type, currency = 'USD' }: TradeTableProps) 
                   {/* Row 3: Strategy, Lot, Duration */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
-                      <Badge
-                        variant="outline"
-                        className="text-xs cursor-pointer hover:bg-accent"
+                      <StrategyBadge
+                        strategy={trade.strategy}
                         onClick={() => setSelectedStrategy(trade.strategy)}
-                      >
-                        {trade.strategy.replace(/_/g, ' ')}
-                      </Badge>
+                      />
                       <span className="text-xs text-muted-foreground">
                         {trade.lotSize ?? '-'} lot
                       </span>
@@ -423,13 +463,10 @@ export function TradeTable({ trades, type, currency = 'USD' }: TradeTableProps) 
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Badge
-                    variant="outline"
-                    className="text-xs cursor-pointer hover:bg-accent"
+                  <StrategyBadge
+                    strategy={trade.strategy}
                     onClick={() => setSelectedStrategy(trade.strategy)}
-                  >
-                    {trade.strategy.replace(/_/g, ' ')}
-                  </Badge>
+                  />
                 </TableCell>
                 <TableCell className="text-right font-mono">
                   {formatPrice(trade.entryPrice, trade.symbol)}

@@ -10,7 +10,8 @@ import { calculatePositionSize } from '@/lib/risk/position-sizing';
 import { tradeManager } from '@/lib/risk/trade-manager';
 import { telegramSignalAnalyzer, SignalAnalysis, SignalCategory } from './telegram-signal-analyzer';
 import { telegramNotifier } from './telegram';
-import { Trade, StrategyType } from '@/lib/types';
+import { telegramTPMonitor, TelegramTPNotes } from './telegram-tp-monitor';
+import { Trade, StrategyType, Position } from '@/lib/types';
 
 // Default SL distances (in price units) when signal doesn't include SL
 const DEFAULT_SL_DISTANCES: Record<string, number> = {
@@ -55,7 +56,7 @@ class TelegramTradeExecutor {
 
     if (!dbMessage) {
       console.error(`[TradeExecutor] Message #${msg.id} not found in DB`);
-      return { category: 'OTHER', symbol: null, direction: null, entryPrice: null, stopLoss: null, takeProfit: null, confidence: 0, reasoning: 'Message not found in DB', linkedSignalId: null, closePercent: null };
+      return { category: 'OTHER', symbol: null, direction: null, entryPrice: null, stopLoss: null, takeProfit: null, tp1: null, tp2: null, tp3: null, confidence: 0, reasoning: 'Message not found in DB', linkedSignalId: null, closePercent: null };
     }
 
     // Check if this message was already processed (has a terminal analysis status).
@@ -72,6 +73,9 @@ class TelegramTradeExecutor {
         entryPrice: existingAnalysis.entryPrice,
         stopLoss: existingAnalysis.stopLoss,
         takeProfit: existingAnalysis.takeProfit,
+        tp1: null,
+        tp2: null,
+        tp3: null,
         confidence: existingAnalysis.confidence ?? 0,
         reasoning: existingAnalysis.reasoning ?? '',
         linkedSignalId: existingAnalysis.linkedSignalId,
@@ -95,7 +99,7 @@ class TelegramTradeExecutor {
           },
         });
       }
-      return { category: 'OTHER', symbol: null, direction: null, entryPrice: null, stopLoss: null, takeProfit: null, confidence: 0, reasoning: `Message too old (${(messageAgeMs / 1000).toFixed(0)}s)`, linkedSignalId: null, closePercent: null };
+      return { category: 'OTHER', symbol: null, direction: null, entryPrice: null, stopLoss: null, takeProfit: null, tp1: null, tp2: null, tp3: null, confidence: 0, reasoning: `Message too old (${(messageAgeMs / 1000).toFixed(0)}s)`, linkedSignalId: null, closePercent: null };
     }
 
     // Analyze with Claude
@@ -291,7 +295,12 @@ class TelegramTradeExecutor {
         return;
       }
 
-      console.log(`[TradeExecutor] Placing order: ${analysis.direction} ${analysis.symbol} ${positionInfo.lotSize} lots, SL: ${stopLoss}, TP: ${analysis.takeProfit || 'none'}`);
+      // Detect multi-TP signal: if tp2 or tp3 exists, skip native MT5 TP
+      // so the position isn't fully closed at TP1 by the broker
+      const isMultiTP = analysis.tp2 !== null || analysis.tp3 !== null;
+      const nativeTP = isMultiTP ? undefined : (analysis.takeProfit || undefined);
+
+      console.log(`[TradeExecutor] Placing order: ${analysis.direction} ${analysis.symbol} ${positionInfo.lotSize} lots, SL: ${stopLoss}, TP: ${isMultiTP ? 'multi-TP (monitor)' : (analysis.takeProfit || 'none')}`);
 
       // Execute the trade
       const orderResult = await metaApiClient.placeMarketOrder(
@@ -299,9 +308,28 @@ class TelegramTradeExecutor {
         analysis.direction,
         positionInfo.lotSize,
         stopLoss,
-        analysis.takeProfit || undefined,
+        nativeTP,
         `TG_KASPER ${analysis.direction}`
       );
+
+      // Build Trade.notes with TP levels for multi-TP signals
+      let tradeNotes: string | undefined;
+      if (isMultiTP || analysis.tp1) {
+        const tpNotes: TelegramTPNotes = {
+          telegramTPs: {
+            tp1: analysis.tp1 || analysis.takeProfit || 0,
+            tp2: analysis.tp2,
+            tp3: analysis.tp3,
+            tp1Percent: 50,
+            tp2Percent: 30,
+            tp3Percent: 20,
+            tp1Hit: false,
+            tp2Hit: false,
+            tp3Hit: false,
+          },
+        };
+        tradeNotes = JSON.stringify(tpNotes);
+      }
 
       // Record the trade
       const trade: Omit<Trade, 'id'> = {
@@ -320,9 +348,25 @@ class TelegramTradeExecutor {
         riskRewardRatio: analysis.takeProfit
           ? Math.abs(analysis.takeProfit - entryPrice) / Math.abs(entryPrice - stopLoss)
           : 0,
+        notes: tradeNotes,
       };
 
       const recorded = await tradeManager.recordTrade(trade);
+
+      // Initialize proactive TP monitor for multi-TP signals
+      if (isMultiTP && orderResult.positionId) {
+        telegramTPMonitor.initializePosition(
+          orderResult.positionId,
+          recorded.id,
+          analysis.symbol,
+          analysis.direction,
+          trade.entryPrice,
+          positionInfo.lotSize,
+          analysis.tp1 || analysis.takeProfit || 0,
+          analysis.tp2,
+          analysis.tp3,
+        );
+      }
 
       // Update analysis with execution status
       await prisma.telegramSignalAnalysis.update({
@@ -344,18 +388,22 @@ class TelegramTradeExecutor {
 
       // Notify via Telegram bot
       if (telegramNotifier.isEnabled()) {
+        const tpLines = isMultiTP
+          ? `TP1: ${analysis.tp1}\nTP2: ${analysis.tp2 ?? 'N/A'}\nTP3: ${analysis.tp3 ?? 'N/A'}\nTP Mode: Proactive monitor`
+          : `TP: ${analysis.takeProfit || 'None'}`;
+
         await telegramNotifier.sendMessage(
           `📡 <b>TELEGRAM SIGNAL EXECUTED</b>\n\n` +
           `${analysis.direction === 'BUY' ? '🟢 LONG' : '🔴 SHORT'} <b>${analysis.symbol}</b>\n` +
           `Entry: ${trade.entryPrice}\n` +
           `SL: ${stopLoss}\n` +
-          `TP: ${analysis.takeProfit || 'None'}\n` +
+          `${tpLines}\n` +
           `Size: ${positionInfo.lotSize} lots\n` +
           `Risk: $${positionInfo.riskAmount.toFixed(2)} (20%)`
         );
       }
 
-      console.log(`[TradeExecutor] Trade executed: ${recorded.id}`);
+      console.log(`[TradeExecutor] Trade executed: ${recorded.id}${isMultiTP ? ' (multi-TP monitor active)' : ''}`);
     } catch (error) {
       throw error; // Re-throw to be caught by processMessage
     }
@@ -435,6 +483,7 @@ class TelegramTradeExecutor {
    * Handle CLOSE_SIGNAL: close the linked trade (full or partial).
    * If closePercent < 100, performs a partial close and moves SL to breakeven.
    * Falls back to most recent open EXTERNAL trade if linkedSignalId is missing.
+   * Guards against: double-closing the same TP level, closing more than remaining volume.
    */
   private async handleCloseSignal(analysisId: string, analysis: SignalAnalysis): Promise<void> {
     const trade = await this.findOpenTrade(analysis);
@@ -446,8 +495,44 @@ class TelegramTradeExecutor {
 
     const closePercent = analysis.closePercent ?? 100;
 
+    // Cross-check with proactive TP monitor: if it already closed this level, skip
+    if (closePercent < 100 && trade.mt5PositionId) {
+      const monitorState = telegramTPMonitor.getState(trade.mt5PositionId);
+      if (monitorState) {
+        const tpLevel = closePercent === 50 ? 'TP1' : closePercent === 30 ? 'TP2' : closePercent === 20 ? 'TP3' : null;
+        const alreadyHit = tpLevel === 'TP1' ? monitorState.tp1Hit
+          : tpLevel === 'TP2' ? monitorState.tp2Hit
+          : tpLevel === 'TP3' ? monitorState.tp3Hit
+          : false;
+
+        if (alreadyHit) {
+          await this.markSkipped(analysisId, `${tpLevel} already closed by proactive monitor for trade ${trade.id}`);
+          return;
+        }
+      }
+    }
+
+    // Guard: check if this TP level was already closed for this trade
     if (closePercent < 100) {
-      // Partial close
+      const alreadyClosed = await prisma.telegramSignalAnalysis.findFirst({
+        where: {
+          category: 'CLOSE_SIGNAL',
+          executionStatus: 'EXECUTED',
+          tradeId: trade.id,
+          id: { not: analysisId },
+          // Match the specific marker we append to reasoning on execution
+          reasoning: { contains: `[closed ${closePercent}%]` },
+        },
+      });
+
+      if (alreadyClosed) {
+        await this.markSkipped(analysisId, `TP level (${closePercent}%) already closed for trade ${trade.id}`);
+        return;
+      }
+    }
+
+    if (closePercent < 100) {
+      // Partial close - calculate volume from ORIGINAL lot size
       const closeVolume = trade.lotSize * (closePercent / 100);
       const symbolInfo = await metaApiClient.getSymbolInfo(trade.symbol);
       const roundedVolume = Math.round(closeVolume / symbolInfo.volumeStep) * symbolInfo.volumeStep;
@@ -457,28 +542,92 @@ class TelegramTradeExecutor {
         return;
       }
 
-      await metaApiClient.closePositionPartially(trade.mt5PositionId, roundedVolume);
-      console.log(`[TradeExecutor] Partial close ${closePercent}% (${roundedVolume} lots) for trade ${trade.id}`);
+      // Safety: check remaining volume from MT5 position
+      try {
+        const positions: Position[] = await metaApiClient.getPositions();
+        const mt5Position = positions.find((p) => p.id === trade.mt5PositionId);
+        if (!mt5Position) {
+          await this.markSkipped(analysisId, `Position ${trade.mt5PositionId} no longer open in MT5`);
+          return;
+        }
+        const remainingVolume = mt5Position.volume;
+        if (roundedVolume > remainingVolume) {
+          // Close whatever is left instead of the calculated amount
+          console.log(`[TradeExecutor] Adjusted close volume from ${roundedVolume} to ${remainingVolume} (remaining)`);
+          const adjustedVolume = Math.round(remainingVolume / symbolInfo.volumeStep) * symbolInfo.volumeStep;
+          if (adjustedVolume < symbolInfo.minVolume) {
+            // Remaining is too small to partial close, do a full close instead
+            await metaApiClient.closePosition(trade.mt5PositionId);
+            console.log(`[TradeExecutor] Remaining volume too small for partial, fully closed trade ${trade.id}`);
+          } else {
+            await metaApiClient.closePositionPartially(trade.mt5PositionId, adjustedVolume);
+            console.log(`[TradeExecutor] Partial close ${closePercent}% (${adjustedVolume} lots, adjusted) for trade ${trade.id}`);
+          }
+        } else {
+          await metaApiClient.closePositionPartially(trade.mt5PositionId, roundedVolume);
+          console.log(`[TradeExecutor] Partial close ${closePercent}% (${roundedVolume} lots) for trade ${trade.id}`);
+        }
+      } catch (posError) {
+        // If we can't check positions, proceed with calculated volume (original behavior)
+        console.warn(`[TradeExecutor] Could not check MT5 position, proceeding with calculated volume:`, posError);
+        await metaApiClient.closePositionPartially(trade.mt5PositionId, roundedVolume);
+        console.log(`[TradeExecutor] Partial close ${closePercent}% (${roundedVolume} lots) for trade ${trade.id}`);
+      }
 
       // After partial close, move SL to breakeven to protect remaining position
-      const beSL = this.computeBreakevenSL(trade.entryPrice, trade.symbol, trade.direction);
-      await metaApiClient.modifyPosition(trade.mt5PositionId, beSL, trade.takeProfit);
-      await prisma.trade.update({
-        where: { id: trade.id },
-        data: { stopLoss: beSL },
-      });
-      console.log(`[TradeExecutor] SL moved to breakeven (${beSL}) after partial close`);
+      try {
+        const beSL = this.computeBreakevenSL(trade.entryPrice, trade.symbol, trade.direction);
+        await metaApiClient.modifyPosition(trade.mt5PositionId, beSL, trade.takeProfit);
+        await prisma.trade.update({
+          where: { id: trade.id },
+          data: { stopLoss: beSL },
+        });
+        console.log(`[TradeExecutor] SL moved to breakeven (${beSL}) after partial close`);
+      } catch (beError) {
+        // Position might have been fully closed if adjusted
+        console.warn(`[TradeExecutor] Could not move SL to BE (position may be fully closed):`, beError);
+      }
+
+      // Notify
+      if (telegramNotifier.isEnabled()) {
+        const tpLevel = closePercent === 50 ? 'TP1' : closePercent === 30 ? 'TP2' : closePercent === 20 ? 'TP3' : `${closePercent}%`;
+        await telegramNotifier.sendMessage(
+          `📡 <b>PARTIAL CLOSE - ${tpLevel}</b>\n\n` +
+          `${trade.direction === 'BUY' ? '🟢' : '🔴'} <b>${trade.symbol}</b>\n` +
+          `Closed: ${closePercent}% of position\n` +
+          `SL moved to breakeven\n` +
+          `Remaining position running`
+        );
+      }
     } else {
       // Full close
       await metaApiClient.closePosition(trade.mt5PositionId);
       console.log(`[TradeExecutor] Position fully closed for trade ${trade.id}`);
+
+      if (telegramNotifier.isEnabled()) {
+        await telegramNotifier.sendMessage(
+          `📡 <b>POSITION CLOSED</b>\n\n` +
+          `${trade.direction === 'BUY' ? '🟢' : '🔴'} <b>${trade.symbol}</b>\n` +
+          `Fully closed per signal`
+        );
+      }
     }
 
+    // Notify proactive monitor that this TP was handled reactively
+    if (closePercent < 100 && trade.mt5PositionId) {
+      const tpLevel = closePercent === 50 ? 'TP1' : closePercent === 30 ? 'TP2' : closePercent === 20 ? 'TP3' : null;
+      if (tpLevel) {
+        telegramTPMonitor.markTPHitExternally(trade.mt5PositionId, tpLevel);
+      }
+    }
+
+    // Store closePercent in reasoning for duplicate TP level detection
     await prisma.telegramSignalAnalysis.update({
       where: { id: analysisId },
       data: {
         executionStatus: 'EXECUTED',
         tradeId: trade.id,
+        reasoning: `${analysis.reasoning} [closed ${closePercent}%]`,
       },
     });
   }

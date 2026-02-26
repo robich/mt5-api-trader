@@ -604,7 +604,7 @@ export default function TradeCalculator() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Account Leverage</p>
-                  <p className="text-lg font-semibold mt-1">1:{accountInfo.leverage ?? 100}</p>
+                  <p className="text-lg font-semibold mt-1">1:{accountInfo.leverage ?? 1000}</p>
                 </div>
               </>
             )}
