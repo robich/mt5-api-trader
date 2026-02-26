@@ -149,6 +149,7 @@ export default function Dashboard() {
   const [telegramStatus, setTelegramStatus] = useState<TelegramListenerStatus | null>(null);
   const [selectedSymbol, setSelectedSymbol] = useState('XAUUSD.s');
   const [source, setSource] = useState<'all' | 'auto' | 'telegram'>('all');
+  const [days, setDays] = useState(30);
   const [isLoading, setIsLoading] = useState(true);
   const [isBotToggling, setIsBotToggling] = useState(false);
   const [isTelegramToggling, setIsTelegramToggling] = useState(false);
@@ -163,7 +164,7 @@ export default function Dashboard() {
         fetch('/api/trades?status=OPEN'),
         fetch('/api/trades?status=CLOSED&limit=100'),
         fetch('/api/signals?limit=20'),
-        fetch(`/api/stats?days=30${sourceParam}`),
+        fetch(`/api/stats?days=${days}${sourceParam}`),
         fetch('/api/analysis'),
         fetch('/api/telegram-listener?limit=0'),
       ]);
@@ -196,7 +197,7 @@ export default function Dashboard() {
     } finally {
       setIsLoading(false);
     }
-  }, [source]);
+  }, [source, days]);
 
   useEffect(() => {
     fetchData();
@@ -366,20 +367,41 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Source Filter */}
+      {/* Source & Timeframe Filters */}
       <div className="px-4 md:px-6">
-        <div className="flex gap-2">
-          {(['all', 'auto', 'telegram'] as const).map((s) => (
-            <Button
-              key={s}
-              variant={source === s ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSource(s)}
-              className="capitalize"
-            >
-              {s === 'all' ? 'All' : s === 'auto' ? 'Auto' : 'Telegram'}
-            </Button>
-          ))}
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex gap-2">
+            {(['all', 'auto', 'telegram'] as const).map((s) => (
+              <Button
+                key={s}
+                variant={source === s ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSource(s)}
+              >
+                {s === 'all' ? 'All' : s === 'auto' ? 'Auto' : 'Telegram'}
+              </Button>
+            ))}
+          </div>
+          <div className="flex gap-1 overflow-x-auto">
+            {([
+              { label: '24h', value: 1 },
+              { label: '7d', value: 7 },
+              { label: '30d', value: 30 },
+              { label: '3m', value: 90 },
+              { label: '1y', value: 365 },
+              { label: 'All', value: 9999 },
+            ] as const).map((tf) => (
+              <Button
+                key={tf.value}
+                variant={days === tf.value ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setDays(tf.value)}
+                className="h-7 px-2 text-xs"
+              >
+                {tf.label}
+              </Button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -543,7 +565,7 @@ export default function Dashboard() {
 
             <Card>
               <CardHeader>
-                <CardTitle>30-Day Statistics</CardTitle>
+                <CardTitle>{days >= 9999 ? 'All-Time' : days === 1 ? '24h' : `${days}-Day`} Statistics</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
