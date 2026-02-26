@@ -80,8 +80,10 @@ export async function runAnalysis() {
     // If ALL symbols show no profitable strategy, auto-pause the bot as a safety net.
     // This is independent of the analyst's AI judgment and acts as a hard guardrail.
     const baselineUnprofitable = isBaselineUnprofitable(baseline);
+    let pausedByBaseline = false;
     if (baselineUnprofitable) {
       console.log('\n[safety] ALL baseline strategies are unprofitable — auto-pausing bot');
+      pausedByBaseline = true;
       if (!DRY_RUN) {
         await setBotPauseState(true, 'Auto-pause: no profitable strategy found in baseline backtests').catch(
           e => console.error('[pause] Failed to set pause state:', e.message)
@@ -116,16 +118,20 @@ export async function runAnalysis() {
       }
       await sendPauseNotification(true, analysis.pauseReason, analysis.marketAssessment);
     } else if (analysis.pauseTrading === false) {
-      // Analyst explicitly says resume — check if bot is currently paused
-      const currentState = await getBotPauseState().catch(() => null);
-      if (currentState?.isPaused) {
-        console.log('\n[pause] Analyst recommends RESUMING trading');
-        if (!DRY_RUN) {
-          await setBotPauseState(false, null).catch(
-            e => console.error('[pause] Failed to clear pause state:', e.message)
-          );
+      // Analyst explicitly says resume — but NOT if baseline paused us in this same run
+      if (pausedByBaseline) {
+        console.log('\n[pause] Analyst recommends resuming, but baseline pause takes precedence — staying paused');
+      } else {
+        const currentState = await getBotPauseState().catch(() => null);
+        if (currentState?.isPaused) {
+          console.log('\n[pause] Analyst recommends RESUMING trading');
+          if (!DRY_RUN) {
+            await setBotPauseState(false, null).catch(
+              e => console.error('[pause] Failed to clear pause state:', e.message)
+            );
+          }
+          await sendPauseNotification(false, null, analysis.marketAssessment);
         }
-        await sendPauseNotification(false, null, analysis.marketAssessment);
       }
     }
 
@@ -356,13 +362,16 @@ export async function runAnalysis() {
       commit = commitAndPush(modifiedFiles, message);
 
       // Auto-resume trading if bot was paused and we just deployed a passing strategy
+      // But NOT if baseline pause was triggered in this run (new code didn't fix the root cause)
       const currentPause = await getBotPauseState().catch(() => null);
-      if (currentPause?.isPaused) {
+      if (currentPause?.isPaused && !pausedByBaseline) {
         console.log('[pause] Bot was paused — auto-resuming after successful strategy deployment');
         await setBotPauseState(false, null).catch(
           e => console.error('[pause] Failed to auto-resume:', e.message)
         );
         await sendPauseNotification(false, 'Auto-resumed: new strategy passed backtests', analysis.marketAssessment);
+      } else if (currentPause?.isPaused && pausedByBaseline) {
+        console.log('[pause] New strategy deployed, but baseline was unprofitable — staying paused until next run confirms profitability');
       }
 
       // Trigger redeploy if configured
