@@ -1,11 +1,20 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { tradingBot } from '@/services/bot';
 import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const searchParams = request.nextUrl.searchParams;
+    const source = (searchParams.get('source') || 'all') as 'all' | 'auto' | 'telegram';
+
+    const strategyFilter = source === 'auto'
+      ? { strategy: { not: 'EXTERNAL' } }
+      : source === 'telegram'
+        ? { strategy: 'EXTERNAL' }
+        : {};
+
     // Get bot status
     const botStatus = tradingBot.getStatus();
 
@@ -42,6 +51,7 @@ export async function GET() {
           { openTime: { gte: todayStart } },
           { closeTime: { gte: todayStart } },
         ],
+        ...strategyFilter,
       },
     });
 
@@ -50,11 +60,11 @@ export async function GET() {
       .reduce((sum, t) => sum + (t.pnl || 0), 0);
 
     let openTrades = await prisma.trade.count({
-      where: { status: 'OPEN' },
+      where: { status: 'OPEN', ...strategyFilter },
     });
 
-    // Use MetaAPI positions count if DB has none but broker has positions
-    if (openTrades === 0 && positions.length > 0) {
+    // Use MetaAPI positions count if DB has none but broker has positions (only for 'all')
+    if (source === 'all' && openTrades === 0 && positions.length > 0) {
       openTrades = positions.length;
     }
 
@@ -72,6 +82,7 @@ export async function GET() {
         isRunning: botStatus.isRunning,
         symbols: botStatus.symbols,
         startedAt: botState?.startedAt,
+        autoTrading: botStatus.autoTrading,
       },
       stats: {
         todayPnl,

@@ -148,6 +148,7 @@ export default function Dashboard() {
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
   const [telegramStatus, setTelegramStatus] = useState<TelegramListenerStatus | null>(null);
   const [selectedSymbol, setSelectedSymbol] = useState('XAUUSD.s');
+  const [source, setSource] = useState<'all' | 'auto' | 'telegram'>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [isBotToggling, setIsBotToggling] = useState(false);
   const [isTelegramToggling, setIsTelegramToggling] = useState(false);
@@ -156,12 +157,13 @@ export default function Dashboard() {
 
   const fetchData = useCallback(async () => {
     try {
+      const sourceParam = source !== 'all' ? `&source=${source}` : '';
       const [accountRes, openRes, closedRes, signalsRes, statsRes, analysisRes, telegramRes] = await Promise.all([
-        fetch('/api/account'),
+        fetch(`/api/account?source=${source}`),
         fetch('/api/trades?status=OPEN'),
         fetch('/api/trades?status=CLOSED&limit=100'),
         fetch('/api/signals?limit=20'),
-        fetch('/api/stats?days=30'),
+        fetch(`/api/stats?days=30${sourceParam}`),
         fetch('/api/analysis'),
         fetch('/api/telegram-listener?limit=0'),
       ]);
@@ -194,7 +196,7 @@ export default function Dashboard() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [source]);
 
   useEffect(() => {
     fetchData();
@@ -363,6 +365,23 @@ export default function Dashboard() {
           {error}
         </div>
       )}
+
+      {/* Source Filter */}
+      <div className="px-4 md:px-6">
+        <div className="flex gap-2">
+          {(['all', 'auto', 'telegram'] as const).map((s) => (
+            <Button
+              key={s}
+              variant={source === s ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSource(s)}
+              className="capitalize"
+            >
+              {s === 'all' ? 'All' : s === 'auto' ? 'Auto' : 'Telegram'}
+            </Button>
+          ))}
+        </div>
+      </div>
 
       {/* KPI Cards */}
       <div className="px-4 md:px-6">

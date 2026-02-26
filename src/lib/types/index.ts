@@ -474,7 +474,7 @@ export interface BotConfig {
 
 export const DEFAULT_BOT_CONFIG: BotConfig = {
   symbols: ['XAUUSD.s', 'XAGUSD.s', 'BTCUSD', 'ETHUSD'],
-  riskPercent: 2,
+  riskPercent: 0.5,
   htfTimeframe: 'H1',
   mtfTimeframe: 'M15',
   ltfTimeframe: 'M1',

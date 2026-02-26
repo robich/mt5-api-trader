@@ -9,9 +9,10 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const days = parseInt(searchParams.get('days') || '30');
+    const source = (searchParams.get('source') || 'all') as 'all' | 'auto' | 'telegram';
 
     // Get trading statistics
-    const stats = await tradeManager.getStatistics(days);
+    const stats = await tradeManager.getStatistics(days, source);
 
     // Get current account info if bot is running
     let currentAccountInfo = null;
@@ -60,10 +61,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Build equity curve from closed trades
-    const equityCurve = await buildEquityCurveFromTrades(days, currentAccountInfo, balanceSummary);
+    const equityCurve = await buildEquityCurveFromTrades(days, currentAccountInfo, balanceSummary, source);
 
     // Get daily P&L
-    const dailyPnl = await getDailyPnL(days);
+    const dailyPnl = await getDailyPnL(days, source);
 
     // Strip dealTimeline from response (internal data, not needed by frontend)
     const { dealTimeline: _, ...balanceSummaryForClient } = balanceSummary || {} as any;
@@ -107,18 +108,19 @@ interface BalanceSummary {
 async function buildEquityCurveFromTrades(
   days: number,
   currentAccountInfo: { balance: number; equity: number } | null,
-  balanceSummary: BalanceSummary | null
+  balanceSummary: BalanceSummary | null,
+  source: 'all' | 'auto' | 'telegram' = 'all'
 ) {
   const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
-  // When bot is running, use the complete deal timeline from MetaAPI
-  // This is authoritative — every balance change comes from deals
-  if (balanceSummary?.dealTimeline && balanceSummary.dealTimeline.length > 0) {
+  // When filtered by source, always use DB path (deal timeline has no strategy info)
+  // When unfiltered and bot is running, use deal timeline (authoritative)
+  if (source === 'all' && balanceSummary?.dealTimeline && balanceSummary.dealTimeline.length > 0) {
     return buildEquityCurveFromDealTimeline(startDate, balanceSummary.dealTimeline, currentAccountInfo);
   }
 
-  // Offline fallback: use DB trades (may have incomplete PnL)
-  return buildEquityCurveFromDB(startDate, currentAccountInfo, balanceSummary);
+  // DB-based path: used for filtered views or offline fallback
+  return buildEquityCurveFromDB(startDate, currentAccountInfo, balanceSummary, source);
 }
 
 /**
@@ -193,13 +195,22 @@ function buildEquityCurveFromDealTimeline(
 async function buildEquityCurveFromDB(
   startDate: Date,
   currentAccountInfo: { balance: number; equity: number } | null,
-  balanceSummary: BalanceSummary | null
+  balanceSummary: BalanceSummary | null,
+  source: 'all' | 'auto' | 'telegram' = 'all'
 ) {
+  const isFiltered = source !== 'all';
+  const strategyFilter = source === 'auto'
+    ? { strategy: { not: 'EXTERNAL' } }
+    : source === 'telegram'
+      ? { strategy: 'EXTERNAL' }
+      : {};
+
   const closedTrades = await prisma.trade.findMany({
     where: {
       status: 'CLOSED',
       closeTime: { not: null },
       pnl: { not: null },
+      ...strategyFilter,
     },
     orderBy: { closeTime: 'asc' },
     select: {
@@ -208,9 +219,13 @@ async function buildEquityCurveFromDB(
     },
   });
 
-  const operations = balanceSummary?.operations || [];
+  // When filtered, exclude deposits/withdrawals (account-level, not source-specific)
+  const operations = isFiltered ? [] : (balanceSummary?.operations || []);
 
   if (closedTrades.length === 0 && operations.length === 0) {
+    if (isFiltered) {
+      return [{ timestamp: startDate, equity: 0, balance: 0 }];
+    }
     if (currentAccountInfo) {
       return [{
         timestamp: new Date(),
@@ -248,10 +263,16 @@ async function buildEquityCurveFromDB(
 
   timeline.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
-  // Compute starting balance: current - total of all events
-  const totalFromTimeline = timeline.reduce((sum, evt) => sum + evt.pnl, 0);
-  const currentBalance = currentAccountInfo?.balance || 0;
-  const startingBalance = currentBalance - totalFromTimeline;
+  // When filtered: start at 0 (cumulative P&L for that source only)
+  // When unfiltered: compute starting balance from current - total events
+  let startingBalance: number;
+  if (isFiltered) {
+    startingBalance = 0;
+  } else {
+    const totalFromTimeline = timeline.reduce((sum, evt) => sum + evt.pnl, 0);
+    const currentBalance = currentAccountInfo?.balance || 0;
+    startingBalance = currentBalance - totalFromTimeline;
+  }
 
   const equityCurve: Array<{
     timestamp: Date;
@@ -286,7 +307,8 @@ async function buildEquityCurveFromDB(
     });
   }
 
-  if (currentAccountInfo) {
+  // Only add current account balance as final point when unfiltered
+  if (!isFiltered && currentAccountInfo) {
     const lastPoint = equityCurve[equityCurve.length - 1];
     if (Math.abs(lastPoint.balance - currentAccountInfo.balance) > 0.01) {
       equityCurve.push({
@@ -300,14 +322,21 @@ async function buildEquityCurveFromDB(
   return equityCurve;
 }
 
-async function getDailyPnL(days: number) {
+async function getDailyPnL(days: number, source: 'all' | 'auto' | 'telegram' = 'all') {
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
+
+  const strategyFilter = source === 'auto'
+    ? { strategy: { not: 'EXTERNAL' } }
+    : source === 'telegram'
+      ? { strategy: 'EXTERNAL' }
+      : {};
 
   const trades = await prisma.trade.findMany({
     where: {
       closeTime: { gte: startDate },
       status: 'CLOSED',
+      ...strategyFilter,
     },
     orderBy: { closeTime: 'asc' },
   });

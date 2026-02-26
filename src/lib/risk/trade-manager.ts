@@ -442,8 +442,9 @@ export class TradeManager {
 
   /**
    * Get trading statistics
+   * @param source - Filter by trade source: 'auto' (SMC strategies), 'telegram' (EXTERNAL), 'all' (no filter)
    */
-  async getStatistics(days: number = 30): Promise<{
+  async getStatistics(days: number = 30, source?: 'all' | 'auto' | 'telegram'): Promise<{
     totalTrades: number;
     winningTrades: number;
     losingTrades: number;
@@ -457,10 +458,17 @@ export class TradeManager {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
+    const strategyFilter = source === 'auto'
+      ? { strategy: { not: 'EXTERNAL' } }
+      : source === 'telegram'
+        ? { strategy: 'EXTERNAL' }
+        : {};
+
     const trades = await prisma.trade.findMany({
       where: {
         closeTime: { gte: startDate },
         status: 'CLOSED',
+        ...strategyFilter,
       },
     });
 
