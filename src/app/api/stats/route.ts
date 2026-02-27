@@ -125,8 +125,9 @@ async function buildEquityCurveFromTrades(
 
 /**
  * Build equity curve from MetaAPI deal timeline (authoritative, complete)
- * Every deal's balance change = profit + swap + commission
- * Starting point is always 0 (before any deposits)
+ * Shows trading P&L only — deposits and withdrawals are excluded from the curve
+ * so the graph reflects actual trading performance, not capital flows.
+ * Deposits/withdrawals are still marked as events for annotation purposes.
  */
 function buildEquityCurveFromDealTimeline(
   startDate: Date,
@@ -141,46 +142,46 @@ function buildEquityCurveFromDealTimeline(
     amount?: number;
   }> = [];
 
-  // Accumulate balance from all deals before the display period
-  // Starting from 0 (before any deposits)
-  let balanceBeforePeriod = 0;
+  // Accumulate trading P&L from all deals before the display period
+  // Skip deposits/withdrawals — they are capital flows, not trading P&L
+  let pnlBeforePeriod = 0;
   for (const evt of dealTimeline) {
     const ts = new Date(evt.timestamp);
     if (ts >= startDate) break;
-    balanceBeforePeriod += evt.balanceChange;
+    if (!evt.event) {
+      pnlBeforePeriod += evt.balanceChange;
+    }
   }
 
   // Add starting point
   equityCurve.push({
     timestamp: startDate,
-    equity: balanceBeforePeriod,
-    balance: balanceBeforePeriod,
+    equity: pnlBeforePeriod,
+    balance: pnlBeforePeriod,
   });
 
   // Add point for each deal event in the display period
-  let runningBalance = balanceBeforePeriod;
+  let runningPnl = pnlBeforePeriod;
   for (const evt of dealTimeline) {
     const ts = new Date(evt.timestamp);
     if (ts < startDate) continue;
 
-    runningBalance += evt.balanceChange;
-    equityCurve.push({
-      timestamp: ts,
-      equity: runningBalance,
-      balance: runningBalance,
-      event: evt.event,
-      amount: evt.amount,
-    });
-  }
-
-  // Add current balance as final point if it differs (accounts for open trades)
-  if (currentAccountInfo) {
-    const lastPoint = equityCurve[equityCurve.length - 1];
-    if (Math.abs(lastPoint.balance - currentAccountInfo.balance) > 0.01) {
+    if (evt.event) {
+      // Deposit/withdrawal — mark the event but don't change the P&L curve
       equityCurve.push({
-        timestamp: new Date(),
-        equity: currentAccountInfo.balance,
-        balance: currentAccountInfo.balance,
+        timestamp: ts,
+        equity: runningPnl,
+        balance: runningPnl,
+        event: evt.event,
+        amount: evt.amount,
+      });
+    } else {
+      // Trading deal — update the P&L curve
+      runningPnl += evt.balanceChange;
+      equityCurve.push({
+        timestamp: ts,
+        equity: runningPnl,
+        balance: runningPnl,
       });
     }
   }
@@ -252,10 +253,11 @@ async function buildEquityCurveFromDB(
     }
   }
 
+  // Deposits/withdrawals are annotated but don't affect the P&L curve
   for (const op of operations) {
     timeline.push({
       timestamp: new Date(op.time),
-      pnl: op.type === 'deposit' ? op.amount : -op.amount,
+      pnl: 0, // Capital flows excluded from P&L
       event: op.type as 'deposit' | 'withdrawal',
       amount: op.amount,
     });
@@ -263,16 +265,8 @@ async function buildEquityCurveFromDB(
 
   timeline.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
-  // When filtered: start at 0 (cumulative P&L for that source only)
-  // When unfiltered: compute starting balance from current - total events
-  let startingBalance: number;
-  if (isFiltered) {
-    startingBalance = 0;
-  } else {
-    const totalFromTimeline = timeline.reduce((sum, evt) => sum + evt.pnl, 0);
-    const currentBalance = currentAccountInfo?.balance || 0;
-    startingBalance = currentBalance - totalFromTimeline;
-  }
+  // Start at 0 — curve shows cumulative trading P&L only
+  const startingBalance = 0;
 
   const equityCurve: Array<{
     timestamp: Date;
@@ -307,17 +301,7 @@ async function buildEquityCurveFromDB(
     });
   }
 
-  // Only add current account balance as final point when unfiltered
-  if (!isFiltered && currentAccountInfo) {
-    const lastPoint = equityCurve[equityCurve.length - 1];
-    if (Math.abs(lastPoint.balance - currentAccountInfo.balance) > 0.01) {
-      equityCurve.push({
-        timestamp: new Date(),
-        equity: currentAccountInfo.balance,
-        balance: currentAccountInfo.balance,
-      });
-    }
-  }
+  // Note: no final account balance point — curve shows trading P&L only
 
   return equityCurve;
 }

@@ -53,6 +53,18 @@ app.prepare().then(() => {
           } else {
             console.log('[Auto-Start] Bot was not running before shutdown — skipping auto-start');
           }
+
+          // Auto-start Telegram listener independently of bot
+          if (stateData.telegramWasListening) {
+            console.log('[Auto-Start] Telegram listener was previously running — restarting...');
+            const tlRes = await fetch(`http://127.0.0.1:${port}/api/telegram-listener`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...internalAuthHeaders() },
+              body: JSON.stringify({ action: 'start' }),
+            });
+            const tlData = await tlRes.json();
+            console.log('[Auto-Start] Telegram listener:', tlData.message || tlData.error);
+          }
         } catch (err) {
           console.error('[Auto-Start] Failed to check/start bot:', err.message);
         }
