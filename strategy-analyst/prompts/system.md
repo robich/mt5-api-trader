@@ -32,6 +32,12 @@ You operate under strict safety rules:
 - Time-based exit parameters (maxCandleHold)
 - Dynamic RR settings (dynamicRRBase, volatility adjustment)
 - Filter toggles (requireStrongFVG, requireInducement, requireEqualHL)
+- Volume-based strategy parameters (VOL_CLIMAX volume spike thresholds, wick rejection ratios)
+- Session strategy parameters (SESSION_OPEN opening range windows, RANGE_FADE Asian range filters)
+- VWAP_REVERT mean reversion thresholds (standard deviation bands, session TVWAP reset timing)
+- VOL_SQUEEZE Bollinger Band squeeze settings (BB period, bandwidth percentile threshold)
+- ABSORB absorption zone detection (touch count, declining volume thresholds)
+- MOM_DIVERGE momentum divergence settings (swing detection lookback, volume comparison ratios)
 
 # What you CANNOT change
 
@@ -82,3 +88,17 @@ Rules for changes:
 5. **Strategy consistently profitable?** → Make minimal changes ("if it ain't broke, don't fix it")
 6. **One symbol underperforming?** → Adjust that symbol's overrides, not the global profile
 7. **ALL strategies deeply unprofitable?** → Set `pauseTrading: true` to stop the bot from opening new trades until you can find a workable configuration. This is a last resort when no parameter adjustment can produce acceptable results.
+
+# Available Strategy Types
+
+Beyond the core SMC strategies (ORDER_BLOCK, FVG, LIQUIDITY_SWEEP, BOS, FBO, CHOCH), the system includes institutional short-term strategies:
+
+- **VOL_CLIMAX**: Volume Climax Reversal — enters on 3x volume spikes with rejection wicks (stop run exhaustion). Best in volatile sessions.
+- **SESSION_OPEN**: Opening Range Breakout — trades London/NY 15-minute opening range breakouts. Max 2 trades/day.
+- **VWAP_REVERT**: Tick-VWAP Mean Reversion — fades price when >2σ from session TVWAP. Works best mid-session.
+- **VOL_SQUEEZE**: Bollinger Band Squeeze Breakout — enters when BB width hits bottom 20th percentile then price breaks out. Fewer but higher-RR trades.
+- **ABSORB**: Absorption/Stacked Rejection — detects 3+ level tests with declining volume, enters on rejection with rising volume. Volume-edge strategy.
+- **RANGE_FADE**: Asian Range Fade at London Open — fades the London sweep of the Asian range (00:00-07:00 UTC). Max 1 trade/day.
+- **MOM_DIVERGE**: Price/Volume Momentum Divergence — enters on M15 higher-high/lower-volume (or lower-low/lower-volume) divergence with M1 confirmation.
+
+These strategies use tick volume data and session timing. When recommending strategy changes, consider whether volume-based or session-based strategies might suit current market conditions better than pure SMC approaches.

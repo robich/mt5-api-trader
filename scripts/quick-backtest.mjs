@@ -174,6 +174,13 @@ Strategies:
   FBO_SWEEP         Fake Breakout Sweep of equal highs/lows
   FBO_STRUCTURE     Failed Break of Structure reversal
   CHOCH             Change of Character reversal with Fib pullback
+  VOL_CLIMAX        Volume Climax Reversal (3x vol spike + rejection wick)
+  SESSION_OPEN      Opening Range Breakout (London/NY 15-min OR)
+  VWAP_REVERT       Tick-VWAP Mean Reversion (2σ deviation from session VWAP)
+  VOL_SQUEEZE       Bollinger Band Squeeze Breakout (low vol → explosive move)
+  ABSORB            Absorption / Stacked Rejection (declining vol at level)
+  RANGE_FADE        Asian Range Fade at London Open (sweep + reverse)
+  MOM_DIVERGE       Price/Volume Momentum Divergence (HTF divergence reversal)
 
 Timeframe Presets:
   standard          H4/H1/M5  - Standard multi-timeframe (default)
@@ -385,36 +392,36 @@ const VARIATIONS = [
 
   // === EVERY OB IN TREND (Trade all Order Blocks aligned with trend) ===
   // No OB score filtering - trade every OB that matches trend direction
-  { name: 'EVERY-OB: NoFilter|RR1.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 1.5, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, requireConfirmation: false },
-  { name: 'EVERY-OB: NoFilter|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, requireConfirmation: false },
-  { name: 'EVERY-OB: NoFilter|RR2.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, requireConfirmation: false },
-  { name: 'EVERY-OB: NoFilter|RR3', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, requireConfirmation: false },
+  { name: 'EVERY-OB: NoFilter|RR1.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 1.5, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, requireConfirmation: false },
+  { name: 'EVERY-OB: NoFilter|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, requireConfirmation: false },
+  { name: 'EVERY-OB: NoFilter|RR2.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, requireConfirmation: false },
+  { name: 'EVERY-OB: NoFilter|RR3', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, requireConfirmation: false },
 
   // Every OB with different DD limits
   { name: 'EVERY-OB: NoFilter|RR2|DD8%', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireConfirmation: false },
   { name: 'EVERY-OB: NoFilter|RR2|DD10%', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 10, atrMult: 1.0, requireConfirmation: false },
 
   // Every OB with Kill Zones only (trade during high volatility)
-  { name: 'EVERY-OB: NoFilter|KZ|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: true, maxDailyDD: 20, atrMult: 1.0, requireConfirmation: false },
-  { name: 'EVERY-OB: NoFilter|KZ|RR2.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: true, maxDailyDD: 20, atrMult: 1.0, requireConfirmation: false },
+  { name: 'EVERY-OB: NoFilter|KZ|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: true, maxDailyDD: 15, atrMult: 1.0, requireConfirmation: false },
+  { name: 'EVERY-OB: NoFilter|KZ|RR2.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: true, maxDailyDD: 15, atrMult: 1.0, requireConfirmation: false },
 
   // Every OB with ATR multipliers (wider/tighter OB detection)
-  { name: 'EVERY-OB: ATR1.5|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.5, requireConfirmation: false },
-  { name: 'EVERY-OB: ATR2.0|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 2.0, requireConfirmation: false },
-  { name: 'EVERY-OB: ATR0.8|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 0.8, requireConfirmation: false },
+  { name: 'EVERY-OB: ATR1.5|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.5, requireConfirmation: false },
+  { name: 'EVERY-OB: ATR2.0|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 2.0, requireConfirmation: false },
+  { name: 'EVERY-OB: ATR0.8|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 0.8, requireConfirmation: false },
 
   // Every OB with tiered TP
-  { name: 'EVERY-OB-TIERED: 50@1R|30@2R|20@3R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 3 },
-  { name: 'EVERY-OB-TIERED: 30@1R|30@2R|40@4R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 4, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 30, tp2RR: 2.0, tp2Percent: 30, tp3RR: 4.0, tp3Percent: 40, moveSlOnTP1: true, beBufferPips: 3 },
+  { name: 'EVERY-OB-TIERED: 50@1R|30@2R|20@3R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 3 },
+  { name: 'EVERY-OB-TIERED: 30@1R|30@2R|40@4R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 4, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 30, tp2RR: 2.0, tp2Percent: 30, tp3RR: 4.0, tp3Percent: 40, moveSlOnTP1: true, beBufferPips: 3 },
 
   // Every OB with low score threshold (some quality filtering)
-  { name: 'EVERY-OB: OB30|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 30, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, requireConfirmation: false },
-  { name: 'EVERY-OB: OB40|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 40, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, requireConfirmation: false },
-  { name: 'EVERY-OB: OB50|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, requireConfirmation: false },
+  { name: 'EVERY-OB: OB30|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 30, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, requireConfirmation: false },
+  { name: 'EVERY-OB: OB40|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 40, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, requireConfirmation: false },
+  { name: 'EVERY-OB: OB50|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, requireConfirmation: false },
 
   // Every OB with breakeven (protect profits while trading aggressively)
-  { name: 'EVERY-OB-BE: NoFilter|RR2|BE1R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 1.0, beBufferPips: 3 },
-  { name: 'EVERY-OB-BE: NoFilter|RR3|BE1R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 1.0, beBufferPips: 3 },
+  { name: 'EVERY-OB-BE: NoFilter|RR2|BE1R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 1.0, beBufferPips: 3 },
+  { name: 'EVERY-OB-BE: NoFilter|RR3|BE1R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 1.0, beBufferPips: 3 },
 
   // === OB IN TREND (EMA trend filter: only trade OBs when MTF EMA confirms trend direction) ===
 
@@ -460,24 +467,24 @@ const VARIATIONS = [
   { name: 'BE: 0.75R|RR2|3pips', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
 
   // NoFilter OB + Breakeven combo (top Gold strategies combined)
-  { name: 'EVERY-OB-BE: NoFilter|RR2.5|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
-  { name: 'EVERY-OB-BE: NoFilter|RR3|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
-  { name: 'EVERY-OB-BE: NoFilter|RR2.5|BE1R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 1.0, beBufferPips: 3 },
-  { name: 'EVERY-OB-BE: NoFilter|RR3.5|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3.5, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'EVERY-OB-BE: NoFilter|RR2.5|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'EVERY-OB-BE: NoFilter|RR3|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'EVERY-OB-BE: NoFilter|RR2.5|BE1R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 1.0, beBufferPips: 3 },
+  { name: 'EVERY-OB-BE: NoFilter|RR3.5|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3.5, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
 
   // ATR2.0 quality filtering + BE (ATR2.0 had 87.5% WR on Gold with only 24 trades)
-  { name: 'ATR2.0-BE: RR2.5|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 2.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
-  { name: 'ATR2.0-BE: RR3|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 2.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
-  { name: 'ATR2.0: NoFilter|RR2.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 2.0, requireConfirmation: false },
-  { name: 'ATR2.0: NoFilter|RR3', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 2.0, requireConfirmation: false },
+  { name: 'ATR2.0-BE: RR2.5|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 2.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'ATR2.0-BE: RR3|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 2.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'ATR2.0: NoFilter|RR2.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 2.0, requireConfirmation: false },
+  { name: 'ATR2.0: NoFilter|RR3', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 2.0, requireConfirmation: false },
 
   // Tiered TP + Breakeven hybrid (lock profits early, let runners run)
   { name: 'TIERED+BE: 50@1R|30@2R|20@3R|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 3, enableBreakeven: true, breakevenTriggerR: 0.75 },
   { name: 'TIERED+BE: 30@1R|30@2R|40@4R|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 4, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 30, tp2RR: 2.0, tp2Percent: 30, tp3RR: 4.0, tp3Percent: 40, moveSlOnTP1: true, beBufferPips: 3, enableBreakeven: true, breakevenTriggerR: 0.75 },
 
   // NoFilter Tiered + Breakeven (best of everything)
-  { name: 'EVERY-TIERED-BE: 50@1R|30@2R|20@3R|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 3, enableBreakeven: true, breakevenTriggerR: 0.75 },
-  { name: 'EVERY-TIERED-BE: 30@1R|30@2R|40@4R|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 4, minOBScore: 0, useKillZones: false, maxDailyDD: 20, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 30, tp2RR: 2.0, tp2Percent: 30, tp3RR: 4.0, tp3Percent: 40, moveSlOnTP1: true, beBufferPips: 3, enableBreakeven: true, breakevenTriggerR: 0.75 },
+  { name: 'EVERY-TIERED-BE: 50@1R|30@2R|20@3R|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 3, enableBreakeven: true, breakevenTriggerR: 0.75 },
+  { name: 'EVERY-TIERED-BE: 30@1R|30@2R|40@4R|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 4, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 30, tp2RR: 2.0, tp2Percent: 30, tp3RR: 4.0, tp3Percent: 40, moveSlOnTP1: true, beBufferPips: 3, enableBreakeven: true, breakevenTriggerR: 0.75 },
 
   // EMA50 trend + BE (solid on Gold and Silver)
   { name: 'OB-TREND-R: EMA50|BE0.75R|RR2.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireTrend: true, emaTrendPeriod: 50, trendStrictness: 'relaxed', enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
@@ -613,6 +620,76 @@ const VARIATIONS = [
   { name: 'OB+FBO: NoFilter|RR2.5', strategy: 'FBO_CLASSIC', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, requireStrongFVG: true, minFVGStrength: 1.0 },
   { name: 'OB+FBO: OB70|RR2|BE0.75R', strategy: 'FBO_CLASSIC', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
   { name: 'OB+FBO-STRUCT: RR2|BE0.75R', strategy: 'FBO_STRUCTURE', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+
+  // ======================================================================
+  // === FEB 2026 EXPANSION: 7 Institutional Short-Term Strategies       ===
+  // === Volume, Session, VWAP, Bollinger, Absorption, Divergence        ===
+  // ======================================================================
+
+  // === VOL_CLIMAX — Volume Climax Reversal ===
+  // Volume spike (>3x 20-period avg) + rejection wick = exhausted stop run
+  { name: 'VOL-CLIMAX: RR2|DD8%', strategy: 'VOL_CLIMAX', fixedRR: 2, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'VOL-CLIMAX: RR2.5|DD8%', strategy: 'VOL_CLIMAX', fixedRR: 2.5, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'VOL-CLIMAX: RR2|BE0.75R', strategy: 'VOL_CLIMAX', fixedRR: 2, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'VOL-CLIMAX: RR2|KZ', strategy: 'VOL_CLIMAX', fixedRR: 2, useKillZones: true, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'VOL-CLIMAX: RR3|DD10%', strategy: 'VOL_CLIMAX', fixedRR: 3, useKillZones: false, maxDailyDD: 10, atrMult: 1.0 },
+  { name: 'VOL-CLIMAX-TIER: 50@1R|30@2R|20@3R', strategy: 'VOL_CLIMAX', fixedRR: 3, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 3 },
+
+  // === SESSION_OPEN — Opening Range Breakout ===
+  // First 15min of London/NY sets bias; breakout from OR trends
+  { name: 'SESS-OPEN: RR2|DD8%', strategy: 'SESSION_OPEN', fixedRR: 2, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'SESS-OPEN: RR2.5|DD8%', strategy: 'SESSION_OPEN', fixedRR: 2.5, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'SESS-OPEN: RR2|BE0.75R', strategy: 'SESSION_OPEN', fixedRR: 2, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'SESS-OPEN: RR3|DD10%', strategy: 'SESSION_OPEN', fixedRR: 3, useKillZones: false, maxDailyDD: 10, atrMult: 1.0 },
+  { name: 'SESS-OPEN: RR2|TIME120', strategy: 'SESSION_OPEN', fixedRR: 2, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTimeExit: true, maxCandleHold: 120 },
+  { name: 'SESS-OPEN-TIER: 50@1R|30@2R|20@3R', strategy: 'SESSION_OPEN', fixedRR: 3, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 3 },
+
+  // === VWAP_REVERT — Tick-VWAP Mean Reversion ===
+  // Price >2σ from session TVWAP reverts as institutional algos rebalance
+  { name: 'VWAP-REVERT: RR2|DD8%', strategy: 'VWAP_REVERT', fixedRR: 2, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'VWAP-REVERT: RR2.5|DD8%', strategy: 'VWAP_REVERT', fixedRR: 2.5, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'VWAP-REVERT: RR2|BE0.75R', strategy: 'VWAP_REVERT', fixedRR: 2, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'VWAP-REVERT: RR2|KZ', strategy: 'VWAP_REVERT', fixedRR: 2, useKillZones: true, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'VWAP-REVERT: RR3|DD10%', strategy: 'VWAP_REVERT', fixedRR: 3, useKillZones: false, maxDailyDD: 10, atrMult: 1.0 },
+  { name: 'VWAP-REVERT-TIER: 50@0.5R|30@1R|20@1.5R', strategy: 'VWAP_REVERT', fixedRR: 1.5, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 0.5, tp1Percent: 50, tp2RR: 1.0, tp2Percent: 30, tp3RR: 1.5, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 2 },
+
+  // === VOL_SQUEEZE — Bollinger Band Squeeze Breakout ===
+  // Volatility compression (BB width bottom 20th pct) precedes explosive moves
+  { name: 'VOL-SQUEEZE: RR2|DD8%', strategy: 'VOL_SQUEEZE', fixedRR: 2, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'VOL-SQUEEZE: RR2.5|DD8%', strategy: 'VOL_SQUEEZE', fixedRR: 2.5, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'VOL-SQUEEZE: RR2|BE0.75R', strategy: 'VOL_SQUEEZE', fixedRR: 2, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'VOL-SQUEEZE: RR3|DD10%', strategy: 'VOL_SQUEEZE', fixedRR: 3, useKillZones: false, maxDailyDD: 10, atrMult: 1.0 },
+  { name: 'VOL-SQUEEZE: RR2|KZ', strategy: 'VOL_SQUEEZE', fixedRR: 2, useKillZones: true, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'VOL-SQUEEZE-TIER: 40@1R|30@2R|30@3R', strategy: 'VOL_SQUEEZE', fixedRR: 3, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 40, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 30, moveSlOnTP1: true, beBufferPips: 3 },
+  { name: 'VOL-SQUEEZE: RR2|TRAIL-ATR1.5', strategy: 'VOL_SQUEEZE', fixedRR: 3, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTrailingStop: true, trailingATRMult: 1.5, trailingActivationR: 1.0 },
+
+  // === ABSORB — Absorption / Stacked Rejection ===
+  // 3+ tests with declining volume then rejection with rising volume
+  { name: 'ABSORB: RR2|DD8%', strategy: 'ABSORB', fixedRR: 2, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'ABSORB: RR2.5|DD8%', strategy: 'ABSORB', fixedRR: 2.5, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'ABSORB: RR2|BE0.75R', strategy: 'ABSORB', fixedRR: 2, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'ABSORB: RR2|KZ', strategy: 'ABSORB', fixedRR: 2, useKillZones: true, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'ABSORB: RR3|DD10%', strategy: 'ABSORB', fixedRR: 3, useKillZones: false, maxDailyDD: 10, atrMult: 1.0 },
+  { name: 'ABSORB-TIER: 50@1R|30@2R|20@3R', strategy: 'ABSORB', fixedRR: 3, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 3 },
+
+  // === RANGE_FADE — Asian Range Fade at London Open ===
+  // London smart money sweeps Asian range to trigger stops, then reverses
+  { name: 'RANGE-FADE: RR2|DD8%', strategy: 'RANGE_FADE', fixedRR: 2, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'RANGE-FADE: RR2.5|DD8%', strategy: 'RANGE_FADE', fixedRR: 2.5, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'RANGE-FADE: RR2|BE0.75R', strategy: 'RANGE_FADE', fixedRR: 2, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'RANGE-FADE: RR3|DD10%', strategy: 'RANGE_FADE', fixedRR: 3, useKillZones: false, maxDailyDD: 10, atrMult: 1.0 },
+  { name: 'RANGE-FADE: RR2|TIME60', strategy: 'RANGE_FADE', fixedRR: 2, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTimeExit: true, maxCandleHold: 60 },
+  { name: 'RANGE-FADE-TIER: 50@1R|30@2R|20@3R', strategy: 'RANGE_FADE', fixedRR: 3, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 3 },
+
+  // === MOM_DIVERGE — Price/Volume Momentum Divergence ===
+  // New price extreme on declining volume = unsustainable move, reversal imminent
+  { name: 'MOM-DIVERGE: RR2.5|DD8%', strategy: 'MOM_DIVERGE', fixedRR: 2.5, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'MOM-DIVERGE: RR3|DD8%', strategy: 'MOM_DIVERGE', fixedRR: 3, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'MOM-DIVERGE: RR2.5|BE0.75R', strategy: 'MOM_DIVERGE', fixedRR: 2.5, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'MOM-DIVERGE: RR2.5|KZ', strategy: 'MOM_DIVERGE', fixedRR: 2.5, useKillZones: true, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'MOM-DIVERGE: RR4|DD10%', strategy: 'MOM_DIVERGE', fixedRR: 4, useKillZones: false, maxDailyDD: 10, atrMult: 1.0 },
+  { name: 'MOM-DIVERGE-TIER: 30@1R|30@2R|40@4R', strategy: 'MOM_DIVERGE', fixedRR: 4, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 30, tp2RR: 2.0, tp2Percent: 30, tp3RR: 4.0, tp3Percent: 40, moveSlOnTP1: true, beBufferPips: 3 },
+  { name: 'MOM-DIVERGE: RR2.5|TRAIL-ATR2', strategy: 'MOM_DIVERGE', fixedRR: 4, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTrailingStop: true, trailingATRMult: 2.0, trailingActivationR: 1.5 },
 ];
 
 // Symbol info for backtesting (including typical spreads)
@@ -715,6 +792,12 @@ class SMCBacktestEngine {
     this.requireEqualHL = config.requireEqualHL || false;
     this.equalHLTolerance = config.equalHLTolerance || 0.002; // 0.2% price tolerance
 
+    // Session state for institutional strategies
+    this.sessionOR = null;    // Opening Range tracking
+    this.tvwapState = null;   // TVWAP accumulation
+    this.bbwHistory = [];     // Bollinger bandwidth history
+    this.asianRange = null;   // Asian session range
+
     // Tracking stats
     this.beMovedCount = 0;
     this.opposingExitCount = 0;
@@ -746,6 +829,12 @@ class SMCBacktestEngine {
       if (progress > lastProgress && totalCandles > 5000) {
         process.stdout.write('.');
         lastProgress = progress;
+      }
+
+      // Update session state for institutional strategies (must run every candle)
+      const needsSessionState = ['VOL_CLIMAX', 'SESSION_OPEN', 'VWAP_REVERT', 'VOL_SQUEEZE', 'ABSORB', 'RANGE_FADE', 'MOM_DIVERGE'].includes(this.strategy);
+      if (needsSessionState) {
+        this.updateSessionState(currentTime, currentCandle);
       }
 
       // Check position exit first
@@ -811,8 +900,9 @@ class SMCBacktestEngine {
         console.log(`    HTF candles available: ${recentHTF.length}`);
         console.log(`    HTF Bias: ${htfBias}`);
       }
-      // Skip HTF bias check for M1_TREND (it determines trend internally from M1 EMAs)
-      if (htfBias === 'NEUTRAL' && this.strategy !== 'M1_TREND') continue;
+      // Skip HTF bias check for strategies that determine trend/direction internally
+      const skipHTFBias = ['M1_TREND', 'VOL_CLIMAX', 'SESSION_OPEN', 'VWAP_REVERT', 'VOL_SQUEEZE', 'ABSORB', 'RANGE_FADE', 'MOM_DIVERGE'];
+      if (htfBias === 'NEUTRAL' && !skipHTFBias.includes(this.strategy)) continue;
 
       // EMA trend filter: require MTF EMA trend to agree with HTF bias
       if (this.requireTrend && htfBias !== 'NEUTRAL') {
@@ -969,6 +1059,27 @@ class SMCBacktestEngine {
           break;
         case 'CHOCH':
           signal = this.getCHoCHReversalSignal(currentPrice, currentCandle, recentLTF, htfBias, atr, symbolInfo);
+          break;
+        case 'VOL_CLIMAX':
+          signal = this.getVolClimaxSignal(currentPrice, currentCandle, recentLTF, htfBias, atr, symbolInfo);
+          break;
+        case 'SESSION_OPEN':
+          signal = this.getSessionOpenSignal(currentPrice, currentCandle, recentLTF, htfBias, atr, symbolInfo, currentTime);
+          break;
+        case 'VWAP_REVERT':
+          signal = this.getVWAPRevertSignal(currentPrice, currentCandle, recentLTF, htfBias, atr, symbolInfo, currentTime);
+          break;
+        case 'VOL_SQUEEZE':
+          signal = this.getVolatilitySqueezeSignal(currentPrice, currentCandle, recentLTF, recentMTF, htfBias, atr, symbolInfo);
+          break;
+        case 'ABSORB':
+          signal = this.getAbsorptionSignal(currentPrice, currentCandle, recentLTF, htfBias, atr, symbolInfo);
+          break;
+        case 'RANGE_FADE':
+          signal = this.getRangeFadeSignal(currentPrice, currentCandle, recentLTF, htfBias, atr, symbolInfo, currentTime);
+          break;
+        case 'MOM_DIVERGE':
+          signal = this.getMomentumDivergenceSignal(currentPrice, currentCandle, recentLTF, recentMTF, htfBias, atr, symbolInfo);
           break;
         default:
           signal = this.getOrderBlockSignal(currentPrice, currentCandle, recentLTF, htfBias, symbolInfo);
@@ -1137,6 +1248,11 @@ class SMCBacktestEngine {
     this.tp2Hits = 0;
     this.tp3Hits = 0;
     this.atrHistory = []; // Track ATR values for dynamic RR median calculation
+    // Session state reset
+    this.sessionOR = null;
+    this.tvwapState = null;
+    this.bbwHistory = [];
+    this.asianRange = null;
   }
 
   /**
@@ -2512,6 +2628,621 @@ class SMCBacktestEngine {
             }
           }
         }
+      }
+    }
+
+    return null;
+  }
+
+  // ============================================
+  // Volume & Session Helper Methods
+  // ============================================
+
+  /**
+   * Calculate Simple Moving Average of tick volume
+   */
+  calculateVolumeSMA(candles, period = 20) {
+    if (candles.length < period) return 0;
+    const recent = candles.slice(-period);
+    return recent.reduce((sum, c) => sum + (c.volume || 0), 0) / period;
+  }
+
+  /**
+   * Calculate Tick-VWAP (Volume Weighted Average Price)
+   * Reset at session boundaries
+   */
+  calculateTVWAP(candles) {
+    if (candles.length === 0) return { vwap: 0, stdDev: 0 };
+    let cumulPV = 0;
+    let cumulV = 0;
+    const vwapValues = [];
+
+    for (const c of candles) {
+      const tp = (c.high + c.low + c.close) / 3;
+      const vol = c.volume || 1; // fallback to 1 if no volume
+      cumulPV += tp * vol;
+      cumulV += vol;
+      if (cumulV > 0) vwapValues.push(cumulPV / cumulV);
+    }
+
+    const vwap = cumulV > 0 ? cumulPV / cumulV : candles[candles.length - 1].close;
+
+    // Calculate standard deviation of price from VWAP
+    if (vwapValues.length < 2) return { vwap, stdDev: 0 };
+    const prices = candles.map(c => (c.high + c.low + c.close) / 3);
+    const deviations = prices.map((p, i) => p - (vwapValues[i] || vwap));
+    const meanDev = deviations.reduce((s, d) => s + d, 0) / deviations.length;
+    const variance = deviations.reduce((s, d) => s + (d - meanDev) ** 2, 0) / deviations.length;
+    const stdDev = Math.sqrt(variance);
+
+    return { vwap, stdDev };
+  }
+
+  /**
+   * Calculate Bollinger Bands
+   */
+  calculateBollingerBands(candles, period = 20, stdMult = 2) {
+    if (candles.length < period) return null;
+    const closes = candles.slice(-period).map(c => c.close);
+    const middle = closes.reduce((s, v) => s + v, 0) / period;
+    const variance = closes.reduce((s, v) => s + (v - middle) ** 2, 0) / period;
+    const stdDev = Math.sqrt(variance);
+    const upper = middle + stdDev * stdMult;
+    const lower = middle - stdDev * stdMult;
+    const bandwidth = upper - lower;
+    return { upper, middle, lower, bandwidth };
+  }
+
+  /**
+   * Calculate percentile of an array
+   */
+  calculatePercentile(values, pct) {
+    if (values.length === 0) return 0;
+    const sorted = [...values].sort((a, b) => a - b);
+    const idx = Math.floor(sorted.length * pct / 100);
+    return sorted[Math.min(idx, sorted.length - 1)];
+  }
+
+  /**
+   * Detect absorption zone: 3+ tests of a level with declining volume
+   */
+  detectAbsorptionZone(candles, atr) {
+    if (candles.length < 10) return null;
+
+    const recent = candles.slice(-20);
+    const tolerance = atr * 0.3;
+
+    // Check for support zone (repeated lows)
+    const lows = recent.map((c, i) => ({ price: c.low, volume: c.volume || 0, index: i }));
+    // Check for resistance zone (repeated highs)
+    const highs = recent.map((c, i) => ({ price: c.high, volume: c.volume || 0, index: i }));
+
+    // Find clusters of similar lows (support)
+    for (let i = 0; i < lows.length - 3; i++) {
+      const basePrice = lows[i].price;
+      const touches = lows.filter(l => Math.abs(l.price - basePrice) < tolerance && l.index > i);
+      if (touches.length >= 2) { // 3+ total tests (including base)
+        // Check declining volume on touches
+        const touchVolumes = [lows[i], ...touches].map(t => t.volume);
+        let declining = true;
+        for (let j = 1; j < touchVolumes.length; j++) {
+          if (touchVolumes[j] > touchVolumes[j - 1] * 1.1) { declining = false; break; }
+        }
+        if (declining) {
+          const lastTouch = touches[touches.length - 1];
+          return { type: 'SUPPORT', price: basePrice, touches: touches.length + 1, lastVolume: lastTouch.volume, avgVolume: touchVolumes.reduce((s, v) => s + v, 0) / touchVolumes.length };
+        }
+      }
+    }
+
+    // Find clusters of similar highs (resistance)
+    for (let i = 0; i < highs.length - 3; i++) {
+      const basePrice = highs[i].price;
+      const touches = highs.filter(h => Math.abs(h.price - basePrice) < tolerance && h.index > i);
+      if (touches.length >= 2) {
+        const touchVolumes = [highs[i], ...touches].map(t => t.volume);
+        let declining = true;
+        for (let j = 1; j < touchVolumes.length; j++) {
+          if (touchVolumes[j] > touchVolumes[j - 1] * 1.1) { declining = false; break; }
+        }
+        if (declining) {
+          const lastTouch = touches[touches.length - 1];
+          return { type: 'RESISTANCE', price: basePrice, touches: touches.length + 1, lastVolume: lastTouch.volume, avgVolume: touchVolumes.reduce((s, v) => s + v, 0) / touchVolumes.length };
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Detect volume divergence between price swings and volume
+   * Returns { type: 'BULLISH' | 'BEARISH', swing1, swing2 } or null
+   */
+  detectVolumeDivergence(candles, swingLookback = 5) {
+    if (candles.length < swingLookback * 3) return null;
+
+    const swings = this.findSwingPoints(candles, swingLookback);
+    const highs = swings.filter(s => s.type === 'HIGH');
+    const lows = swings.filter(s => s.type === 'LOW');
+
+    // Bearish divergence: higher high with lower volume
+    if (highs.length >= 2) {
+      const prev = highs[highs.length - 2];
+      const last = highs[highs.length - 1];
+      if (last.price > prev.price) {
+        // Sum volume around each swing point
+        const prevVolIdx = candles.findIndex(c => c.high === prev.price);
+        const lastVolIdx = candles.findIndex(c => c.high === last.price);
+        if (prevVolIdx >= 0 && lastVolIdx >= 0) {
+          const prevVol = candles.slice(Math.max(0, prevVolIdx - 2), prevVolIdx + 3).reduce((s, c) => s + (c.volume || 0), 0);
+          const lastVol = candles.slice(Math.max(0, lastVolIdx - 2), lastVolIdx + 3).reduce((s, c) => s + (c.volume || 0), 0);
+          if (lastVol < prevVol * 0.8) {
+            return { type: 'BEARISH', swing1: prev, swing2: last };
+          }
+        }
+      }
+    }
+
+    // Bullish divergence: lower low with lower volume
+    if (lows.length >= 2) {
+      const prev = lows[lows.length - 2];
+      const last = lows[lows.length - 1];
+      if (last.price < prev.price) {
+        const prevVolIdx = candles.findIndex(c => c.low === prev.price);
+        const lastVolIdx = candles.findIndex(c => c.low === last.price);
+        if (prevVolIdx >= 0 && lastVolIdx >= 0) {
+          const prevVol = candles.slice(Math.max(0, prevVolIdx - 2), prevVolIdx + 3).reduce((s, c) => s + (c.volume || 0), 0);
+          const lastVol = candles.slice(Math.max(0, lastVolIdx - 2), lastVolIdx + 3).reduce((s, c) => s + (c.volume || 0), 0);
+          if (lastVol < prevVol * 0.8) {
+            return { type: 'BULLISH', swing1: prev, swing2: last };
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Update session state (called each candle for session-aware strategies)
+   * Tracks Opening Ranges, Asian range, TVWAP accumulation
+   */
+  updateSessionState(currentTime, currentCandle) {
+    const hour = currentTime.getUTCHours();
+    const minute = currentTime.getUTCMinutes();
+
+    // === Asian Range tracking (00:00-07:00 UTC) ===
+    const dateKey = currentTime.toISOString().split('T')[0];
+    if (!this.asianRange || this.asianRange.date !== dateKey) {
+      this.asianRange = { high: -Infinity, low: Infinity, valid: false, date: dateKey };
+    }
+    if (hour >= 0 && hour < 7) {
+      this.asianRange.high = Math.max(this.asianRange.high, currentCandle.high);
+      this.asianRange.low = Math.min(this.asianRange.low, currentCandle.low);
+      this.asianRange.valid = this.asianRange.high > this.asianRange.low;
+    }
+
+    // === London Opening Range (07:00-07:15 UTC) ===
+    if (!this.sessionOR) {
+      this.sessionOR = {
+        londonHigh: 0, londonLow: Infinity, londonDone: false, londonDate: null,
+        nyHigh: 0, nyLow: Infinity, nyDone: false, nyDate: null,
+      };
+    }
+    if (this.sessionOR.londonDate !== dateKey) {
+      this.sessionOR.londonHigh = 0;
+      this.sessionOR.londonLow = Infinity;
+      this.sessionOR.londonDone = false;
+      this.sessionOR.londonDate = dateKey;
+    }
+    if (hour === 7 && minute < 15) {
+      this.sessionOR.londonHigh = Math.max(this.sessionOR.londonHigh, currentCandle.high);
+      this.sessionOR.londonLow = Math.min(this.sessionOR.londonLow, currentCandle.low);
+    } else if (hour === 7 && minute >= 15 && !this.sessionOR.londonDone) {
+      this.sessionOR.londonDone = true;
+    }
+
+    // === NY Opening Range (12:00-12:15 UTC) ===
+    if (this.sessionOR.nyDate !== dateKey) {
+      this.sessionOR.nyHigh = 0;
+      this.sessionOR.nyLow = Infinity;
+      this.sessionOR.nyDone = false;
+      this.sessionOR.nyDate = dateKey;
+    }
+    if (hour === 12 && minute < 15) {
+      this.sessionOR.nyHigh = Math.max(this.sessionOR.nyHigh, currentCandle.high);
+      this.sessionOR.nyLow = Math.min(this.sessionOR.nyLow, currentCandle.low);
+    } else if (hour === 12 && minute >= 15 && !this.sessionOR.nyDone) {
+      this.sessionOR.nyDone = true;
+    }
+
+    // === TVWAP accumulation (reset at 00:00 UTC) ===
+    if (!this.tvwapState || this.tvwapState.date !== dateKey) {
+      this.tvwapState = { cumulPV: 0, cumulV: 0, date: dateKey };
+    }
+    const tp = (currentCandle.high + currentCandle.low + currentCandle.close) / 3;
+    const vol = currentCandle.volume || 1;
+    this.tvwapState.cumulPV += tp * vol;
+    this.tvwapState.cumulV += vol;
+
+    // === Bollinger Bandwidth history tracking ===
+    // Updated from MTF in signal method, not per LTF candle
+  }
+
+  // ============================================
+  // Volume Climax Reversal Signal
+  // ============================================
+  getVolClimaxSignal(currentPrice, currentCandle, recentLTF, htfBias, atr, symbolInfo) {
+    if (recentLTF.length < 25) return null;
+
+    const recent = recentLTF.slice(-25);
+    const volSMA = this.calculateVolumeSMA(recent, 20);
+    if (volSMA === 0) return null;
+
+    const currentVol = currentCandle.volume || 0;
+    const range = currentCandle.high - currentCandle.low;
+    if (range === 0) return null;
+
+    // Volume must be >= 3x the 20-period average
+    if (currentVol < volSMA * 3) return null;
+
+    // Wick must be >= 60% of range (rejection)
+    const body = Math.abs(currentCandle.close - currentCandle.open);
+    const upperWick = currentCandle.high - Math.max(currentCandle.open, currentCandle.close);
+    const lowerWick = Math.min(currentCandle.open, currentCandle.close) - currentCandle.low;
+    const maxWick = Math.max(upperWick, lowerWick);
+    if (maxWick < range * 0.6) return null;
+
+    // Preceded by 3-candle directional move
+    const prev3 = recent.slice(-4, -1);
+    if (prev3.length < 3) return null;
+
+    const isBearishMove = prev3.every((c, i) => i === 0 || c.close < prev3[i - 1].close);
+    const isBullishMove = prev3.every((c, i) => i === 0 || c.close > prev3[i - 1].close);
+
+    // Bullish climax reversal: bearish move + long lower wick (selling exhaustion)
+    if (isBearishMove && lowerWick >= range * 0.6) {
+      const entry = currentPrice;
+      const sl = currentCandle.low - atr * 0.3;
+      const risk = entry - sl;
+      if (risk > 0) {
+        const tp = entry + risk * this.config.fixedRR;
+        return { direction: 'BUY', entry, sl, tp };
+      }
+    }
+
+    // Bearish climax reversal: bullish move + long upper wick (buying exhaustion)
+    if (isBullishMove && upperWick >= range * 0.6) {
+      const entry = currentPrice;
+      const sl = currentCandle.high + atr * 0.3;
+      const risk = sl - entry;
+      if (risk > 0) {
+        const tp = entry - risk * this.config.fixedRR;
+        return { direction: 'SELL', entry, sl, tp };
+      }
+    }
+
+    return null;
+  }
+
+  // ============================================
+  // Session Opening Range Breakout Signal
+  // ============================================
+  getSessionOpenSignal(currentPrice, currentCandle, recentLTF, htfBias, atr, symbolInfo, currentTime) {
+    if (!this.sessionOR) return null;
+
+    const hour = currentTime.getUTCHours();
+    const minute = currentTime.getUTCMinutes();
+
+    // Determine which OR to use
+    let orHigh = 0, orLow = Infinity, orDone = false;
+
+    // London OR: trade 07:15 - 09:00
+    if (this.sessionOR.londonDone && hour >= 7 && (hour < 9 || (hour === 9 && minute === 0))) {
+      orHigh = this.sessionOR.londonHigh;
+      orLow = this.sessionOR.londonLow;
+      orDone = true;
+    }
+    // NY OR: trade 12:15 - 14:00
+    else if (this.sessionOR.nyDone && hour >= 12 && (hour < 14 || (hour === 14 && minute === 0))) {
+      orHigh = this.sessionOR.nyHigh;
+      orLow = this.sessionOR.nyLow;
+      orDone = true;
+    }
+
+    if (!orDone || orHigh <= orLow) return null;
+
+    const orSize = orHigh - orLow;
+    // Filter: OR size must be 0.5-2.0x H1 ATR
+    if (orSize < atr * 0.5 || orSize > atr * 2.0) return null;
+
+    // Breakout candle body > 40% of range
+    const body = Math.abs(currentCandle.close - currentCandle.open);
+    const range = currentCandle.high - currentCandle.low;
+    if (range === 0 || body < range * 0.4) return null;
+
+    // Bullish breakout: close above OR high
+    if (currentCandle.close > orHigh && this.isBullishCandle(currentCandle)) {
+      const entry = currentPrice;
+      const sl = orLow - atr * 0.2;
+      const risk = entry - sl;
+      if (risk > 0) {
+        const tp = entry + risk * this.config.fixedRR;
+        return { direction: 'BUY', entry, sl, tp };
+      }
+    }
+
+    // Bearish breakout: close below OR low
+    if (currentCandle.close < orLow && this.isBearishCandle(currentCandle)) {
+      const entry = currentPrice;
+      const sl = orHigh + atr * 0.2;
+      const risk = sl - entry;
+      if (risk > 0) {
+        const tp = entry - risk * this.config.fixedRR;
+        return { direction: 'SELL', entry, sl, tp };
+      }
+    }
+
+    return null;
+  }
+
+  // ============================================
+  // VWAP Mean Reversion Signal
+  // ============================================
+  getVWAPRevertSignal(currentPrice, currentCandle, recentLTF, htfBias, atr, symbolInfo, currentTime) {
+    if (!this.tvwapState || this.tvwapState.cumulV === 0) return null;
+
+    const hour = currentTime.getUTCHours();
+    // Session must be running >= 30 min (at least after 00:30 UTC)
+    if (hour === 0 && currentTime.getUTCMinutes() < 30) return null;
+
+    // Calculate current TVWAP
+    const tvwap = this.tvwapState.cumulPV / this.tvwapState.cumulV;
+
+    // Need enough candles for stddev calculation
+    if (recentLTF.length < 20) return null;
+
+    // Calculate standard deviation of recent prices from TVWAP
+    const recentPrices = recentLTF.slice(-20).map(c => (c.high + c.low + c.close) / 3);
+    const deviations = recentPrices.map(p => p - tvwap);
+    const meanDev = deviations.reduce((s, d) => s + d, 0) / deviations.length;
+    const variance = deviations.reduce((s, d) => s + (d - meanDev) ** 2, 0) / deviations.length;
+    const stdDev = Math.sqrt(variance);
+    if (stdDev === 0) return null;
+
+    const deviationsFromVWAP = (currentPrice - tvwap) / stdDev;
+
+    // Price must be >2σ from TVWAP
+    if (Math.abs(deviationsFromVWAP) < 2.0) return null;
+
+    // Need a momentum candle back toward TVWAP (confirmation)
+    const body = Math.abs(currentCandle.close - currentCandle.open);
+    const range = currentCandle.high - currentCandle.low;
+    if (range === 0 || body < range * 0.3) return null;
+
+    // Bullish reversion: price below -2σ, candle closing back toward VWAP
+    if (deviationsFromVWAP < -2.0 && this.isBullishCandle(currentCandle)) {
+      const entry = currentPrice;
+      const recentLows = recentLTF.slice(-5).map(c => c.low);
+      const sl = Math.min(...recentLows) - atr * 0.5;
+      const risk = entry - sl;
+      if (risk > 0) {
+        // TP is the VWAP itself (mean reversion target)
+        const tp = tvwap;
+        const rr = (tp - entry) / risk;
+        if (rr >= 1.0) { // Only take if at least 1R
+          return { direction: 'BUY', entry, sl, tp };
+        }
+      }
+    }
+
+    // Bearish reversion: price above +2σ, candle closing back toward VWAP
+    if (deviationsFromVWAP > 2.0 && this.isBearishCandle(currentCandle)) {
+      const entry = currentPrice;
+      const recentHighs = recentLTF.slice(-5).map(c => c.high);
+      const sl = Math.max(...recentHighs) + atr * 0.5;
+      const risk = sl - entry;
+      if (risk > 0) {
+        const tp = tvwap;
+        const rr = (entry - tp) / risk;
+        if (rr >= 1.0) {
+          return { direction: 'SELL', entry, sl, tp };
+        }
+      }
+    }
+
+    return null;
+  }
+
+  // ============================================
+  // Volatility Squeeze Breakout Signal
+  // ============================================
+  getVolatilitySqueezeSignal(currentPrice, currentCandle, recentLTF, recentMTF, htfBias, atr, symbolInfo) {
+    if (recentMTF.length < 30) return null;
+
+    // Calculate Bollinger Bands on MTF (M15)
+    const bb = this.calculateBollingerBands(recentMTF, 20, 2);
+    if (!bb) return null;
+
+    // Track BBW history
+    if (!this.bbwHistory) this.bbwHistory = [];
+    this.bbwHistory.push(bb.bandwidth);
+    if (this.bbwHistory.length > 100) this.bbwHistory = this.bbwHistory.slice(-100);
+
+    // Need enough history to calculate percentile
+    if (this.bbwHistory.length < 20) return null;
+
+    // BBW must be in bottom 20th percentile (squeeze)
+    const threshold = this.calculatePercentile(this.bbwHistory, 20);
+    if (bb.bandwidth > threshold) return null;
+
+    // M1 candle must close outside the band
+    const range = currentCandle.high - currentCandle.low;
+    if (range === 0) return null;
+
+    // Bullish squeeze breakout: close above upper BB + HTF bias agrees
+    if (currentCandle.close > bb.upper && (htfBias === 'BULLISH' || htfBias === 'NEUTRAL')) {
+      const entry = currentPrice;
+      const sl = bb.lower - atr * 0.2;
+      const risk = entry - sl;
+      if (risk > 0) {
+        const tp = entry + risk * this.config.fixedRR;
+        return { direction: 'BUY', entry, sl, tp };
+      }
+    }
+
+    // Bearish squeeze breakout: close below lower BB + HTF bias agrees
+    if (currentCandle.close < bb.lower && (htfBias === 'BEARISH' || htfBias === 'NEUTRAL')) {
+      const entry = currentPrice;
+      const sl = bb.upper + atr * 0.2;
+      const risk = sl - entry;
+      if (risk > 0) {
+        const tp = entry - risk * this.config.fixedRR;
+        return { direction: 'SELL', entry, sl, tp };
+      }
+    }
+
+    return null;
+  }
+
+  // ============================================
+  // Absorption / Stacked Rejection Signal
+  // ============================================
+  getAbsorptionSignal(currentPrice, currentCandle, recentLTF, htfBias, atr, symbolInfo) {
+    if (recentLTF.length < 20) return null;
+
+    const zone = this.detectAbsorptionZone(recentLTF, atr);
+    if (!zone) return null;
+
+    // Final candle must reject with volume > 1.2x average of touches
+    const currentVol = currentCandle.volume || 0;
+    if (currentVol < zone.avgVolume * 1.2) return null;
+
+    // Check for rejection candle pattern
+    const body = Math.abs(currentCandle.close - currentCandle.open);
+    const range = currentCandle.high - currentCandle.low;
+    if (range === 0 || body < range * 0.3) return null;
+
+    // Bullish absorption at support: price tests support zone, rejects up
+    if (zone.type === 'SUPPORT' && Math.abs(currentCandle.low - zone.price) < atr * 0.3) {
+      if (this.isBullishCandle(currentCandle)) {
+        const entry = currentPrice;
+        const sl = zone.price - atr * 0.3;
+        const risk = entry - sl;
+        if (risk > 0) {
+          const tp = entry + risk * this.config.fixedRR;
+          return { direction: 'BUY', entry, sl, tp };
+        }
+      }
+    }
+
+    // Bearish absorption at resistance: price tests resistance zone, rejects down
+    if (zone.type === 'RESISTANCE' && Math.abs(currentCandle.high - zone.price) < atr * 0.3) {
+      if (this.isBearishCandle(currentCandle)) {
+        const entry = currentPrice;
+        const sl = zone.price + atr * 0.3;
+        const risk = sl - entry;
+        if (risk > 0) {
+          const tp = entry - risk * this.config.fixedRR;
+          return { direction: 'SELL', entry, sl, tp };
+        }
+      }
+    }
+
+    return null;
+  }
+
+  // ============================================
+  // Asian Range Fade at London Open Signal
+  // ============================================
+  getRangeFadeSignal(currentPrice, currentCandle, recentLTF, htfBias, atr, symbolInfo, currentTime) {
+    if (!this.asianRange || !this.asianRange.valid) return null;
+
+    const hour = currentTime.getUTCHours();
+    // Only trade during 07:00-08:00 UTC (London open)
+    if (hour < 7 || hour >= 8) return null;
+
+    const asianHigh = this.asianRange.high;
+    const asianLow = this.asianRange.low;
+    const asianRange = asianHigh - asianLow;
+
+    // Filter: Asian range < 1.5x H1 ATR
+    if (asianRange >= atr * 1.5) return null;
+    if (asianRange === 0) return null;
+
+    const range = currentCandle.high - currentCandle.low;
+    if (range === 0) return null;
+
+    // Bullish fade: wick below Asian low + close back inside + next candle confirms
+    if (currentCandle.low < asianLow && currentCandle.close > asianLow) {
+      // Wick swept below Asian low
+      if (this.isBullishCandle(currentCandle)) {
+        const entry = currentPrice;
+        const sl = currentCandle.low - atr * 0.2;
+        const risk = entry - sl;
+        if (risk > 0) {
+          // TP: opposite side of Asian range (minimum 1.5R)
+          const tpTarget = asianHigh;
+          const rr = (tpTarget - entry) / risk;
+          const tp = rr >= 1.5 ? tpTarget : entry + risk * this.config.fixedRR;
+          return { direction: 'BUY', entry, sl, tp };
+        }
+      }
+    }
+
+    // Bearish fade: wick above Asian high + close back inside
+    if (currentCandle.high > asianHigh && currentCandle.close < asianHigh) {
+      if (this.isBearishCandle(currentCandle)) {
+        const entry = currentPrice;
+        const sl = currentCandle.high + atr * 0.2;
+        const risk = sl - entry;
+        if (risk > 0) {
+          const tpTarget = asianLow;
+          const rr = (entry - tpTarget) / risk;
+          const tp = rr >= 1.5 ? tpTarget : entry - risk * this.config.fixedRR;
+          return { direction: 'SELL', entry, sl, tp };
+        }
+      }
+    }
+
+    return null;
+  }
+
+  // ============================================
+  // Price/Volume Momentum Divergence Signal
+  // ============================================
+  getMomentumDivergenceSignal(currentPrice, currentCandle, recentLTF, recentMTF, htfBias, atr, symbolInfo) {
+    if (recentMTF.length < 15) return null;
+
+    // Detect divergence on M15 timeframe
+    const divergence = this.detectVolumeDivergence(recentMTF, 3);
+    if (!divergence) return null;
+
+    // Enter on M1 confirmation candle in reversal direction
+    const body = Math.abs(currentCandle.close - currentCandle.open);
+    const range = currentCandle.high - currentCandle.low;
+    if (range === 0 || body < range * 0.3) return null;
+
+    // Bullish divergence: lower low on declining volume -> buy
+    if (divergence.type === 'BULLISH' && this.isBullishCandle(currentCandle)) {
+      const entry = currentPrice;
+      const sl = divergence.swing2.price - atr * 0.3;
+      const risk = entry - sl;
+      if (risk > 0) {
+        const tp = entry + risk * this.config.fixedRR;
+        return { direction: 'BUY', entry, sl, tp };
+      }
+    }
+
+    // Bearish divergence: higher high on declining volume -> sell
+    if (divergence.type === 'BEARISH' && this.isBearishCandle(currentCandle)) {
+      const entry = currentPrice;
+      const sl = divergence.swing2.price + atr * 0.3;
+      const risk = sl - entry;
+      if (risk > 0) {
+        const tp = entry - risk * this.config.fixedRR;
+        return { direction: 'SELL', entry, sl, tp };
       }
     }
 
