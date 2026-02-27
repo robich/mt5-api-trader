@@ -741,13 +741,12 @@ export class TradingBot {
       const mtfTimeframe = symbolTf.mtf;
       const ltfTimeframe = symbolTf.ltf;
 
-      // Fetch candle data for all timeframes
-      // These calls read from terminalState which is kept in sync by the streaming connection
-      const [htfCandles, mtfCandles, ltfCandles] = await Promise.all([
-        metaApiClient.getCandles(symbol, htfTimeframe, 200),
-        metaApiClient.getCandles(symbol, mtfTimeframe, 300),
-        metaApiClient.getCandles(symbol, ltfTimeframe, 200),
-      ]);
+      // Fetch candle data for all timeframes sequentially
+      // MetaAPI limits to 5 concurrent requests per account — parallel fetches
+      // across multiple symbols easily exceed that, causing 429 errors.
+      const htfCandles = await metaApiClient.getCandles(symbol, htfTimeframe, 200);
+      const mtfCandles = await metaApiClient.getCandles(symbol, mtfTimeframe, 300);
+      const ltfCandles = await metaApiClient.getCandles(symbol, ltfTimeframe, 200);
 
       if (!htfCandles.length || !mtfCandles.length || !ltfCandles.length) {
         console.log(`[Bot] Insufficient data for ${symbol}`);
