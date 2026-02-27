@@ -58,7 +58,7 @@ app.prepare().then(() => {
         }
       }, 5000);
 
-      // Auto-start Telegram listener after 15s — needs extra delay so the old
+      // Auto-start Telegram listener after 60s — needs extra delay so the old
       // process's session is fully released on Telegram's servers.
       // This runs independently of the bot.
       setTimeout(async () => {
@@ -81,7 +81,7 @@ app.prepare().then(() => {
         } catch (err) {
           console.error('[Auto-Start] Failed to start Telegram listener:', err.message);
         }
-      }, 15000);
+      }, 60000);
     }
   });
 
