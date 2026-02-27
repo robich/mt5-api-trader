@@ -239,6 +239,7 @@ export default function TradeCalculator() {
   const [symbol, setSymbol] = useState('XAUUSD.s');
   const [direction, setDirection] = useState<'BUY' | 'SELL'>('BUY');
   const [lotSize, setLotSize] = useState('0.01');
+  const [lotSizeManual, setLotSizeManual] = useState(false); // true when user edited lot size by hand
   const [riskMode, setRiskMode] = useState<'percent' | 'amount'>('percent');
   const [riskPercent, setRiskPercent] = useState(1); // Risk percentage slider value
   const [riskAmount, setRiskAmount] = useState(''); // Risk amount in dollars
@@ -528,8 +529,9 @@ export default function TradeCalculator() {
     setLotSize(result.lotSize.toFixed(2));
   }, [symbolInfo, entryPrice, stopLoss, customBalance, accountInfo]);
 
-  // Auto-update lot size when risk changes
+  // Auto-update lot size when risk changes — but not if the user manually typed a lot size
   useEffect(() => {
+    if (lotSizeManual) return;
     if (riskMode === 'percent' && riskPercent > 0) {
       handleCalculateByRiskPercent(riskPercent);
     } else if (riskMode === 'amount' && riskAmount) {
@@ -538,7 +540,7 @@ export default function TradeCalculator() {
         handleCalculateByRiskAmount(amount);
       }
     }
-  }, [riskMode, riskPercent, riskAmount, handleCalculateByRiskPercent, handleCalculateByRiskAmount]);
+  }, [riskMode, riskPercent, riskAmount, handleCalculateByRiskPercent, handleCalculateByRiskAmount, lotSizeManual]);
 
   // Handle price changes from the interactive chart
   const handleChartPriceChange = (type: 'entry' | 'sl' | 'tp', price: number) => {
@@ -695,7 +697,7 @@ export default function TradeCalculator() {
                   <Button
                     size="sm"
                     variant={riskMode === 'percent' ? 'default' : 'outline'}
-                    onClick={() => setRiskMode('percent')}
+                    onClick={() => { setRiskMode('percent'); setLotSizeManual(false); }}
                     className="h-7 text-xs px-3"
                   >
                     % of Balance
@@ -703,7 +705,7 @@ export default function TradeCalculator() {
                   <Button
                     size="sm"
                     variant={riskMode === 'amount' ? 'default' : 'outline'}
-                    onClick={() => setRiskMode('amount')}
+                    onClick={() => { setRiskMode('amount'); setLotSizeManual(false); }}
                     className="h-7 text-xs px-3"
                   >
                     $ Amount
@@ -726,7 +728,7 @@ export default function TradeCalculator() {
                     max={50}
                     step={0.1}
                     value={[riskPercent]}
-                    onValueChange={(values) => setRiskPercent(values[0])}
+                    onValueChange={(values) => { setRiskPercent(values[0]); setLotSizeManual(false); }}
                     className="w-full"
                   />
                   <div className="flex justify-between text-xs text-muted-foreground">
@@ -745,7 +747,7 @@ export default function TradeCalculator() {
                       step="10"
                       min="1"
                       value={riskAmount}
-                      onChange={(e) => setRiskAmount(e.target.value)}
+                      onChange={(e) => { setRiskAmount(e.target.value); setLotSizeManual(false); }}
                       placeholder="e.g., 100"
                     />
                     <div className="flex gap-1 flex-wrap">
@@ -754,7 +756,7 @@ export default function TradeCalculator() {
                           key={amt}
                           size="sm"
                           variant={riskAmount === String(amt) ? 'default' : 'outline'}
-                          onClick={() => setRiskAmount(String(amt))}
+                          onClick={() => { setRiskAmount(String(amt)); setLotSizeManual(false); }}
                           className="h-6 text-xs px-2"
                         >
                           ${amt}
@@ -782,14 +784,19 @@ export default function TradeCalculator() {
                 step="0.01"
                 min="0.01"
                 value={lotSize}
-                onChange={(e) => setLotSize(e.target.value)}
+                onChange={(e) => {
+                  setLotSize(e.target.value);
+                  setLotSizeManual(true);
+                }}
                 className="font-semibold"
                 placeholder="0.01"
               />
               <p className="text-xs text-muted-foreground">
-                {riskMode === 'percent'
-                  ? `Auto-calculated from ${riskPercent.toFixed(1)}% risk — or edit manually`
-                  : `Auto-calculated from $${riskAmount || '0'} risk — or edit manually`}
+                {lotSizeManual
+                  ? 'Manual — change risk % to auto-calculate again'
+                  : riskMode === 'percent'
+                    ? `Auto-calculated from ${riskPercent.toFixed(1)}% risk — or edit manually`
+                    : `Auto-calculated from $${riskAmount || '0'} risk — or edit manually`}
               </p>
             </div>
 
