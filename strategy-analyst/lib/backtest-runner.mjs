@@ -2,10 +2,10 @@ import { execSync } from 'child_process';
 import { join } from 'path';
 
 const SYMBOLS = (process.env.BACKTEST_SYMBOLS || 'BTCUSD,XAUUSD.s,XAGUSD.s').split(',');
-const BACKTEST_DAYS = parseInt(process.env.BACKTEST_DAYS || '30');
+const BACKTEST_DAYS = parseInt(process.env.BACKTEST_DAYS || '7');
 
-// Limit backtest variations for low-memory environments (0 = all variations)
-const BACKTEST_TOP_N = parseInt(process.env.BACKTEST_TOP_N || '30');
+// Run all strategy variations (0 = all). Previously limited to 30 for low-memory envs.
+const BACKTEST_TOP_N = parseInt(process.env.BACKTEST_TOP_N || '0');
 
 // Memory limit for backtest subprocess (must fit alongside parent in container RAM)
 const BACKTEST_MAX_MEMORY = process.env.BACKTEST_MAX_MEMORY || '256';
@@ -32,9 +32,9 @@ export async function runBacktests(repoDir) {
         {
           cwd: repoDir,
           encoding: 'utf-8',
-          timeout: 300_000, // 5 min per symbol (reduced from 10 — fewer variations)
+          timeout: 600_000, // 10 min per symbol (all 141 variations)
           env: { ...process.env, NODE_ENV: 'production' },
-          maxBuffer: 5 * 1024 * 1024, // 5MB (reduced from 10MB — fewer variations = less output)
+          maxBuffer: 10 * 1024 * 1024, // 10MB (all variations produce more output)
         }
       );
       results[symbol] = parseBacktestOutput(output, symbol);
