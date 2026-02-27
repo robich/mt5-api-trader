@@ -3971,7 +3971,8 @@ function printTable(results, periodInfo = null) {
   }
   console.log('='.repeat(lineWidth));
 
-  let header = 'Strategy'.padEnd(30) +
+  const nameColWidth = 44;
+  let header = 'Strategy'.padEnd(nameColWidth) +
     'Trades'.padStart(8) +
     'Win%'.padStart(8) +
     'PF'.padStart(8) +
@@ -3995,7 +3996,7 @@ function printTable(results, periodInfo = null) {
   for (const r of sorted) {
     const color = r.totalPnl >= 0 ? '\x1b[32m' : '\x1b[31m';
     const reset = '\x1b[0m';
-    let row = r.name.substring(0, 29).padEnd(30) +
+    let row = r.name.substring(0, nameColWidth - 1).padEnd(nameColWidth) +
       r.totalTrades.toString().padStart(8) +
       r.winRate.toFixed(1).padStart(8) +
       r.profitFactor.toFixed(2).padStart(8) +
@@ -4203,7 +4204,7 @@ async function main() {
         const symbolResults = [];
         for (let i = 0; i < activeVariations.length; i++) {
           const v = activeVariations[i];
-          process.stdout.write(`  [${i + 1}/${activeVariations.length}] ${v.name.substring(0, 30).padEnd(30)}  `);
+          process.stdout.write(`  [${i + 1}/${activeVariations.length}] ${v.name.substring(0, 43).padEnd(44)}  `);
 
           const config = {
             symbol,

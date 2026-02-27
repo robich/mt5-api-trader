@@ -110,17 +110,19 @@ function parseBacktestOutput(output, symbol) {
 
 /**
  * Parse a single row of the backtest comparison table.
- * Format: "StrategyName          Trades  Win%    PF      PnL $    MaxDD%   Final $"
+ * Format: "StrategyName                                Trades  Win%    PF      PnL $    MaxDD%   Final $"
+ * Name column is 44 chars wide (increased from 30 to show full strategy names).
  */
 function parseTableRow(line) {
   // Strip ANSI color codes
   const clean = line.replace(/\x1b\[\d+m/g, '');
 
-  // Strategy name is first 30 chars, then numeric columns
-  const name = clean.substring(0, 30).trim();
+  // Strategy name is first 44 chars, then numeric columns
+  const nameColWidth = 44;
+  const name = clean.substring(0, nameColWidth).trim();
   if (!name) return null;
 
-  const rest = clean.substring(30).trim();
+  const rest = clean.substring(nameColWidth).trim();
   // Split by whitespace
   const parts = rest.split(/\s+/).filter(Boolean);
 
@@ -197,7 +199,8 @@ export function compareResults(baseline, validation, gates) {
 }
 
 /**
- * Format backtest results as a concise summary string for Claude context.
+ * Format backtest results as a full summary string for Claude context.
+ * Shows baseline (currently deployed) vs best strategy, plus ALL evaluated strategies.
  */
 export function formatResultsForPrompt(results) {
   const lines = [];
@@ -206,15 +209,26 @@ export function formatResultsForPrompt(results) {
       lines.push(`${symbol}: ERROR - ${data.error}`);
       continue;
     }
-    lines.push(`\n### ${symbol}`);
+    lines.push(`\n### ${symbol} (${data.strategies.length} strategies evaluated)`);
+
     if (data.summary) {
-      lines.push(`Best: ${data.summary.bestStrategy} | PnL: $${data.summary.bestPnl.toFixed(0)} | WR: ${data.summary.bestWinRate.toFixed(1)}%`);
+      lines.push(`🏆 BEST: ${data.summary.bestStrategy} | PnL: $${data.summary.bestPnl.toFixed(0)} | WR: ${data.summary.bestWinRate.toFixed(1)}%`);
+      lines.push(`📊 AVG across all: PnL $${data.summary.avgPnl.toFixed(0)} | WR: ${data.summary.avgWinRate.toFixed(1)}%`);
     }
-    // Top 5 strategies
-    const top = data.strategies.slice(0, 5);
-    for (const s of top) {
-      lines.push(`  ${s.name}: ${s.totalTrades} trades, ${s.winRate.toFixed(1)}% WR, PF ${s.profitFactor.toFixed(2)}, $${s.totalPnl.toFixed(0)}, DD ${s.maxDrawdown.toFixed(1)}%`);
+
+    // Show ALL strategies sorted by PnL (they come pre-sorted from backtest)
+    lines.push('');
+    lines.push(`  ${'Strategy'.padEnd(32)} Trades  Win%    PF    PnL $   MaxDD%`);
+    lines.push(`  ${'-'.repeat(32)} ${'-'.repeat(6)}  ${'-'.repeat(5)}  ${'-'.repeat(5)} ${'-'.repeat(7)} ${'-'.repeat(6)}`);
+    for (const s of data.strategies) {
+      const pnlStr = s.totalPnl >= 0 ? `+${s.totalPnl.toFixed(0)}` : s.totalPnl.toFixed(0);
+      lines.push(`  ${s.name.padEnd(32)} ${String(s.totalTrades).padStart(6)}  ${s.winRate.toFixed(1).padStart(5)}  ${s.profitFactor.toFixed(2).padStart(5)} ${pnlStr.padStart(7)} ${s.maxDrawdown.toFixed(1).padStart(6)}%`);
     }
+
+    // Profitable vs unprofitable count
+    const profitable = data.strategies.filter(s => s.totalPnl > 0).length;
+    const unprofitable = data.strategies.length - profitable;
+    lines.push(`\n  Summary: ${profitable} profitable, ${unprofitable} unprofitable`);
   }
   return lines.join('\n');
 }
