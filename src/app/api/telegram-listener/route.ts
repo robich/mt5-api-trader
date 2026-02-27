@@ -113,6 +113,16 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      case 'graceful-stop': {
+        // Used by SIGTERM handler — disconnects cleanly but preserves DB isListening
+        // so the listener auto-starts on the next deploy
+        await telegramListener.stop({ preserveDbState: true });
+        return NextResponse.json({
+          message: 'Telegram listener stopped (graceful)',
+          isListening: false,
+        });
+      }
+
       case 'fetch-latest': {
         const count = body.count || 10;
         const shouldProcess = body.process ?? false;

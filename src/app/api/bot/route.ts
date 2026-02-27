@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { tradingBot } from '@/services/bot';
+import { telegramListener } from '@/services/telegram-listener';
+import { telegramSignalAnalyzer } from '@/services/telegram-signal-analyzer';
+import { telegramTradeExecutor } from '@/services/telegram-trade-executor';
 import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -10,7 +13,7 @@ let autoStartTriggered = false;
 
 export async function GET() {
   try {
-    // Auto-start bot on first status check — only if it was running before last shutdown
+    // Auto-start bot and telegram on first status check — only if they were running before last shutdown
     if (!autoStartTriggered && process.env.BOT_AUTO_START !== 'false') {
       autoStartTriggered = true;
       const status = tradingBot.getStatus();
@@ -26,6 +29,30 @@ export async function GET() {
           });
         } else {
           console.log('[Auto-Start] Bot was not running before shutdown — skipping');
+        }
+      }
+
+      // Auto-start Telegram listener independently of bot
+      if (!telegramListener.getConnectionInfo().listening) {
+        const tlState = await prisma.telegramListenerState.findUnique({ where: { id: 'singleton' } }).catch(() => null);
+        if (tlState?.isListening) {
+          console.log('[Auto-Start] Telegram listener was previously running — starting...');
+          try {
+            telegramListener.initialize();
+            telegramSignalAnalyzer.initialize();
+            telegramTradeExecutor.initialize();
+            telegramListener.start({
+              onMessage: async (msg) => {
+                await telegramTradeExecutor.processMessage(msg);
+              },
+            }).then(() => {
+              console.log('[Auto-Start] Telegram listener started successfully');
+            }).catch((err) => {
+              console.error('[Auto-Start] Failed to start Telegram listener:', err);
+            });
+          } catch (err) {
+            console.error('[Auto-Start] Telegram listener init failed:', err);
+          }
         }
       }
     }

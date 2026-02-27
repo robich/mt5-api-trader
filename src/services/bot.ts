@@ -95,6 +95,21 @@ export class TradingBot {
 
     console.log('Starting trading bot (event-driven mode)...');
 
+    // Restore persisted config from DB (preserves autoTrading toggle etc. across deploys)
+    try {
+      const savedState = await prisma.botState.findUnique({ where: { id: 'singleton' } });
+      if (savedState?.config) {
+        const savedConfig = JSON.parse(savedState.config);
+        // Restore specific runtime settings, keep structural defaults
+        if (savedConfig.autoTrading !== undefined) {
+          this.config.autoTrading = savedConfig.autoTrading;
+          console.log(`[Bot] Restored autoTrading=${this.config.autoTrading} from DB`);
+        }
+      }
+    } catch (err) {
+      console.error('[Bot] Failed to restore config from DB:', err);
+    }
+
     // Initialize Telegram notifications
     telegramNotifier.initialize();
 

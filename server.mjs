@@ -76,8 +76,20 @@ app.prepare().then(() => {
   // This prevents AUTH_KEY_DUPLICATED on the next deploy — the old process
   // cleanly releases the Telegram session so the new one can connect.
   const shutdown = async (signal) => {
-    console.log(`[Server] ${signal} received, stopping bot...`);
+    console.log(`[Server] ${signal} received, stopping services...`);
     try {
+      // Stop Telegram listener first — releases the session cleanly
+      // so the next deploy can connect without AUTH_KEY_DUPLICATED
+      // Uses graceful-stop to preserve DB isListening=true for auto-restart
+      await fetch(`http://127.0.0.1:${port}/api/telegram-listener`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...internalAuthHeaders() },
+        body: JSON.stringify({ action: 'graceful-stop' }),
+        signal: AbortSignal.timeout(5000),
+      }).then(() => console.log('[Server] Telegram listener stopped (graceful)'))
+        .catch(err => console.error('[Server] Error stopping Telegram listener:', err.message));
+
+      // Stop the bot (graceful — preserves DB isRunning for auto-restart)
       await fetch(`http://127.0.0.1:${port}/api/bot`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...internalAuthHeaders() },

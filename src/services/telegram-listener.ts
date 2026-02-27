@@ -515,7 +515,7 @@ class TelegramListenerService {
     }
   }
 
-  async stop(): Promise<void> {
+  async stop(options?: { preserveDbState?: boolean }): Promise<void> {
     this.stopHealthCheck();
     this.stopPollingFallback();
 
@@ -542,9 +542,13 @@ class TelegramListenerService {
 
     this.listening = false;
 
-    await this.updateState({
-      isListening: false,
-    });
+    if (!options?.preserveDbState) {
+      await this.updateState({
+        isListening: false,
+      });
+    } else {
+      console.log('[TelegramListener] Graceful shutdown — preserving DB state for auto-restart');
+    }
 
     console.log('[TelegramListener] Stopped');
   }
