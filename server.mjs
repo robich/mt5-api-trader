@@ -32,10 +32,10 @@ app.prepare().then(() => {
     // The graceful-stop action preserves BotState.isRunning=true in DB,
     // so we check that flag to decide whether to restart.
     if (process.env.BOT_AUTO_START !== 'false') {
+      // Auto-start bot after 5s
       console.log('[Auto-Start] Waiting 5s for server to stabilize...');
       setTimeout(async () => {
         try {
-          // Check DB state via the bot-state endpoint (reads DB isRunning directly)
           const stateRes = await fetch(`http://127.0.0.1:${port}/api/bot-state`, {
             headers: internalAuthHeaders(),
           });
@@ -53,8 +53,21 @@ app.prepare().then(() => {
           } else {
             console.log('[Auto-Start] Bot was not running before shutdown — skipping auto-start');
           }
+        } catch (err) {
+          console.error('[Auto-Start] Failed to check/start bot:', err.message);
+        }
+      }, 5000);
 
-          // Auto-start Telegram listener independently of bot
+      // Auto-start Telegram listener after 15s — needs extra delay so the old
+      // process's session is fully released on Telegram's servers.
+      // This runs independently of the bot.
+      setTimeout(async () => {
+        try {
+          const stateRes = await fetch(`http://127.0.0.1:${port}/api/bot-state`, {
+            headers: internalAuthHeaders(),
+          });
+          const stateData = await stateRes.json();
+
           if (stateData.telegramWasListening) {
             console.log('[Auto-Start] Telegram listener was previously running — restarting...');
             const tlRes = await fetch(`http://127.0.0.1:${port}/api/telegram-listener`, {
@@ -66,9 +79,9 @@ app.prepare().then(() => {
             console.log('[Auto-Start] Telegram listener:', tlData.message || tlData.error);
           }
         } catch (err) {
-          console.error('[Auto-Start] Failed to check/start bot:', err.message);
+          console.error('[Auto-Start] Failed to start Telegram listener:', err.message);
         }
-      }, 5000);
+      }, 15000);
     }
   });
 

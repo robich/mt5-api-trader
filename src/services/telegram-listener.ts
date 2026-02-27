@@ -149,20 +149,19 @@ class TelegramListenerService {
 
   /**
    * Internal connect logic with indefinite AUTH_KEY_DUPLICATED retries.
-   * Backoff: 30s, 60s, 120s, 120s, 120s, ... (caps at 2 minutes)
+   * IMPORTANT: Does NOT destroy/recreate the TelegramClient on retries.
+   * Creating a new TelegramClient triggers a fresh InvokeWithLayer which
+   * causes AUTH_KEY_DUPLICATED again — making retries permanently fail.
+   * Instead, reuse the same client and just call connect() again.
+   * Backoff: 10s, 20s, 40s, 60s, 60s, ... (caps at 1 minute)
    */
   private async _doConnect(): Promise<TelegramClient> {
     let attempt = 0;
-    const maxDelay = 120_000; // 2 minutes cap
+    const maxDelay = 60_000; // 1 minute cap
+
+    const client = this.getOrCreateClient();
 
     while (true) {
-      // Destroy any stale client before each attempt
-      if (attempt > 0) {
-        try { await this.client?.disconnect(); } catch { /* ignore */ }
-        this.client = null;
-      }
-
-      const client = this.getOrCreateClient();
       console.log(`[TelegramListener] Calling client.connect() (attempt ${attempt + 1})...`);
 
       try {
@@ -181,8 +180,8 @@ class TelegramListenerService {
         }
 
         attempt++;
-        const delay = Math.min(30_000 * Math.pow(2, attempt - 1), maxDelay);
-        console.warn(`[TelegramListener] AUTH_KEY_DUPLICATED — waiting ${delay / 1000}s before retry ${attempt}...`);
+        const delay = Math.min(10_000 * Math.pow(2, attempt - 1), maxDelay);
+        console.warn(`[TelegramListener] AUTH_KEY_DUPLICATED — waiting ${delay / 1000}s before retry ${attempt} (reusing same client)...`);
         await new Promise((r) => setTimeout(r, delay));
       }
     }
