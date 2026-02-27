@@ -10,18 +10,23 @@ let autoStartTriggered = false;
 
 export async function GET() {
   try {
-    // Auto-start bot on first status check if enabled
+    // Auto-start bot on first status check — only if it was running before last shutdown
     if (!autoStartTriggered && process.env.BOT_AUTO_START !== 'false') {
       autoStartTriggered = true;
       const status = tradingBot.getStatus();
       if (!status.isRunning) {
-        console.log('[Auto-Start] Bot not running — starting automatically...');
-        // Fire-and-forget so the status response isn't delayed
-        tradingBot.start().then(() => {
-          console.log('[Auto-Start] Trading bot started successfully');
-        }).catch((err) => {
-          console.error('[Auto-Start] Failed to start trading bot:', err);
-        });
+        // Check DB to see if bot was running before the last graceful shutdown
+        const dbState = await prisma.botState.findUnique({ where: { id: 'singleton' } }).catch(() => null);
+        if (dbState?.isRunning) {
+          console.log('[Auto-Start] Bot was previously running — starting automatically...');
+          tradingBot.start().then(() => {
+            console.log('[Auto-Start] Trading bot started successfully');
+          }).catch((err) => {
+            console.error('[Auto-Start] Failed to start trading bot:', err);
+          });
+        } else {
+          console.log('[Auto-Start] Bot was not running before shutdown — skipping');
+        }
       }
     }
 
@@ -63,6 +68,12 @@ export async function POST(request: NextRequest) {
       case 'stop':
         await tradingBot.stop();
         return NextResponse.json({ message: 'Bot stopped', status: 'stopped' });
+
+      case 'graceful-stop':
+        // Used by SIGTERM handler — stops the bot but preserves DB isRunning
+        // so the bot auto-starts on the next deploy
+        await tradingBot.stop({ preserveDbState: true });
+        return NextResponse.json({ message: 'Bot stopped (graceful)', status: 'stopped' });
 
       case 'updateConfig':
         if (config) {

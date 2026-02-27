@@ -570,7 +570,7 @@ export class TradingBot {
     this.analyzeAllSymbols();
   }
 
-  async stop(): Promise<void> {
+  async stop(options?: { preserveDbState?: boolean }): Promise<void> {
     if (!this.isRunning) {
       console.log('Bot is not running');
       return;
@@ -610,7 +610,13 @@ export class TradingBot {
     this.candleBuffers.clear();
     this.lastKnownPositions.clear();
 
-    await this.updateBotState(false);
+    // Update DB state unless this is a graceful shutdown (deploy/restart)
+    // where we want to preserve isRunning=true so the bot auto-starts on the next deploy
+    if (!options?.preserveDbState) {
+      await this.updateBotState(false);
+    } else {
+      console.log('[Bot] Graceful shutdown — preserving DB running state for auto-restart');
+    }
 
     this.isRunning = false;
 

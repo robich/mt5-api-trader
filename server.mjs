@@ -28,20 +28,33 @@ app.prepare().then(() => {
   server.listen(port, () => {
     console.log(`> Server ready on port ${port}`);
 
-    // Auto-start bot by calling the local API endpoint
+    // Auto-start bot only if it was running before the last shutdown.
+    // The graceful-stop action preserves BotState.isRunning=true in DB,
+    // so we check that flag to decide whether to restart.
     if (process.env.BOT_AUTO_START !== 'false') {
       console.log('[Auto-Start] Waiting 5s for server to stabilize...');
       setTimeout(async () => {
         try {
-          const res = await fetch(`http://127.0.0.1:${port}/api/bot`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...internalAuthHeaders() },
-            body: JSON.stringify({ action: 'start' }),
+          // Check DB state via the bot-state endpoint (reads DB isRunning directly)
+          const stateRes = await fetch(`http://127.0.0.1:${port}/api/bot-state`, {
+            headers: internalAuthHeaders(),
           });
-          const data = await res.json();
-          console.log('[Auto-Start] Bot started:', data.message || data.error);
+          const stateData = await stateRes.json();
+
+          if (stateData.wasRunning) {
+            console.log('[Auto-Start] Bot was previously running — restarting...');
+            const res = await fetch(`http://127.0.0.1:${port}/api/bot`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...internalAuthHeaders() },
+              body: JSON.stringify({ action: 'start' }),
+            });
+            const data = await res.json();
+            console.log('[Auto-Start] Bot started:', data.message || data.error);
+          } else {
+            console.log('[Auto-Start] Bot was not running before shutdown — skipping auto-start');
+          }
         } catch (err) {
-          console.error('[Auto-Start] Failed to start bot:', err.message);
+          console.error('[Auto-Start] Failed to check/start bot:', err.message);
         }
       }, 5000);
     }
@@ -56,7 +69,7 @@ app.prepare().then(() => {
       await fetch(`http://127.0.0.1:${port}/api/bot`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...internalAuthHeaders() },
-        body: JSON.stringify({ action: 'stop' }),
+        body: JSON.stringify({ action: 'graceful-stop' }),
         signal: AbortSignal.timeout(10000),
       });
       console.log('[Server] Bot stopped, closing server...');
