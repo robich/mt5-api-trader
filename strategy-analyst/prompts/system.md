@@ -25,6 +25,13 @@ You operate under strict safety rules:
 - Kill zone timing windows
 - Order block detection parameters
 - Trend detection logic (EMA periods, ATR periods, etc.)
+- FBO strategy parameters (FBO_CLASSIC, FBO_SWEEP, FBO_STRUCTURE entry conditions, reversal detection thresholds)
+- CHoCH entry logic and Fibonacci pullback levels
+- Trailing stop activation levels and ATR multipliers (trailingActivationR, trailingATRMult)
+- Confluence score thresholds (minConfluenceScore for trade filtering)
+- Time-based exit parameters (maxCandleHold)
+- Dynamic RR settings (dynamicRRBase, volatility adjustment)
+- Filter toggles (requireStrongFVG, requireInducement, requireEqualHL)
 
 # What you CANNOT change
 

@@ -130,7 +130,7 @@ for (let i = 0; i < args.length; i++) {
 
 function getDefaultStartDate() {
   const date = new Date();
-  date.setDate(date.getDate() - 30); // Default: last 30 days
+  date.setDate(date.getDate() - 7); // Default: last 7 days
   return date.toISOString().split('T')[0];
 }
 
@@ -170,6 +170,10 @@ Strategies:
   BOS               Break of Structure pullback entries
   OB_FVG            Order Block + FVG confluence (high probability)
   M1_TREND          M1-only trend following using EMAs (9/21/50)
+  FBO_CLASSIC       Classic Fake Breakout at S/R levels
+  FBO_SWEEP         Fake Breakout Sweep of equal highs/lows
+  FBO_STRUCTURE     Failed Break of Structure reversal
+  CHOCH             Change of Character reversal with Fib pullback
 
 Timeframe Presets:
   standard          H4/H1/M5  - Standard multi-timeframe (default)
@@ -478,6 +482,137 @@ const VARIATIONS = [
   // EMA50 trend + BE (solid on Gold and Silver)
   { name: 'OB-TREND-R: EMA50|BE0.75R|RR2.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireTrend: true, emaTrendPeriod: 50, trendStrictness: 'relaxed', enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
   { name: 'OB-TREND-R: EMA50|BE0.75R|RR3', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireTrend: true, emaTrendPeriod: 50, trendStrictness: 'relaxed', enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+
+  // ======================================================================
+  // === FEB 2026 EXPANSION: New strategies, filters, exits (89 new)    ===
+  // ======================================================================
+
+  // === CATEGORY 1: Existing strategies with zero backtest coverage ===
+
+  // --- LIQUIDITY_SWEEP (already has engine method) ---
+  { name: 'LIQ-SWEEP: RR2|DD8%', strategy: 'LIQUIDITY_SWEEP', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'LIQ-SWEEP: RR2.5|DD8%', strategy: 'LIQUIDITY_SWEEP', requireOTE: false, fixedRR: 2.5, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'LIQ-SWEEP: RR2|KZ', strategy: 'LIQUIDITY_SWEEP', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: true, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'LIQ-SWEEP: ATR1.5|RR2', strategy: 'LIQUIDITY_SWEEP', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.5 },
+  { name: 'LIQ-SWEEP: RR2|BE0.75R', strategy: 'LIQUIDITY_SWEEP', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'LIQ-SWEEP-TIER: 50@1R|30@2R|20@3R', strategy: 'LIQUIDITY_SWEEP', requireOTE: false, fixedRR: 3, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 3 },
+
+  // --- BOS (already has engine method) ---
+  { name: 'BOS: RR2|DD8%', strategy: 'BOS', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'BOS: RR2.5|DD8%', strategy: 'BOS', requireOTE: false, fixedRR: 2.5, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'BOS: RR2|KZ', strategy: 'BOS', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: true, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'BOS: ATR1.5|RR2', strategy: 'BOS', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.5 },
+  { name: 'BOS: RR2|BE0.75R', strategy: 'BOS', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'BOS-TIER: 50@1R|30@2R|20@3R', strategy: 'BOS', requireOTE: false, fixedRR: 3, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 3 },
+
+  // --- FBO_CLASSIC (new engine method) ---
+  { name: 'FBO-CLASSIC: RR2|DD8%', strategy: 'FBO_CLASSIC', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'FBO-CLASSIC: RR2.5|DD8%', strategy: 'FBO_CLASSIC', requireOTE: false, fixedRR: 2.5, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'FBO-CLASSIC: RR2|KZ', strategy: 'FBO_CLASSIC', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: true, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'FBO-CLASSIC: ATR1.5|RR2', strategy: 'FBO_CLASSIC', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.5 },
+  { name: 'FBO-CLASSIC: RR2|BE0.75R', strategy: 'FBO_CLASSIC', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'FBO-CLASSIC-TIER: 50@1R|30@2R|20@3R', strategy: 'FBO_CLASSIC', requireOTE: false, fixedRR: 3, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 3 },
+
+  // --- FBO_SWEEP (new engine method) ---
+  { name: 'FBO-SWEEP: RR2|DD8%', strategy: 'FBO_SWEEP', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'FBO-SWEEP: RR2.5|DD8%', strategy: 'FBO_SWEEP', requireOTE: false, fixedRR: 2.5, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'FBO-SWEEP: RR2|KZ', strategy: 'FBO_SWEEP', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: true, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'FBO-SWEEP: ATR1.5|RR2', strategy: 'FBO_SWEEP', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.5 },
+  { name: 'FBO-SWEEP: RR2|BE0.75R', strategy: 'FBO_SWEEP', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'FBO-SWEEP-TIER: 50@1R|30@2R|20@3R', strategy: 'FBO_SWEEP', requireOTE: false, fixedRR: 3, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 3 },
+
+  // --- FBO_STRUCTURE (new engine method) ---
+  { name: 'FBO-STRUCT: RR2|DD8%', strategy: 'FBO_STRUCTURE', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'FBO-STRUCT: RR2.5|DD8%', strategy: 'FBO_STRUCTURE', requireOTE: false, fixedRR: 2.5, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'FBO-STRUCT: RR2|KZ', strategy: 'FBO_STRUCTURE', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: true, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'FBO-STRUCT: ATR1.5|RR2', strategy: 'FBO_STRUCTURE', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.5 },
+  { name: 'FBO-STRUCT: RR2|BE0.75R', strategy: 'FBO_STRUCTURE', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'FBO-STRUCT-TIER: 50@1R|30@2R|20@3R', strategy: 'FBO_STRUCTURE', requireOTE: false, fixedRR: 3, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 3 },
+
+  // === CATEGORY 2: New combo/filter strategies ===
+
+  // --- FVG-only entries (engine method exists) ---
+  { name: 'FVG: RR2|DD8%', strategy: 'FVG', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'FVG: RR2.5|DD8%', strategy: 'FVG', requireOTE: false, fixedRR: 2.5, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'FVG: RR2|KZ', strategy: 'FVG', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: true, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'FVG: ATR1.5|RR2', strategy: 'FVG', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.5 },
+  { name: 'FVG: RR2|BE0.75R', strategy: 'FVG', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'FVG-TIER: 50@1R|30@2R|20@3R', strategy: 'FVG', requireOTE: false, fixedRR: 3, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTieredTP: true, tp1RR: 1.0, tp1Percent: 50, tp2RR: 2.0, tp2Percent: 30, tp3RR: 3.0, tp3Percent: 20, moveSlOnTP1: true, beBufferPips: 3 },
+
+  // --- Confluence score gating ---
+  { name: 'CONFL>50: OB|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, minConfluenceScore: 50 },
+  { name: 'CONFL>60: OB|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, minConfluenceScore: 60 },
+  { name: 'CONFL>70: OB|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, minConfluenceScore: 70 },
+  { name: 'CONFL>60: ATR1.5|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.5, minConfluenceScore: 60 },
+  { name: 'CONFL>50: RR2.5|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, minConfluenceScore: 50, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'CONFL>70: RR2|KZ', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: true, maxDailyDD: 15, atrMult: 1.0, minConfluenceScore: 70 },
+
+  // --- Strong FVG filter (OB + strong FVG required) ---
+  { name: 'STRONG-FVG: OB|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, requireStrongFVG: true, minFVGStrength: 1.5 },
+  { name: 'STRONG-FVG: OB|RR2.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, requireStrongFVG: true, minFVGStrength: 1.5 },
+  { name: 'STRONG-FVG: OB70|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireStrongFVG: true, minFVGStrength: 1.5 },
+  { name: 'STRONG-FVG: ATR1.5|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.5, requireStrongFVG: true, minFVGStrength: 1.5 },
+  { name: 'STRONG-FVG: OB|RR2|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, requireStrongFVG: true, minFVGStrength: 1.5, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'STRONG-FVG2x: OB|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, requireStrongFVG: true, minFVGStrength: 2.0 },
+
+  // --- CHoCH reversal (new signal method) ---
+  { name: 'CHOCH: RR2|DD8%', strategy: 'CHOCH', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'CHOCH: RR2.5|DD8%', strategy: 'CHOCH', requireOTE: false, fixedRR: 2.5, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'CHOCH: RR3|DD8%', strategy: 'CHOCH', requireOTE: false, fixedRR: 3, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'CHOCH: RR2|KZ', strategy: 'CHOCH', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: true, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'CHOCH: RR2|BE0.75R', strategy: 'CHOCH', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+
+  // --- Inducement filter (OB + inducement required) ---
+  { name: 'INDUCE: OB|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, requireInducement: true },
+  { name: 'INDUCE: OB|RR2.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, requireInducement: true },
+  { name: 'INDUCE: OB70|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireInducement: true },
+  { name: 'INDUCE: OB|RR2|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, requireInducement: true, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+
+  // --- Equal HL filter (OB + liquidity cluster required) ---
+  { name: 'EQ-HL: OB|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, requireEqualHL: true },
+  { name: 'EQ-HL: OB|RR2.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, requireEqualHL: true },
+  { name: 'EQ-HL: OB70|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, requireEqualHL: true },
+  { name: 'EQ-HL: OB|RR2|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, requireEqualHL: true, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+
+  // === CATEGORY 3: New exit/management strategies ===
+
+  // --- ATR trailing stop ---
+  { name: 'TRAIL: ATR1.5|Act0.75R|RR3', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, enableTrailingStop: true, trailingATRMult: 1.5, trailingActivationR: 0.75 },
+  { name: 'TRAIL: ATR2.0|Act1R|RR3', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, enableTrailingStop: true, trailingATRMult: 2.0, trailingActivationR: 1.0 },
+  { name: 'TRAIL: ATR2.5|Act1R|RR4', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 4, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, enableTrailingStop: true, trailingATRMult: 2.5, trailingActivationR: 1.0 },
+  { name: 'TRAIL+BE: ATR2|Act1R|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, enableTrailingStop: true, trailingATRMult: 2.0, trailingActivationR: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'TRAIL: ATR1.5|Act0.75R|OB70', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTrailingStop: true, trailingATRMult: 1.5, trailingActivationR: 0.75 },
+  { name: 'TRAIL: ATR2.0|Act1R|KZ', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 0, useKillZones: true, maxDailyDD: 15, atrMult: 1.0, enableTrailingStop: true, trailingATRMult: 2.0, trailingActivationR: 1.0 },
+  { name: 'TRAIL-M1: ATR2|Act1R|RR3', strategy: 'M1_TREND', requireOTE: false, fixedRR: 3, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTrailingStop: true, trailingATRMult: 2.0, trailingActivationR: 1.0 },
+
+  // --- Time-based exit ---
+  { name: 'TIME: 30candles|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, enableTimeExit: true, maxCandleHold: 30 },
+  { name: 'TIME: 60candles|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, enableTimeExit: true, maxCandleHold: 60 },
+  { name: 'TIME: 120candles|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, enableTimeExit: true, maxCandleHold: 120 },
+  { name: 'TIME+BE: 60c|RR2|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, enableTimeExit: true, maxCandleHold: 60, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'TIME: 60c|OB70|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTimeExit: true, maxCandleHold: 60 },
+  { name: 'TIME-M1: 30c|RR2', strategy: 'M1_TREND', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableTimeExit: true, maxCandleHold: 30 },
+
+  // --- Dynamic RR (volatility-adjusted) ---
+  { name: 'DYN-RR: Base2|DD15%', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, enableDynamicRR: true, dynamicRRBase: 2.0 },
+  { name: 'DYN-RR: Base2.5|DD15%', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, enableDynamicRR: true, dynamicRRBase: 2.5 },
+  { name: 'DYN-RR: Base3|DD15%', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 3, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, enableDynamicRR: true, dynamicRRBase: 3.0 },
+  { name: 'DYN-RR: Base2|OB70', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableDynamicRR: true, dynamicRRBase: 2.0 },
+  { name: 'DYN-RR+BE: Base2.5|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, enableDynamicRR: true, dynamicRRBase: 2.5, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+
+  // --- Session-specific params ---
+  { name: 'SESSION: London|RR2', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: true, maxDailyDD: 15, atrMult: 1.0 },
+  { name: 'SESSION: London|RR2.5|ATR1.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: true, maxDailyDD: 15, atrMult: 1.5 },
+  { name: 'SESSION: KZ|OB70|RR2|BE0.75R', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: true, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'SESSION: KZ|ATR2.0|RR2.5', strategy: 'ORDER_BLOCK', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: true, maxDailyDD: 15, atrMult: 2.0 },
+  { name: 'SESSION: KZ|FBO|RR2', strategy: 'FBO_CLASSIC', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: true, maxDailyDD: 8, atrMult: 1.0 },
+  { name: 'SESSION: KZ|CHOCH|RR2', strategy: 'CHOCH', requireOTE: false, fixedRR: 2, minOBScore: 50, useKillZones: true, maxDailyDD: 8, atrMult: 1.0 },
+
+  // --- OB + FBO combo (enter OB only after FBO confirmation) ---
+  { name: 'OB+FBO: NoFilter|RR2', strategy: 'FBO_CLASSIC', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, requireStrongFVG: true, minFVGStrength: 1.0 },
+  { name: 'OB+FBO: NoFilter|RR2.5', strategy: 'FBO_CLASSIC', requireOTE: false, fixedRR: 2.5, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, requireStrongFVG: true, minFVGStrength: 1.0 },
+  { name: 'OB+FBO: OB70|RR2|BE0.75R', strategy: 'FBO_CLASSIC', requireOTE: false, fixedRR: 2, minOBScore: 70, useKillZones: false, maxDailyDD: 8, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
+  { name: 'OB+FBO-STRUCT: RR2|BE0.75R', strategy: 'FBO_STRUCTURE', requireOTE: false, fixedRR: 2, minOBScore: 0, useKillZones: false, maxDailyDD: 15, atrMult: 1.0, enableBreakeven: true, breakevenTriggerR: 0.75, beBufferPips: 3 },
 ];
 
 // Symbol info for backtesting (including typical spreads)
@@ -558,9 +693,34 @@ class SMCBacktestEngine {
     this.moveSlOnTP1 = config.moveSlOnTP1 !== false; // Move SL to BE after TP1 (default true)
     this.moveSlOnTP2 = config.moveSlOnTP2 || false; // Move SL to TP1 after TP2
 
+    // Trailing stop settings
+    this.enableTrailingStop = config.enableTrailingStop || false;
+    this.trailingATRMult = config.trailingATRMult || 2.0;
+    this.trailingActivationR = config.trailingActivationR || 1.0;
+
+    // Time-based exit settings
+    this.enableTimeExit = config.enableTimeExit || false;
+    this.maxCandleHold = config.maxCandleHold || 60;
+
+    // Dynamic RR settings
+    this.enableDynamicRR = config.enableDynamicRR || false;
+    this.dynamicRRBase = config.dynamicRRBase || 2.0;
+    this.dynamicRRATRRef = config.dynamicRRATRRef || 0; // 0 = auto-calculate median
+
+    // Filter settings
+    this.minConfluenceScore = config.minConfluenceScore || 0; // 0 = disabled
+    this.requireStrongFVG = config.requireStrongFVG || false;
+    this.minFVGStrength = config.minFVGStrength || 1.5; // ATR multiplier for "strong" FVG
+    this.requireInducement = config.requireInducement || false;
+    this.requireEqualHL = config.requireEqualHL || false;
+    this.equalHLTolerance = config.equalHLTolerance || 0.002; // 0.2% price tolerance
+
     // Tracking stats
     this.beMovedCount = 0;
     this.opposingExitCount = 0;
+    this.trailingStopCount = 0;
+    this.timeExitCount = 0;
+    this.confluenceFilterCount = 0;
     this.tp1Hits = 0;
     this.tp2Hits = 0;
     this.tp3Hits = 0;
@@ -592,6 +752,22 @@ class SMCBacktestEngine {
       if (this.position) {
         // Check breakeven first (move SL if profit threshold reached)
         this.checkBreakeven(currentCandle, symbolInfo);
+
+        // Check trailing stop (after breakeven, trails SL behind price)
+        if (this.enableTrailingStop) {
+          const recentMTFForATR = this.getRecentMTF(mtfCandles, currentTime, 20);
+          this.checkTrailingStop(currentCandle, recentMTFForATR, symbolInfo);
+        }
+
+        // Check for time-based exit
+        if (this.enableTimeExit && this.position.entryIndex !== undefined) {
+          const candlesHeld = i - this.position.entryIndex;
+          if (candlesHeld >= this.maxCandleHold) {
+            this.closePosition(currentPrice, currentTime, 'TIME', symbolInfo);
+            this.timeExitCount++;
+            continue;
+          }
+        }
 
         // Check for opposing signal exit (close if strong opposing signal)
         const recentMTF = this.getRecentMTF(mtfCandles, currentTime, 30);
@@ -648,11 +824,26 @@ class SMCBacktestEngine {
       const atr = this.calculateATR(recentMTF);
       if (atr === 0) continue;
 
+      // Track ATR history for dynamic RR
+      if (this.enableDynamicRR) {
+        this.atrHistory.push(atr);
+        if (this.atrHistory.length > 500) this.atrHistory = this.atrHistory.slice(-500);
+      }
+
       // Update market structure based on strategy
       this.updateOrderBlocks(recentMTF, currentTime, this.config.symbol);
       this.updateFVGs(recentMTF, currentTime, atr);
       this.updateSwingPoints(recentMTF, currentTime);
       this.checkBOS(recentMTF, htfBias);
+
+      // Confluence score gating (skip candle if score too low)
+      if (this.minConfluenceScore > 0) {
+        const confluenceScore = this.calculateInlineConfluenceScore(htfBias, recentMTF, recentLTF);
+        if (confluenceScore < this.minConfluenceScore) {
+          this.confluenceFilterCount++;
+          continue;
+        }
+      }
 
       if (this.debugFilters && i === 100) {
         const validOBs = this.orderBlocks.filter(ob => !ob.mitigated && !ob.used && ob.score >= this.minOBScore);
@@ -718,6 +909,7 @@ class SMCBacktestEngine {
               lotSize,
               originalLotSize: lotSize,
               entryTime: currentTime,
+              entryIndex: i,
               strategyType: this.strategy,
             };
 
@@ -766,6 +958,18 @@ class SMCBacktestEngine {
         case 'M1_TREND':
           signal = this.getM1TrendSignal(currentPrice, currentCandle, recentLTF, symbolInfo);
           break;
+        case 'FBO_CLASSIC':
+          signal = this.getFBOClassicSignal(currentPrice, currentCandle, recentLTF, htfBias, atr, symbolInfo);
+          break;
+        case 'FBO_SWEEP':
+          signal = this.getFBOSweepSignal(currentPrice, currentCandle, recentLTF, htfBias, atr, symbolInfo);
+          break;
+        case 'FBO_STRUCTURE':
+          signal = this.getFBOStructureSignal(currentPrice, currentCandle, recentLTF, htfBias, atr, symbolInfo);
+          break;
+        case 'CHOCH':
+          signal = this.getCHoCHReversalSignal(currentPrice, currentCandle, recentLTF, htfBias, atr, symbolInfo);
+          break;
         default:
           signal = this.getOrderBlockSignal(currentPrice, currentCandle, recentLTF, htfBias, symbolInfo);
       }
@@ -774,6 +978,37 @@ class SMCBacktestEngine {
         console.log(`    Signal generated: ${signal ? 'YES' : 'NO'}`);
       }
       if (!signal) continue;
+
+      // Strong FVG filter: require OB entry to overlap with a strong FVG
+      if (this.requireStrongFVG && (this.strategy === 'ORDER_BLOCK' || this.strategy === 'FBO_CLASSIC' || this.strategy === 'FBO_STRUCTURE')) {
+        const hasStrongFVG = this.fvgs.some(fvg => {
+          if (fvg.filled) return false;
+          const fvgMatchesBias = (signal.direction === 'BUY' && fvg.type === 'BULLISH') ||
+                                  (signal.direction === 'SELL' && fvg.type === 'BEARISH');
+          if (!fvgMatchesBias) return false;
+          // Check FVG is strong (size >= minFVGStrength * ATR)
+          if (fvg.size < this.minFVGStrength * atr) return false;
+          // Check FVG overlaps with entry zone (within 1 ATR of entry)
+          return Math.abs(((fvg.top + fvg.bottom) / 2) - currentPrice) < atr;
+        });
+        if (!hasStrongFVG) continue;
+      }
+
+      // Inducement filter: require minor swing point swept near entry
+      if (this.requireInducement) {
+        const hasInducement = this.swingPoints.some(sp => {
+          if (!sp.swept) return false;
+          // Swept point should be near entry zone (within 1.5 ATR)
+          return Math.abs(sp.price - currentPrice) < atr * 1.5;
+        });
+        if (!hasInducement) continue;
+      }
+
+      // Equal HL filter: require equal highs/lows cluster near entry
+      if (this.requireEqualHL) {
+        const hasEqualHL = this.findEqualHighsLows(currentPrice, atr);
+        if (!hasEqualHL) continue;
+      }
 
       // OTE Filter (if enabled)
       if (this.config.requireOTE) {
@@ -820,8 +1055,16 @@ class SMCBacktestEngine {
       }
       const lotSize = rawLotSize;
 
-      // Adjust TP to maintain the intended R:R ratio
-      const intendedRR = this.config.fixedRR;
+      // Adjust TP to maintain the intended R:R ratio (with optional dynamic RR)
+      let intendedRR = this.config.fixedRR;
+      if (this.enableDynamicRR && this.atrHistory.length > 20) {
+        const sortedATRs = [...this.atrHistory].sort((a, b) => a - b);
+        const medianATR = sortedATRs[Math.floor(sortedATRs.length / 2)];
+        const atrRef = this.dynamicRRATRRef > 0 ? this.dynamicRRATRRef : medianATR;
+        // Low volatility -> higher RR, high volatility -> lower RR
+        const ratio = atrRef / atr;
+        intendedRR = Math.max(1.5, Math.min(5.0, this.dynamicRRBase * Math.sqrt(ratio)));
+      }
       let adjustedTP;
       if (signal.direction === 'BUY') {
         adjustedTP = entryPrice + (slDistance * intendedRR);
@@ -839,6 +1082,7 @@ class SMCBacktestEngine {
         lotSize,
         originalLotSize: lotSize,
         entryTime: currentTime,
+        entryIndex: i,
         strategyType: this.strategy,
       };
 
@@ -886,9 +1130,13 @@ class SMCBacktestEngine {
     this.pendingSignal = null;
     this.beMovedCount = 0;
     this.opposingExitCount = 0;
+    this.trailingStopCount = 0;
+    this.timeExitCount = 0;
+    this.confluenceFilterCount = 0;
     this.tp1Hits = 0;
     this.tp2Hits = 0;
     this.tp3Hits = 0;
+    this.atrHistory = []; // Track ATR values for dynamic RR median calculation
   }
 
   /**
@@ -1981,6 +2229,455 @@ class SMCBacktestEngine {
     return ema;
   }
 
+  // ============================================
+  // FBO Classic Signal (Fake Breakout at S/R)
+  // ============================================
+  getFBOClassicSignal(currentPrice, currentCandle, recentLTF, htfBias, atr, symbolInfo) {
+    if (recentLTF.length < 5) return null;
+
+    const recentCandles = recentLTF.slice(-5);
+
+    // Get S/R from swing points
+    const resistanceLevels = this.swingPoints
+      .filter(s => s.type === 'HIGH' && !s.swept)
+      .map(s => s.price)
+      .slice(-5);
+    const supportLevels = this.swingPoints
+      .filter(s => s.type === 'LOW' && !s.swept)
+      .map(s => s.price)
+      .slice(-5);
+
+    // Bullish FBO: false breakdown below support
+    if (htfBias === 'BULLISH' || htfBias === 'NEUTRAL') {
+      for (const support of supportLevels) {
+        for (let j = 0; j < recentCandles.length - 1; j++) {
+          const breakdownCandle = recentCandles[j];
+          const reversalCandle = recentCandles[j + 1];
+
+          const hasBreakdown = breakdownCandle.low < support;
+          const hasReversal = reversalCandle.close > support;
+          const notTooDeep = breakdownCandle.close > support * 0.995;
+
+          if (hasBreakdown && hasReversal && notTooDeep) {
+            const entry = currentPrice;
+            const sl = breakdownCandle.low - (Math.abs(breakdownCandle.high - breakdownCandle.low) * 0.5);
+            const risk = entry - sl;
+            if (risk <= 0) continue;
+            const tp = entry + (risk * this.config.fixedRR);
+            return { direction: 'BUY', entry, sl, tp };
+          }
+        }
+      }
+    }
+
+    // Bearish FBO: false breakout above resistance
+    if (htfBias === 'BEARISH' || htfBias === 'NEUTRAL') {
+      for (const resistance of resistanceLevels) {
+        for (let j = 0; j < recentCandles.length - 1; j++) {
+          const breakoutCandle = recentCandles[j];
+          const reversalCandle = recentCandles[j + 1];
+
+          const hasBreakout = breakoutCandle.high > resistance;
+          const hasReversal = reversalCandle.close < resistance;
+          const notTooDeep = breakoutCandle.close < resistance * 1.005;
+
+          if (hasBreakout && hasReversal && notTooDeep) {
+            const entry = currentPrice;
+            const sl = breakoutCandle.high + (Math.abs(breakoutCandle.high - breakoutCandle.low) * 0.5);
+            const risk = sl - entry;
+            if (risk <= 0) continue;
+            const tp = entry - (risk * this.config.fixedRR);
+            return { direction: 'SELL', entry, sl, tp };
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  // ============================================
+  // FBO Sweep Signal (Sweep Equal Highs/Lows)
+  // ============================================
+  getFBOSweepSignal(currentPrice, currentCandle, recentLTF, htfBias, atr, symbolInfo) {
+    if (recentLTF.length < 5) return null;
+
+    const recentCandles = recentLTF.slice(-5);
+
+    // Find equal highs/lows clusters (prices within tolerance)
+    const tolerance = currentPrice * this.equalHLTolerance;
+
+    // Build equal lows clusters
+    const lowPoints = this.swingPoints.filter(s => s.type === 'LOW' && !s.swept);
+    const equalLowClusters = this.findPriceClusters(lowPoints, tolerance);
+
+    // Build equal highs clusters
+    const highPoints = this.swingPoints.filter(s => s.type === 'HIGH' && !s.swept);
+    const equalHighClusters = this.findPriceClusters(highPoints, tolerance);
+
+    // Bullish: sweep below equal lows + reversal
+    if (htfBias === 'BULLISH' || htfBias === 'NEUTRAL') {
+      for (const cluster of equalLowClusters) {
+        if (cluster.count < 2) continue;
+        const clusterPrice = cluster.avgPrice;
+
+        for (let j = 0; j < recentCandles.length - 1; j++) {
+          const sweepCandle = recentCandles[j];
+          const reversalCandle = recentCandles[j + 1];
+
+          // Sweep: wick below cluster, close back above
+          if (sweepCandle.low < clusterPrice && reversalCandle.close > clusterPrice) {
+            // Require rejection wick (wick > 1.5x body)
+            const lowerWick = Math.min(sweepCandle.open, sweepCandle.close) - sweepCandle.low;
+            const body = Math.abs(sweepCandle.close - sweepCandle.open);
+            if (lowerWick < body * 1.5 && body > 0) continue;
+
+            const entry = currentPrice;
+            const sl = sweepCandle.low - atr * 0.3;
+            const risk = entry - sl;
+            if (risk <= 0) continue;
+            const tp = entry + (risk * this.config.fixedRR);
+            // Mark cluster points as swept
+            cluster.points.forEach(p => p.swept = true);
+            return { direction: 'BUY', entry, sl, tp };
+          }
+        }
+      }
+    }
+
+    // Bearish: sweep above equal highs + reversal
+    if (htfBias === 'BEARISH' || htfBias === 'NEUTRAL') {
+      for (const cluster of equalHighClusters) {
+        if (cluster.count < 2) continue;
+        const clusterPrice = cluster.avgPrice;
+
+        for (let j = 0; j < recentCandles.length - 1; j++) {
+          const sweepCandle = recentCandles[j];
+          const reversalCandle = recentCandles[j + 1];
+
+          // Sweep: wick above cluster, close back below
+          if (sweepCandle.high > clusterPrice && reversalCandle.close < clusterPrice) {
+            // Require rejection wick
+            const upperWick = sweepCandle.high - Math.max(sweepCandle.open, sweepCandle.close);
+            const body = Math.abs(sweepCandle.close - sweepCandle.open);
+            if (upperWick < body * 1.5 && body > 0) continue;
+
+            const entry = currentPrice;
+            const sl = sweepCandle.high + atr * 0.3;
+            const risk = sl - entry;
+            if (risk <= 0) continue;
+            const tp = entry - (risk * this.config.fixedRR);
+            cluster.points.forEach(p => p.swept = true);
+            return { direction: 'SELL', entry, sl, tp };
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  // ============================================
+  // FBO Structure Signal (Failed BOS)
+  // ============================================
+  getFBOStructureSignal(currentPrice, currentCandle, recentLTF, htfBias, atr, symbolInfo) {
+    if (recentLTF.length < 10) return null;
+
+    const recentCandles = recentLTF.slice(-10);
+    const swings = this.findSwingPoints(recentLTF.slice(-20), 2);
+    const highs = swings.filter(s => s.type === 'HIGH').slice(-3);
+    const lows = swings.filter(s => s.type === 'LOW').slice(-3);
+
+    if (highs.length < 2 || lows.length < 2) return null;
+
+    // Bullish failed BOS: bearish BOS attempt that failed
+    if (htfBias === 'BULLISH' || htfBias === 'NEUTRAL') {
+      const prevLow = lows[lows.length - 2];
+      let brokeBelow = false;
+      let lowestPoint = Infinity;
+
+      for (const candle of recentCandles) {
+        if (candle.low < prevLow.price) {
+          brokeBelow = true;
+          if (candle.low < lowestPoint) lowestPoint = candle.low;
+        }
+      }
+
+      if (brokeBelow && currentCandle.close > prevLow.price) {
+        const entry = currentPrice;
+        const sl = lowestPoint - atr * 0.3;
+        const risk = entry - sl;
+        if (risk > 0) {
+          const tp = entry + (risk * this.config.fixedRR);
+          return { direction: 'BUY', entry, sl, tp };
+        }
+      }
+    }
+
+    // Bearish failed BOS: bullish BOS attempt that failed
+    if (htfBias === 'BEARISH' || htfBias === 'NEUTRAL') {
+      const prevHigh = highs[highs.length - 2];
+      let brokeAbove = false;
+      let highestPoint = -Infinity;
+
+      for (const candle of recentCandles) {
+        if (candle.high > prevHigh.price) {
+          brokeAbove = true;
+          if (candle.high > highestPoint) highestPoint = candle.high;
+        }
+      }
+
+      if (brokeAbove && currentCandle.close < prevHigh.price) {
+        const entry = currentPrice;
+        const sl = highestPoint + atr * 0.3;
+        const risk = sl - entry;
+        if (risk > 0) {
+          const tp = entry - (risk * this.config.fixedRR);
+          return { direction: 'SELL', entry, sl, tp };
+        }
+      }
+    }
+
+    return null;
+  }
+
+  // ============================================
+  // CHoCH Reversal Signal
+  // ============================================
+  getCHoCHReversalSignal(currentPrice, currentCandle, recentLTF, htfBias, atr, symbolInfo) {
+    if (recentLTF.length < 20) return null;
+
+    const swings = this.findSwingPoints(recentLTF.slice(-30), 3);
+    const highs = swings.filter(s => s.type === 'HIGH');
+    const lows = swings.filter(s => s.type === 'LOW');
+
+    if (highs.length < 3 || lows.length < 3) return null;
+
+    // Bullish CHoCH: bearish trend (LL) then break above recent LH
+    const lastThreeLows = lows.slice(-3);
+    const lastThreeHighs = highs.slice(-3);
+
+    // Check for bearish-to-bullish CHoCH
+    if (lastThreeLows.length >= 2) {
+      const prevLow = lastThreeLows[lastThreeLows.length - 2];
+      const lastLow = lastThreeLows[lastThreeLows.length - 1];
+      const isLL = lastLow.price < prevLow.price; // Lower low = bearish trend
+
+      if (isLL) {
+        // Find the most recent LH (lower high)
+        const recentLH = lastThreeHighs[lastThreeHighs.length - 1];
+        if (recentLH && currentCandle.close > recentLH.price) {
+          // CHoCH confirmed! Price broke above the LH
+          // Enter on Fibonacci pullback zone (50-78.6%)
+          const swingRange = recentLH.price - lastLow.price;
+          const fib50 = recentLH.price - swingRange * 0.5;
+          const fib786 = recentLH.price - swingRange * 0.786;
+
+          // Check if current price is in pullback zone or just broke above
+          if (currentPrice >= fib786 && currentPrice <= recentLH.price * 1.005) {
+            const entry = currentPrice;
+            const sl = lastLow.price - atr * 0.3;
+            const risk = entry - sl;
+            if (risk > 0) {
+              const tp = entry + (risk * this.config.fixedRR);
+              return { direction: 'BUY', entry, sl, tp };
+            }
+          }
+        }
+      }
+    }
+
+    // Check for bullish-to-bearish CHoCH
+    if (lastThreeHighs.length >= 2) {
+      const prevHigh = lastThreeHighs[lastThreeHighs.length - 2];
+      const lastHigh = lastThreeHighs[lastThreeHighs.length - 1];
+      const isHH = lastHigh.price > prevHigh.price; // Higher high = bullish trend
+
+      if (isHH) {
+        // Find the most recent HL (higher low)
+        const recentHL = lastThreeLows[lastThreeLows.length - 1];
+        if (recentHL && currentCandle.close < recentHL.price) {
+          // CHoCH confirmed! Price broke below the HL
+          const swingRange = lastHigh.price - recentHL.price;
+          const fib50 = recentHL.price + swingRange * 0.5;
+          const fib786 = recentHL.price + swingRange * 0.786;
+
+          if (currentPrice <= fib786 && currentPrice >= recentHL.price * 0.995) {
+            const entry = currentPrice;
+            const sl = lastHigh.price + atr * 0.3;
+            const risk = sl - entry;
+            if (risk > 0) {
+              const tp = entry - (risk * this.config.fixedRR);
+              return { direction: 'SELL', entry, sl, tp };
+            }
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  // ============================================
+  // Trailing Stop Logic
+  // ============================================
+  checkTrailingStop(candle, recentMTF, symbolInfo) {
+    if (!this.enableTrailingStop || !this.position) return false;
+
+    const pos = this.position;
+    const riskDistance = Math.abs(pos.entry - (pos.originalSl || pos.sl));
+    const atr = this.calculateATR(recentMTF);
+    if (atr === 0) return false;
+
+    const trailDistance = atr * this.trailingATRMult;
+
+    // Check if activation threshold reached
+    let currentProfitR = 0;
+    if (pos.direction === 'BUY') {
+      currentProfitR = (candle.high - pos.entry) / riskDistance;
+    } else {
+      currentProfitR = (pos.entry - candle.low) / riskDistance;
+    }
+
+    if (currentProfitR < this.trailingActivationR) return false;
+
+    // Trail the stop
+    if (pos.direction === 'BUY') {
+      const newSL = candle.high - trailDistance;
+      if (newSL > pos.sl) {
+        if (!pos.originalSl) pos.originalSl = pos.sl;
+        pos.sl = newSL;
+        pos.trailingActive = true;
+        this.trailingStopCount++;
+        return true;
+      }
+    } else {
+      const newSL = candle.low + trailDistance;
+      if (newSL < pos.sl) {
+        if (!pos.originalSl) pos.originalSl = pos.sl;
+        pos.sl = newSL;
+        pos.trailingActive = true;
+        this.trailingStopCount++;
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  // ============================================
+  // Inline Confluence Score Calculator
+  // ============================================
+  calculateInlineConfluenceScore(htfBias, recentMTF, recentLTF) {
+    let score = 0;
+
+    // HTF/MTF bias alignment (+20)
+    if (htfBias !== 'NEUTRAL') {
+      score += 20;
+    }
+
+    // Order blocks present in trend direction (+15)
+    const trendOBs = this.orderBlocks.filter(ob => {
+      if (htfBias === 'BULLISH') return ob.type === 'BULLISH' && !ob.mitigated && !ob.used;
+      if (htfBias === 'BEARISH') return ob.type === 'BEARISH' && !ob.mitigated && !ob.used;
+      return false;
+    });
+    if (trendOBs.length > 0) score += 15;
+
+    // FVGs present (+15)
+    const trendFVGs = this.fvgs.filter(fvg => {
+      if (htfBias === 'BULLISH') return fvg.type === 'BULLISH' && !fvg.filled;
+      if (htfBias === 'BEARISH') return fvg.type === 'BEARISH' && !fvg.filled;
+      return false;
+    });
+    if (trendFVGs.length > 0) score += 15;
+
+    // Swing alignment (+10) - price near swing point
+    const currentPrice = recentLTF[recentLTF.length - 1]?.close || 0;
+    const atr = this.calculateATR(recentMTF);
+    const nearSwing = this.swingPoints.some(sp => {
+      if (htfBias === 'BULLISH' && sp.type === 'LOW') return Math.abs(sp.price - currentPrice) < atr * 1.5;
+      if (htfBias === 'BEARISH' && sp.type === 'HIGH') return Math.abs(sp.price - currentPrice) < atr * 1.5;
+      return false;
+    });
+    if (nearSwing) score += 10;
+
+    // Recent BOS in trend direction (+10)
+    if (this.lastBOS && this.lastBOS.confirmed && this.lastBOS.type === htfBias) {
+      score += 10;
+    }
+
+    // MTF EMA alignment (+10)
+    if (recentMTF.length >= 20) {
+      const ema20 = this.calculateEMA(recentMTF.map(c => c.close), 20);
+      const lastClose = recentMTF[recentMTF.length - 1].close;
+      if ((htfBias === 'BULLISH' && lastClose > ema20) ||
+          (htfBias === 'BEARISH' && lastClose < ema20)) {
+        score += 10;
+      }
+    }
+
+    // Volume confirmation (+10)
+    if (recentLTF.length >= 10) {
+      const avgVol = recentLTF.slice(-10).reduce((s, c) => s + (c.volume || 0), 0) / 10;
+      const currentVol = recentLTF[recentLTF.length - 1].volume || 0;
+      if (currentVol > avgVol * 1.5) score += 10;
+    }
+
+    return Math.min(score, 100);
+  }
+
+  // ============================================
+  // Find Equal Highs/Lows Near Price
+  // ============================================
+  findEqualHighsLows(currentPrice, atr) {
+    const tolerance = currentPrice * this.equalHLTolerance;
+
+    // Check for equal lows cluster near current price
+    const nearbyLows = this.swingPoints.filter(sp =>
+      sp.type === 'LOW' && Math.abs(sp.price - currentPrice) < atr * 2
+    );
+    const lowClusters = this.findPriceClusters(nearbyLows, tolerance);
+    if (lowClusters.some(c => c.count >= 2)) return true;
+
+    // Check for equal highs cluster near current price
+    const nearbyHighs = this.swingPoints.filter(sp =>
+      sp.type === 'HIGH' && Math.abs(sp.price - currentPrice) < atr * 2
+    );
+    const highClusters = this.findPriceClusters(nearbyHighs, tolerance);
+    if (highClusters.some(c => c.count >= 2)) return true;
+
+    return false;
+  }
+
+  // ============================================
+  // Cluster Detection Helper
+  // ============================================
+  findPriceClusters(points, tolerance) {
+    const clusters = [];
+    const used = new Set();
+
+    for (let i = 0; i < points.length; i++) {
+      if (used.has(i)) continue;
+      const cluster = { points: [points[i]], avgPrice: points[i].price, count: 1 };
+      used.add(i);
+
+      for (let j = i + 1; j < points.length; j++) {
+        if (used.has(j)) continue;
+        if (Math.abs(points[j].price - cluster.avgPrice) <= tolerance) {
+          cluster.points.push(points[j]);
+          cluster.avgPrice = cluster.points.reduce((s, p) => s + p.price, 0) / cluster.points.length;
+          cluster.count++;
+          used.add(j);
+        }
+      }
+
+      clusters.push(cluster);
+    }
+
+    return clusters;
+  }
+
   /**
    * Check exit with realistic intra-candle price simulation
    * Supports tiered TP (TP1, TP2, TP3) with partial closes
@@ -2311,6 +3008,7 @@ class SMCBacktestEngine {
     const slExits = this.trades.filter(t => t.reason === 'SL').length;
     const tpExits = this.trades.filter(t => t.reason === 'TP').length;
     const opposingExits = this.trades.filter(t => t.reason === 'OPPOSING').length;
+    const timeExits = this.trades.filter(t => t.reason === 'TIME').length;
     const beHits = this.trades.filter(t => t.movedToBreakeven && t.reason === 'SL').length;
 
     // Tiered TP metrics
@@ -2334,6 +3032,9 @@ class SMCBacktestEngine {
       beMovedCount: this.beMovedCount,
       beHits, // Trades that were moved to BE and then hit SL
       opposingExits,
+      timeExits,
+      trailingStopCount: this.trailingStopCount,
+      confluenceFilterCount: this.confluenceFilterCount,
       slExits,
       tpExits,
       // Tiered TP metrics
@@ -2805,6 +3506,24 @@ async function main() {
             tp2RR: v.tp2RR, tp2Percent: v.tp2Percent,
             tp3RR: v.tp3RR, tp3Percent: v.tp3Percent,
             moveSlOnTP1: v.moveSlOnTP1, moveSlOnTP2: v.moveSlOnTP2,
+            // Trailing stop settings
+            enableTrailingStop: v.enableTrailingStop || false,
+            trailingATRMult: v.trailingATRMult || 2.0,
+            trailingActivationR: v.trailingActivationR || 1.0,
+            // Time-based exit settings
+            enableTimeExit: v.enableTimeExit || false,
+            maxCandleHold: v.maxCandleHold || 60,
+            // Dynamic RR settings
+            enableDynamicRR: v.enableDynamicRR || false,
+            dynamicRRBase: v.dynamicRRBase || 2.0,
+            dynamicRRATRRef: v.dynamicRRATRRef || 0,
+            // Filter settings
+            minConfluenceScore: v.minConfluenceScore || 0,
+            requireStrongFVG: v.requireStrongFVG || false,
+            minFVGStrength: v.minFVGStrength || 1.5,
+            requireInducement: v.requireInducement || false,
+            requireEqualHL: v.requireEqualHL || false,
+            equalHLTolerance: v.equalHLTolerance || 0.002,
           };
 
           const engine = new SMCBacktestEngine(config);

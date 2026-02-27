@@ -1,6 +1,6 @@
 {
   "name": "mt5-api-trader",
-  "version": "0.19.9",
+  "version": "0.20.0",
   "private": true,
   "scripts": {
     "dev": "next dev --port 3001",
