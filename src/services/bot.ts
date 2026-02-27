@@ -101,12 +101,27 @@ export class TradingBot {
     // Start market analysis scheduler
     analysisScheduler.start();
 
-    // Pre-initialize Telegram services so they're ready when user starts from dashboard
+    // Initialize Telegram services and auto-start listener if it was previously running
     try {
       telegramListener.initialize();
       telegramSignalAnalyzer.initialize();
       telegramTradeExecutor.initialize();
-      console.log('[Bot] Telegram services initialized (listener off by default — start from dashboard)');
+      console.log('[Bot] Telegram services initialized');
+
+      // Auto-start listener if it was running before restart (e.g. after redeploy)
+      if (telegramListener.isEnabled()) {
+        const listenerState = await prisma.telegramListenerState.findUnique({
+          where: { id: 'singleton' },
+        }).catch(() => null);
+        if (listenerState?.isListening) {
+          console.log('[Bot] Telegram listener was previously running — auto-starting...');
+          telegramListener.start({
+            onMessage: async (msg) => {
+              await telegramTradeExecutor.processMessage(msg);
+            },
+          }).catch((err) => console.error('[Bot] Telegram listener auto-start failed:', err));
+        }
+      }
     } catch (listenerError) {
       console.error('[Bot] Telegram listener init failed (non-blocking):', listenerError);
     }

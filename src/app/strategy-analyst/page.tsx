@@ -121,9 +121,22 @@ function BacktestTable({ baseline, validation }: { baseline: any; validation: an
   if (!baseline) return null;
 
   // baseline and validation can be objects keyed by symbol, or arrays
-  const baselineData = Array.isArray(baseline) ? baseline : Object.entries(baseline).map(([symbol, data]: [string, any]) => ({ symbol, ...data }));
+  // Data may have metrics nested under `summary` (bestPnl, bestWinRate) — flatten them
+  const flattenEntry = (symbol: string, data: any) => {
+    // Find best strategy's profit factor (summary doesn't include it)
+    const bestName = data.summary?.bestStrategy;
+    const bestStrategy = data.strategies?.find((s: any) => s.name === bestName) || data.strategies?.[0];
+    return {
+      symbol,
+      ...data,
+      totalPnl: data.totalPnl ?? data.summary?.bestPnl ?? data.pnl ?? null,
+      winRate: data.winRate ?? data.summary?.bestWinRate ?? null,
+      profitFactor: data.profitFactor ?? bestStrategy?.profitFactor ?? null,
+    };
+  };
+  const baselineData = Array.isArray(baseline) ? baseline : Object.entries(baseline).map(([symbol, data]: [string, any]) => flattenEntry(symbol, data));
   const validationData = validation
-    ? (Array.isArray(validation) ? validation : Object.entries(validation).map(([symbol, data]: [string, any]) => ({ symbol, ...data })))
+    ? (Array.isArray(validation) ? validation : Object.entries(validation).map(([symbol, data]: [string, any]) => flattenEntry(symbol, data)))
     : null;
 
   return (
