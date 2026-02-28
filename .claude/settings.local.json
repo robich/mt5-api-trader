@@ -112,7 +112,8 @@
       "Bash(git commit:*)",
       "Bash(git -C \"C:\\\\Users\\\\genoletr\\\\Documents\\\\git\\\\per\\\\mt5-api-trader\" log --oneline -20)",
       "Bash(find:*)",
-      "Bash(npx prisma validate:*)"
+      "Bash(npx prisma validate:*)",
+      "Bash(cd:*)"
     ]
   }
 }

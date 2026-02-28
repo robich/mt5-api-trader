@@ -68,9 +68,10 @@ export function validateChanges(changes, repoDir) {
     }
   }
 
-  // 3. Hard limits check on strategy profiles
+  // 3. Hard limits check on strategy profiles (auto-clamp values to stay within limits)
   for (const change of changes) {
     if (change.file.includes('strategy-profiles')) {
+      change.replaceBlock = clampHardLimits(change.replaceBlock);
       const limitErrors = checkHardLimits(change.replaceBlock);
       errors.push(...limitErrors);
     }
@@ -93,6 +94,43 @@ export function validateChanges(changes, repoDir) {
   }
 
   return { passed: errors.length === 0, errors };
+}
+
+/**
+ * Auto-clamp numeric values in profile content to respect hard limits.
+ * Fixes values in-place so the pipeline doesn't fail on Claude mistakes.
+ */
+function clampHardLimits(content) {
+  return content.replace(
+    /(\b(?:maxDailyDrawdown|riskPercent|maxConcurrentTrades|riskReward)\s*[:=]\s*)([\d.]+)/g,
+    (match, prefix, valueStr) => {
+      const value = parseFloat(valueStr);
+      if (isNaN(value)) return match;
+
+      const key = prefix.match(/(\w+)\s*[:=]/)?.[1];
+      let clamped = value;
+
+      switch (key) {
+        case 'maxDailyDrawdown':
+          clamped = Math.min(value, hardLimits.maxDailyDrawdown);
+          break;
+        case 'riskPercent':
+          clamped = Math.min(value, hardLimits.maxRiskPercentPerTrade);
+          break;
+        case 'maxConcurrentTrades':
+          clamped = Math.min(value, hardLimits.maxConcurrentTrades);
+          break;
+        case 'riskReward':
+          clamped = Math.max(hardLimits.minRiskReward, Math.min(value, hardLimits.maxRiskReward));
+          break;
+      }
+
+      if (clamped !== value) {
+        console.log(`[safety] Clamped ${key}: ${value} → ${clamped}`);
+      }
+      return prefix + clamped;
+    }
+  );
 }
 
 /**
